@@ -552,12 +552,8 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria {
          $where['OR'] = [
                'glpi_knowbaseitems.users_id'       => Session::getLoginUserID(),
                'glpi_knowbaseitems_users.users_id' => Session::getLoginUserID(),
+               'glpi_knowbaseitems.is_faq'         => 1,
          ];
-
-         // public faq
-         if (!Session::haveRight(self::$rightname, READ)) {
-            $where['AND']['glpi_knowbaseitems.is_faq'] = 1;
-         }
       } else if ($is_public_faq_context) {
          $where = [
             "glpi_knowbaseitems.is_faq" => 1,
@@ -733,8 +729,6 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria {
       echo "<td>";
       echo "<input type='hidden' name='users_id' value=\"".Session::getLoginUserID()."\">";
       KnowbaseItemCategory::dropdown(['value' => $this->fields["knowbaseitemcategories_id"]]);
-      //echo "<td colspan=2>";
-      //echo "<input type='hidden' name='users_id' value=\"".Session::getLoginUserID()."\">";
       echo "</td>";
       echo "<td>";
       if ($this->fields["date"]) {
@@ -1207,7 +1201,12 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria {
       }
 
       if ($params['faq']) { // helpdesk
-         $criteria['WHERE']['glpi_knowbaseitems.is_faq'] = 1;
+         $criteria['WHERE'][] = [
+            'OR' => [
+               'glpi_knowbaseitems.is_faq' => 1,
+               'glpi_knowbaseitems_users.users_id' => Session::getLoginUserID(),
+            ]
+         ];
       }
 
       if (KnowbaseItemTranslation::isKbTranslationActive()
@@ -1616,14 +1615,6 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria {
                }
             }
 
-            /*if ($output_type == Search::HTML_OUTPUT) {
-               $cathref = $ki->getSearchURL()."?knowbaseitemcategories_id=".
-                           $data["knowbaseitemcategories_id"].'&amp;forcetab=Knowbase$2';
-               $categ   = "<a class='kb-category'"
-                  . " href='$cathref'"
-                  . " data-category-id='" . $data["knowbaseitemcategories_id"] . "'"
-                  . ">".$categ.'</a>';
-            }*/
             echo Search::showItem($output_type, $categ, $item_num, $row_num);
 
             if ($output_type == Search::HTML_OUTPUT) {
