@@ -76,6 +76,8 @@ class Search {
       self::showGenericSearch($itemtype, $params);
       if ($params['as_map'] == 1) {
          self::showMap($itemtype, $params);
+      } else if ($params['tree_view'] == 1) {
+         self::showTreeview($itemtype, $params);
       } else {
          self::showList($itemtype, $params);
       }
@@ -299,6 +301,143 @@ class Search {
          echo Html::scriptBlock($js);
          echo "</div>";
       }
+   }
+
+
+   /**
+    * Display result as tree
+    *
+    * @param string $itemtype Item type to manage
+    * @param array  $params   Search params passed to prepareDatasForSearch function
+    *
+    * @return void
+   **/
+   static function showTreeview($itemtype, $params) {
+      global $DB;
+
+      $data = self::getDatas($itemtype, $params);
+      $result = $DB->query($data['sql']['search']);
+      while ($data = $DB->fetchAssoc($result)) {
+         $ids[] = $data['id'];
+      }
+
+      $itemtable = $itemtype::getTable();
+      $cat_type  = $itemtype.'Category';
+      $cat_table = $cat_type::getTable();
+      $cat_fk    = $cat_type::getForeignKeyField();
+
+      $cat_iterator = $DB->request([
+         'SELECT' => [
+            $cat_type::getTableField('id'),
+            $cat_type::getTableField('name'),
+            $cat_type::getTableField($cat_fk),
+            $cat_type::getTableField('level'),
+            $cat_type::getTableField('completename'),
+            'COUNT DISTINCT' => $itemtype::getTableField('id') . ' as cpt'
+         ],
+         'FROM'      => $itemtable,
+         'LEFT JOIN' => [
+            $cat_table => [
+               'ON'  => [
+                  $itemtype::getTableField($cat_fk),
+                  $cat_type::getTableField('id'),
+               ]
+            ]
+         ],
+         'WHERE' => [
+            $itemtype::getTableField('id') => $ids
+         ],
+         'ORDER' => [
+            $cat_type::getTableField('completename'),
+         ],
+         'GROUPBY'   => [
+            $itemtype::getTableField($cat_fk)
+         ]
+      ]);
+      $datas = [];
+      foreach ($cat_iterator as $category) {
+         if (empty($category['id'])) {
+            $category['id'] = 0;
+            $category['name'] = __('Root category');
+            $category['level'] = 0;
+            $category[$cat_fk] = -1;
+         }
+         $datas[$category['id']] = $category;
+      }
+
+      $doc_iterator = $DB->request([
+         'SELECT' => "$itemtable.*",
+         'FROM'      => $itemtable,
+         'WHERE' => [$itemtype::getTableField('id') => $ids],
+      ]);
+      foreach ($doc_iterator as $document) {
+         $datas[$document[$cat_fk]]['documents'][] = $document;
+      }
+
+      $rand = mt_rand();
+      $level = -1;
+
+      $out = "<ul id='tree_category$rand'>";
+      foreach ($datas as $id => $data) {
+         $attr = "category-id='$id' ";
+         $attr.= "parent-id='". $data[$cat_fk] ."' ";
+         $style = "style='margin-left: ". $data['level']*20 ."px;'";
+         if ($data['level'] < $level) {
+            $out.= str_repeat("</div>", $level - $data['level'] + 1);
+         }
+         $out.= "<li class='doc-category isopen' $attr $style>";
+         $out.= "<a><span class='fas fa-folder-open'></span></a> " . $data['name'];
+         $out.= "</li>\n";
+         if ($data['level'] >= $level) {
+            $out.= str_repeat("<div $attr>", $data['level'] - $level);
+         }
+         foreach ($data['documents'] as $doc) {
+            $out.= "<li class='document' $attr $style>";
+            $out.= "<span style='margin: 10px;'>&nbsp;</span> ";
+            $out.= '<a href="'. $itemtype::getFormURLWithID($doc['id']) .'">'. $doc['name'] .'</a>';
+            $out.= "</li>\n";
+         }
+         $level = $data['level'];
+      }
+      $out.= "</div>";
+      $out.= "</ul>\n";
+
+      echo "<div class='center pager_controls'>";
+      echo self::treeViewSwitch($params['tree_view'], $itemtype);
+      echo self::isDeletedSwitch($data['search']['is_deleted'], $data['itemtype']);
+      echo "</div>";
+      $out = "<div class='tab_cadrehov b'>$out</div>\n";
+      echo $out;
+
+
+      $JS = <<<JAVASCRIPT
+         $(function() {
+            $('#tree_category$rand').on('click', 'li.doc-category', function(event) {
+               event.preventDefault();
+               var cat_id = $(this).attr('category-id');
+               if ($(this).hasClass('isopen')) {
+                  $('li.document[category-id='+cat_id+']').addClass('invisible');
+                  $('[parent-id='+cat_id+']').addClass('invisible');
+                  $('span.fas', this).addClass('fa-folder');
+                  $('span.fas', this).removeClass('fa-folder-open');
+                  $(this).removeClass('isopen');
+               } else {
+                  $('li.document[category-id='+cat_id+']').removeClass('invisible');
+                  $('[parent-id='+cat_id+']').removeClass('invisible');
+                  $('span.fas', this).addClass('fa-folder-open');
+                  $('span.fas', this).removeClass('fa-folder');
+                  $(this).addClass('isopen');
+               }
+            });
+         });
+JAVASCRIPT;
+      echo Html::scriptBlock($JS);
+
+
+
+
+
+
    }
 
 
@@ -1540,6 +1679,12 @@ class Search {
                }
                $search_config_top .= $map_link;
 
+               $tree_link = '';
+               if (null == $item || $item->maybeTreeviewed()) {
+                  $tree_link .= self::treeViewSwitch($data['search']['tree_view'], $data["itemtype"]);
+               }
+               $search_config_top .= $tree_link;
+
                if (Session::haveRightsOr('search_config', [
                   DisplayPreference::PERSONAL,
                   DisplayPreference::GENERAL
@@ -1874,6 +2019,10 @@ class Search {
                echo $map_link;
             }
 
+            if (null == $item || $item->maybeTreeviewed()) {
+               echo self::treeViewSwitch($data['search']['tree_view'], $data["itemtype"]);
+            }
+
             if ($item !== null && $item->maybeDeleted()) {
                echo self::isDeletedSwitch($data['search']['is_deleted'], $data['itemtype']);
             }
@@ -1906,6 +2055,31 @@ class Search {
                 "<span class='lever'></span>" .
                 "</label>".
              "</div>";
+   }
+
+
+   /**
+    * @since 0.90
+    *
+    * @param boolean $is_deleted
+    * @param string  $itemtype
+    *
+    * @return string
+   */
+   static function treeViewSwitch($tree_view, $itemtype = "") {
+      $rand = mt_rand();
+      return "<div class='switch grey_border pager_controls'>".
+            "<label for='tree_viewswitch$rand' title='".__s('Toggle tree view')."' >".
+               "<span class='sr-only'>" . __s('Toggle tree view') . "</span>" .
+               "<input type='hidden' name='tree_view' value='0' /> ".
+               "<input type='checkbox' id='tree_viewswitch$rand' name='tree_view' value='1' ".
+                  ($tree_view?"checked='checked'":"").
+                  " onClick = \"toogle('tree_view','','','');
+                              document.forms['searchform$itemtype'].submit();\" />".
+               "<span class='fa fa-tree pointer'></span>".
+               "<span class='lever'></span>" .
+               "</label>".
+            "</div>";
    }
 
 
@@ -2327,6 +2501,7 @@ class Search {
       $p['addhidden']    = [];
       $p['actionname']   = 'search';
       $p['actionvalue']  = _sx('button', 'Search');
+      $p['tree_view']    = 0;
 
       foreach ($params as $key => $val) {
          $p[$key] = $val;
@@ -2587,6 +2762,12 @@ JAVASCRIPT;
                'value' => $p['as_map'],
                'id'    => 'as_map'
             ]);
+            if ($item && $item->maybeTreeviewed()) {
+               echo Html::hidden('tree_view', [
+                  'value' => $p['tree_view'],
+                  'id'    => 'tree_view'
+               ]);
+            }
          }
          echo "<i class='far fa-minus-square remove-search-criteria' alt='-' title=\"".
                   __s('Delete a rule')."\" data-rowid='$rowid'></i>&nbsp;";
@@ -6628,6 +6809,7 @@ JAVASCRIPT;
       $default_values["sort"]        = 1;
       $default_values["is_deleted"]  = 0;
       $default_values["as_map"]      = 0;
+      $default_values["tree_view"]   = 0;
 
       if (isset($params['start'])) {
          $params['start'] = (int)$params['start'];

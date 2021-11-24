@@ -3292,6 +3292,21 @@ class CommonDBTM extends CommonGLPI {
    }
 
    /**
+    * Can object have a tree view
+    *
+    * @since 9.5
+    *
+    * @return boolean
+    */
+    function maybeTreeviewed() {
+
+      if (!array_key_exists('id', $this->fields)) {
+         $this->getEmpty();
+      }
+      return $this->treeview ?? false;
+   }
+
+   /**
     * Return the linked items (in computers_items)
     *
     * @return array an array of linked items  like array('Computer' => array(1,2), 'Printer' => array(5,6))

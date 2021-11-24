@@ -50,6 +50,7 @@ class Document extends CommonDBTM {
    static $tag_prefix                  = '#';
    protected $usenotepad               = true;
 
+   public $treeview                    = true;
 
    static function getTypeName($nb = 0) {
       return _n('Document', 'Documents', $nb);
