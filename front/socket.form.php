@@ -54,7 +54,7 @@ if (isset($_POST["add_several"])) {
 
     var_dump($_POST);
     $name = $_POST["name"];
-    
+
     for ($i = $_POST["from"]; $i <= $_POST["to"]; $i++) {
         $_POST["name"] = $_POST["prefix"]  . $name . $i . $_POST["suffix"];
         $_POST["position"] = $i;
@@ -64,8 +64,7 @@ if (isset($_POST["add_several"])) {
         Html::redirect($socket->getLinkURL());
     }
     Html::back();
-}
-else if (isset($_POST["add"])) {
+} else if (isset($_POST["add"])) {
     $socket->check(-1, CREATE, $_POST);
 
     if ($socket->add($_POST)) {
