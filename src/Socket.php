@@ -112,12 +112,11 @@ class Socket extends CommonDBChild
         $rand_itemtype = rand();
         $rand_items_id = rand();
 
-        echo "<span id='show_itemtype_field' class='input_listener'>";
+        echo "<div id='show_itemtype_field' class='input_listener'>";
+        echo "<label class='form-label'>". __('Asset') ."</label>"; 
         Dropdown::showFromArray('itemtype', self::getSocketLinkTypes(), ['value' => $itemtype,
             'rand' => $rand_itemtype
         ]);
-        echo "</span>";
-
         $params = ['itemtype'   => '__VALUE__',
             'dom_rand'   => $rand_items_id,
             'dom_name'   => 'items_id',
@@ -140,8 +139,10 @@ class Socket extends CommonDBChild
             ]);
         }
         echo "</span>";
+        echo "</div>";
 
-        echo "<span id='show_networkport_field'>";
+        echo "<div id='show_networkport_field'>";
+        echo "<label class='form-label'>". __('Network port') ."</label>"; 
         NetworkPort::dropdown(['name'                => 'networkports_id',
             'value'               => $networkports_id,
             'display_emptychoice' => true,
@@ -149,7 +150,7 @@ class Socket extends CommonDBChild
                 'itemtype' => $itemtype
             ]
         ]);
-        echo "</span>";
+        echo "</div>";
 
        //Listener to update breacrumb / socket
         echo Html::scriptBlock("
@@ -184,6 +185,8 @@ class Socket extends CommonDBChild
     public function showForm($ID, array $options = [])
     {
 
+        global $DB;
+
         $itemtype = null;
         if (isset($options['itemtype']) && !empty($options['itemtype'])) {
             $itemtype = $options['itemtype'];
@@ -194,9 +197,83 @@ class Socket extends CommonDBChild
         }
 
         $item = new $itemtype();
+        $rearCable = [];
+        $frontCable = [];
         if ($ID > 0) {
             $this->check($ID, READ);
             $item->getFromDB($this->fields['items_id']);
+
+            $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
+                        CASE `glpi_cables`.itemtype_endpoint_a
+                            WHEN 'Computer' THEN computers_a.name
+                            WHEN 'Networkequipment' THEN networkequipments_a.name
+                            WHEN 'Printer' THEN printers_a.name
+                            WHEN 'Phone' THEN phones_a.name
+                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_a.name
+                            ELSE NULL
+                        END endpoint_a_name,
+                        CASE `glpi_cables`.itemtype_endpoint_b
+                            WHEN 'Computer' THEN computers_b.name
+                            WHEN 'Networkequipment' THEN networkequipments_b.name
+                            WHEN 'Printer' THEN printers_b.name
+                            WHEN 'Phone' THEN phones_b.name
+                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_b.name
+                            ELSE NULL
+                        END endpoint_b_name
+                        FROM  `glpi_cables`
+                        LEFT JOIN `glpi_sockets` socket_endpoint_a ON `glpi_cables`.sockets_id_endpoint_a = socket_endpoint_a.id
+                        LEFT JOIN `glpi_sockets` socket_endpoint_b ON `glpi_cables`.sockets_id_endpoint_b = socket_endpoint_b.id
+                        LEFT JOIN glpi_computers computers_a ON computers_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_networkequipments networkequipments_a ON networkequipments_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_printers printers_a ON printers_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_phones phones_a ON phones_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_passivedcequipments passivedcequipments_a ON passivedcequipments_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_computers computers_b ON computers_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_networkequipments networkequipments_b ON networkequipments_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_printers printers_b ON printers_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_phones phones_b ON phones_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_passivedcequipments passivedcequipments_b ON passivedcequipments_b.id = glpi_cables.items_id_endpoint_b
+                        WHERE `glpi_cables`.wiring_side = 2
+                            AND (`glpi_cables`.sockets_id_endpoint_a = $ID
+                            OR `glpi_cables`.sockets_id_endpoint_b = $ID)";
+
+                $rearCable = $DB->fetchArray($DB->query($query));
+
+                $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
+                        CASE `glpi_cables`.itemtype_endpoint_a
+                            WHEN 'Computer' THEN computers_a.name
+                            WHEN 'Networkequipment' THEN networkequipments_a.name
+                            WHEN 'Printer' THEN printers_a.name
+                            WHEN 'Phone' THEN phones_a.name
+                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_a.name
+                            ELSE NULL
+                        END endpoint_a_name,
+                        CASE `glpi_cables`.itemtype_endpoint_b
+                            WHEN 'Computer' THEN computers_b.name
+                            WHEN 'Networkequipment' THEN networkequipments_b.name
+                            WHEN 'Printer' THEN printers_b.name
+                            WHEN 'Phone' THEN phones_b.name
+                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_b.name
+                            ELSE NULL
+                        END endpoint_b_name
+                        FROM  `glpi_cables`
+                        LEFT JOIN `glpi_sockets` socket_endpoint_a ON `glpi_cables`.sockets_id_endpoint_a = socket_endpoint_a.id
+                        LEFT JOIN `glpi_sockets` socket_endpoint_b ON `glpi_cables`.sockets_id_endpoint_b = socket_endpoint_b.id
+                        LEFT JOIN glpi_computers computers_a ON computers_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_networkequipments networkequipments_a ON networkequipments_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_printers printers_a ON printers_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_phones phones_a ON phones_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_passivedcequipments passivedcequipments_a ON passivedcequipments_a.id = glpi_cables.items_id_endpoint_a
+                        LEFT JOIN glpi_computers computers_b ON computers_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_networkequipments networkequipments_b ON networkequipments_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_printers printers_b ON printers_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_phones phones_b ON phones_b.id = glpi_cables.items_id_endpoint_b
+                        LEFT JOIN glpi_passivedcequipments passivedcequipments_b ON passivedcequipments_b.id = glpi_cables.items_id_endpoint_b
+                        WHERE `glpi_cables`.wiring_side = 1
+                            AND (`glpi_cables`.sockets_id_endpoint_a = $ID
+                            OR `glpi_cables`.sockets_id_endpoint_b = $ID)";
+
+            $frontCable = $DB->fetchArray($DB->query($query));
         } else {
             $this->check(-1, CREATE, $options);
             $item->getFromDB($options['items_id']);
@@ -205,6 +282,8 @@ class Socket extends CommonDBChild
         TemplateRenderer::getInstance()->display('pages/assets/socket.html.twig', [
             'item'   => $this,
             'params' => $options,
+            'rearCable' => $rearCable,
+            'frontCable' => $frontCable
         ]);
         return true;
     }
@@ -382,15 +461,6 @@ class Socket extends CommonDBChild
             'additionalfields'   => ['itemtype']
         ];
 
-        $tab[] = [
-            'id'                 => '9',
-            'table'              => Socket::getTable(),
-            'field'              => 'wiring_side',
-            'name'               => __('Wiring side'),
-            'searchtype'         => 'equals',
-            'datatype'           => 'specific'
-        ];
-
         $tab = array_merge($tab, Location::rawSearchOptionsToAdd());
 
         foreach ($tab as &$t) {
@@ -442,18 +512,6 @@ class Socket extends CommonDBChild
                     ]
                 ]
             ]
-        ];
-
-        $tab[] = [
-            'id'                 => '1312',
-            'table'              => Socket::getTable(),
-            'field'              => 'wiring_side',
-            'name'               => __('Wiring side'),
-            'searchtype'         => 'equals',
-            'joinparams'         => [
-                'jointype'           => 'itemtype_item',
-            ],
-            'datatype'           => 'specific'
         ];
 
         return $tab;
@@ -676,17 +734,31 @@ class Socket extends CommonDBChild
 
        // Link to open a new socket
         if ($item->getID() && self::canCreate()) {
-            echo "<div class='firstbloc'>";
-            Html::showSimpleForm(
-                Socket::getFormURL(),
-                '_add_fromitem',
-                __('New socket for this item...'),
-                [
-                    '_from_itemtype' => $item->getType(),
-                    '_from_items_id' => $item->getID(),
-                ]
-            );
+            // Html::showSimpleForm(
+            //     Socket::getFormURL(),
+            //     '_add_fromitem',
+            //     __('New socket for this item...'),
+            //     [
+            //         '_from_itemtype' => $item->getType(),
+            //         '_from_items_id' => $item->getID(),
+            //     ]
+            // );
+            echo "<form method='POST' action='".Socket::getFormURL()."'>";
+            echo "<div class='row flex-row'>";
+            echo "<div class='col-12 col-sm-2 mb-2'>";
+            echo "<button type='submit' class='btn btn-primary'>".__('New socket for this item...')."</button>";
             echo "</div>";
+            echo "<div class='form-field row col-12 col-sm-10 mb-2'>";
+            echo "<label class='col-form-label col-xxl-2 text-xxl-end'>".__('Add several sockets')."</label>";
+            echo "<div class='col-xxl-10 field-container'>";
+            echo "<input type='checkbox' name='_several' value='several' class='form-check-input mt-2' id='several_".mt_rand()."' />";
+            echo "</div>";
+            echo "</div>";
+            echo "<input type='hidden' name='_add_fromitem' value='1'/>";
+            echo "<input type='hidden' name='_from_itemtype' value='".$item->getType()."'/>";
+            echo "<input type='hidden' name='_from_items_id' value='".$item->getID()."'/>";
+            echo "</div>";
+            Html::closeForm();
         }
 
         $iterator = $DB->request([
@@ -762,7 +834,6 @@ class Socket extends CommonDBChild
 
             echo "<td>" . $socket->fields["position"] . "</td>";
             echo "<td>" . Dropdown::getDropdownName(SocketModel::getTable(), $socket->fields["socketmodels_id"]) . "</td>";
-            echo "<td>" . self::getWiringSideName($socket->fields["wiring_side"]) . "</td>";
 
             $networkport = new NetworkPort();
             if ($networkport->getFromDB($socket->fields["networkports_id"])) {
@@ -837,9 +908,6 @@ class Socket extends CommonDBChild
             echo "</td>";
             echo "<td>" . SocketModel::getTypeName(1) . "</td><td>";
             SocketModel::dropdown("socketmodels_id", []);
-            echo "</td>";
-            echo "<td>" . __('Wiring side') . "</td><td>";
-            Socket::dropdownWiringSide("wiring_side", []);
             echo "</td>";
             echo "<td>" . __('Itemtype') . "</td><td>";
             Dropdown::showSelectItemFromItemtypes([
@@ -936,7 +1004,6 @@ class Socket extends CommonDBChild
             echo "<th>" . __('Socket Model') . "</th>"; // socket Model
             echo "<th>" . _n('Asset', 'Assets', Session::getPluralNumber()) . "</th>"; // Asset
             echo "<th>" . __('NetworkPort') . "</th>"; // NetworkPort
-            echo "<th>" . __('Wiring side') . "</th>"; // Wiring side
             echo "<th>" . __('Comments') . "</th>"; // Comment
             echo "</tr>\n";
 
@@ -984,7 +1051,6 @@ class Socket extends CommonDBChild
                 $networkport->getFromDB($data['networkports_id']);
                 echo "<td>" . $networkport->getLink() . "</td>";
 
-                echo "<td>" . self::getSides()[$data['wiring_side']] . "</td>";
                 echo "<td>" . $data['comment'] . "</td>";
                 echo "</tr>\n";
             }
