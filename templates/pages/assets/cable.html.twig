@@ -34,6 +34,7 @@
 {% set params  = params ?? [] %}
 
 {% block more_fields %}
+
    {{ fields.dropdownField(
       'CableStrand',
       'cablestrands_id',
@@ -45,6 +46,21 @@
       'color',
       item.fields['color'],
       __('Color')
+   ) }}
+
+   {% set wiring_side %}
+      {% do call('Glpi\\Socket::dropdownWiringSide', [
+         'wiring_side',
+         {
+            'value': item.fields['wiring_side'],
+         }
+      ]) %}
+   {% endset %}
+
+   {{ fields.htmlField(
+      'wiring_side',
+      wiring_side,
+      __('Wiring side'),
    ) }}
 
    <div class="mx-n3 d-flex">
@@ -117,6 +133,7 @@
                      'Glpi\\SocketModel'|itemtype_name,
                      side_options
                   ) }}
+
 
                   {{ fields.dropdownField(
                      'Glpi\\Socket',

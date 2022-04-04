@@ -44,6 +44,16 @@ if (!isset($_GET["withtemplate"])) {
     $_GET["withtemplate"] = '';
 }
 
+if (empty($_GET["itemtype_endpoint_a"])) {
+    $_GET["itemtype_endpoint_a"] = '';
+}
+if (empty($_GET["items_id_endpoint_a"])) {
+    $_GET["items_id_endpoint_a"] = '';
+}
+if (empty($_GET["sockets_id_endpoint_a"])) {
+    $_GET["sockets_id_endpoint_a"] = '';
+}
+
 $cable = new Cable();
 if (isset($_POST["add"])) {
     $cable->check(-1, CREATE, $_POST);
@@ -98,6 +108,9 @@ if (isset($_POST["add"])) {
     $menus = ["assets", "cable"];
     Cable::displayFullPageForItem($_GET['id'], $menus, [
         'withtemplate' => $_GET["withtemplate"],
-        'formoptions'  => "data-track-changes=true"
+        'formoptions'  => "data-track-changes=true",
+        'itemtype_endpoint_a' => $_GET["itemtype_endpoint_a"],
+        'items_id_endpoint_a' =>$_GET["items_id_endpoint_a"],
+        'sockets_id_endpoint_a' => $_GET["sockets_id_endpoint_a"]
     ]);
 }

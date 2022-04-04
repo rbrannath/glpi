@@ -4289,7 +4289,6 @@ CREATE TABLE `glpi_sockets` (
   `locations_id` int unsigned NOT NULL DEFAULT '0',
   `name` varchar(255) DEFAULT NULL,
   `socketmodels_id` int unsigned NOT NULL DEFAULT '0',
-  `wiring_side` tinyint DEFAULT '1',
   `itemtype` varchar(255) DEFAULT NULL,
   `items_id` int unsigned NOT NULL DEFAULT '0',
   `networkports_id` int unsigned NOT NULL DEFAULT '0',
@@ -4302,7 +4301,6 @@ CREATE TABLE `glpi_sockets` (
   KEY `location_name` (`locations_id`,`name`),
   KEY `item` (`itemtype`,`items_id`),
   KEY `networkports_id` (`networkports_id`),
-  KEY `wiring_side` (`wiring_side`),
   KEY `date_mod` (`date_mod`),
   KEY `date_creation` (`date_creation`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
@@ -4331,6 +4329,7 @@ CREATE TABLE `glpi_cables` (
   `users_id_tech` int unsigned NOT NULL DEFAULT '0',
   `cabletypes_id` int unsigned NOT NULL DEFAULT '0',
   `comment` text,
+  `wiring_side` tinyint DEFAULT '1',
   `date_mod` timestamp NULL DEFAULT NULL,
   `date_creation` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -9194,5 +9193,49 @@ CREATE TABLE `glpi_snmpcredentials` (
    KEY `snmpversion` (`snmpversion`),
    KEY `is_deleted` (`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+
+### Dump table glpi_networkoutlets
+
+DROP TABLE IF EXISTS `glpi_networkoutlets`;
+CREATE TABLE `glpi_networkoutlets` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `entities_id` int unsigned NOT NULL DEFAULT '0',
+  `name` varchar(255) DEFAULT NULL,
+  `users_id_tech` int unsigned NOT NULL DEFAULT '0',
+  `groups_id_tech` int unsigned NOT NULL DEFAULT '0',
+  `comment` text,
+  `date_mod` timestamp NULL DEFAULT NULL,
+  `locations_id` int unsigned NOT NULL DEFAULT '0',
+  `is_template` tinyint NOT NULL DEFAULT '0',
+  `template_name` varchar(255) DEFAULT NULL,
+  `manufacturers_id` int unsigned NOT NULL DEFAULT '0',
+  `is_deleted` tinyint NOT NULL DEFAULT '0',
+  `is_dynamic` tinyint NOT NULL DEFAULT '0',
+  `users_id` int unsigned NOT NULL DEFAULT '0',
+  `groups_id` int unsigned NOT NULL DEFAULT '0',
+  `states_id` int unsigned NOT NULL DEFAULT '0',
+  `ticket_tco` decimal(20,4) DEFAULT '0.0000',
+  `uuid` varchar(255) DEFAULT NULL,
+  `date_creation` timestamp NULL DEFAULT NULL,
+  `is_recursive` tinyint NOT NULL DEFAULT '0',
+  `last_inventory_update` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `date_mod` (`date_mod`),
+  KEY `name` (`name`),
+  KEY `is_template` (`is_template`),
+  KEY `entities_id` (`entities_id`),
+  KEY `manufacturers_id` (`manufacturers_id`),
+  KEY `groups_id` (`groups_id`),
+  KEY `users_id` (`users_id`),
+  KEY `locations_id` (`locations_id`),
+  KEY `users_id_tech` (`users_id_tech`),
+  KEY `is_deleted` (`is_deleted`),
+  KEY `groups_id_tech` (`groups_id_tech`),
+  KEY `is_dynamic` (`is_dynamic`),
+  KEY `uuid` (`uuid`),
+  KEY `date_creation` (`date_creation`),
+  KEY `is_recursive` (`is_recursive`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+
 
 SET FOREIGN_KEY_CHECKS=1;
