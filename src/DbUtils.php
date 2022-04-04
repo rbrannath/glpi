@@ -263,20 +263,34 @@ final class DbUtils
             }
 
             $base_itemtype = $this->fixItemtypeCase($prefix . $table);
+            $namespaced_itemtype = $this->fixItemtypeCase($pref2 . str_replace('_', '\\', $table));
 
-            $itemtype = null;
-            if (class_exists($base_itemtype)) {
-                $class_file = (new ReflectionClass($base_itemtype))->getFileName();
-                $is_glpi_class = $class_file !== false && str_starts_with(realpath($class_file), realpath(GLPI_ROOT));
-                if ($is_glpi_class) {
-                    $itemtype = $base_itemtype;
+           // Both potential itemtype (with or without namespace) are pointing to the same file, so it will trigger a
+           // "Cannot declare class XXX, because the name is already in use" error if the "wrong" version is
+           // required by the autoloader when the good version is already loaded.
+           // i.e. `class_exists('Glpi\Computer')` will load `src/Computer.php` which may redeclare the `Computer class`
+           //
+           // To prevent this, we check existence of both without allowing the autoloader to be used.
+           // If none exists yet, we trigger the autoloader to ensure the class file is loaded and the class is defined.
+           //
+           // Then we check again existence of both without allowing the autoloader to be used,
+           // in order to find the good class to use.
+            if (!class_exists($base_itemtype, false) && !class_exists($namespaced_itemtype, false)) {
+                // Try to trigger loading of base itemtype
+                class_exists($base_itemtype);
+                if (!class_exists($namespaced_itemtype, false) && !class_exists($base_itemtype, false)) {
+                    // Namespace itemtype file will not be loaded by call to `class_exists($base_itemtype)`:
+                    // - if namespace has more than one level (i.e. "Glpi\Dashboard\Dashboard")
+                    // - if clanname without namespace already exists (i.e. `Socket` from `sockets` extension, `Event` from `event` extension, ...)
+                    class_exists($namespaced_itemtype); // Try to trigger loading of namespaced itemtype
                 }
             }
-            if ($itemtype === null) {
-                $namespaced_itemtype = $this->fixItemtypeCase($pref2 . str_replace('_', '\\', $table));
-                if (class_exists($namespaced_itemtype)) {
-                    $itemtype = $namespaced_itemtype;
-                }
+
+            $itemtype = null;
+            if (class_exists($base_itemtype, false)) {
+                $itemtype = $base_itemtype;
+            } else if (class_exists($namespaced_itemtype, false)) {
+                $itemtype = $namespaced_itemtype;
             }
 
             if ($itemtype !== null && $item = $this->getItemForItemtype($itemtype)) {
@@ -382,6 +396,11 @@ final class DbUtils
             return false;
         }
 
+        if ($itemtype === 'Event') {
+           //to avoid issues when pecl-event is installed...
+            $itemtype = 'Glpi\\Event';
+        }
+
        // If itemtype starts with "Glpi\" or "GlpiPlugin\" followed by a "\",
        // then it is a namespaced itemtype that has been "sanitized".
        // Strip slashes to get its actual value.
@@ -390,20 +409,7 @@ final class DbUtils
          . preg_quote('\\', '/') // followed by an additionnal \
          . '/';
         if (preg_match($sanitized_namespaced_pattern, $itemtype)) {
-            trigger_error(sprintf('Unexpected sanitized itemtype "%s" encountered.', $itemtype), E_USER_WARNING);
             $itemtype = stripslashes($itemtype);
-        }
-
-        $itemtype = $this->fixItemtypeCase($itemtype);
-
-        if ($itemtype === 'Event') {
-           //to avoid issues when pecl-event is installed...
-            $itemtype = 'Glpi\\Event';
-        }
-
-        if ($itemtype === 'GlpiSocket') {
-            //to avoid issues when pecl-event is installed...
-             $itemtype = 'Glpi\\Socket';
         }
 
         if (!is_subclass_of($itemtype, CommonGLPI::class, true)) {
@@ -844,10 +850,13 @@ final class DbUtils
         global $DB, $GLPI_CACHE;
 
         $ckey = 'sons_cache_' . $table . '_' . $IDf;
+        $sons = false;
 
-        $sons = $GLPI_CACHE->get($ckey);
-        if ($sons !== null) {
-            return $sons;
+        if ($GLPI_CACHE->has($ckey)) {
+            $sons = $GLPI_CACHE->get($ckey);
+            if ($sons !== null) {
+                return $sons;
+            }
         }
 
         $parentIDfield = $this->getForeignKeyFieldForTable($table);
@@ -951,22 +960,20 @@ final class DbUtils
     {
         global $DB, $GLPI_CACHE;
 
-        if ($items_id === null) {
-            return [];
-        }
         $ckey = 'ancestors_cache_';
         if (is_array($items_id)) {
             $ckey .= $table . '_' . md5(implode('|', $items_id));
         } else {
             $ckey .= $table . '_' . $items_id;
         }
-
-        $ancestors = $GLPI_CACHE->get($ckey);
-        if ($ancestors !== null) {
-            return $ancestors;
-        }
-
         $ancestors = [];
+
+        if ($GLPI_CACHE->has($ckey)) {
+            $ancestors = $GLPI_CACHE->get($ckey);
+            if ($ancestors !== null) {
+                return $ancestors;
+            }
+        }
 
        // IDs to be present in the final array
         $parentIDfield = $this->getForeignKeyFieldForTable($table);
@@ -1593,11 +1600,10 @@ final class DbUtils
      * @param integer|string $ID   ID of the user.
      * @param integer $link 1 = Show link to user.form.php 2 = return array with comments and link
      *                      (default =0)
-     * @param $disable_anon   bool  disable anonymization of username.
      *
      * @return string username string (realname if not empty and name if realname is empty).
      */
-    public function getUserName($ID, $link = 0, $disable_anon = false)
+    public function getUserName($ID, $link = 0)
     {
         global $DB;
 
@@ -1634,7 +1640,7 @@ final class DbUtils
             if (count($iterator) == 1) {
                 $data     = $iterator->current();
 
-                $anon_name = !$disable_anon && $ID != ($_SESSION['glpiID'] ?? 0) && Session::getCurrentInterface() == 'helpdesk' ? User::getAnonymizedNameForUser($ID) : null;
+                $anon_name = $ID != ($_SESSION['glpiID'] ?? 0) && Session::getCurrentInterface() == 'helpdesk' ? User::getAnonymizedNameForUser($ID) : null;
                 if ($anon_name !== null) {
                     $username = $anon_name;
                 } else {
@@ -1707,7 +1713,7 @@ final class DbUtils
 
         $base_name = $objectName;
 
-        $objectName = Sanitizer::decodeHtmlSpecialChars($objectName);
+        $objectName = Sanitizer::unsanitize($objectName);
         $was_sanitized = $objectName !== $base_name;
         if ($was_sanitized) {
             Toolbox::deprecated('Handling of encoded/escaped value in autoName() is deprecated.');
@@ -1851,7 +1857,7 @@ final class DbUtils
         );
 
         if ($was_sanitized) {
-            $objectName = Sanitizer::encodeHtmlSpecialChars($objectName);
+            $objectName = Sanitizer::sanitize($objectName, false);
         }
 
         return $objectName;

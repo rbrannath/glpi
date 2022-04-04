@@ -65,6 +65,21 @@
       __('Wiring side'),
    ) }}
 
+   {% set wiring_side %}
+      {% do call('Glpi\\Socket::dropdownWiringSide', [
+         'wiring_side',
+         {
+            'value': item.fields['wiring_side'],
+         }
+      ]) %}
+   {% endset %}
+
+   {{ fields.htmlField(
+      'wiring_side',
+      wiring_side,
+      __('Wiring side'),
+   ) }}
+
    <div class="mx-n3 d-flex">
       {% for side in ['a', 'b'] %}
          {% set rand_side = random() %}
