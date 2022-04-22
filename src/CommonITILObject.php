@@ -2479,7 +2479,7 @@ abstract class CommonITILObject extends CommonDBTM
         }
 
        // handle actors changes
-        $this->updateActors();
+        $this->updateActors(true);
 
         $useractors = null;
        // Add user groups linked to ITIL objects
@@ -2495,14 +2495,15 @@ abstract class CommonITILObject extends CommonDBTM
             $supplieractors = new $this->supplierlinkclass();
         }
 
-       // "do not compute" flag set by business rules for "takeintoaccount_delay_stat" field
-        $do_not_compute_takeintoaccount = $this->isTakeIntoAccountComputationBlocked($this->input);
+        $common_actor_input = [
+            '_do_not_compute_takeintoaccount' => $this->isTakeIntoAccountComputationBlocked($this->input),
+            '_from_object'                    => true,
+            '_disablenotif'                   => true,
+        ];
 
         if (!is_null($useractors)) {
-            $user_input = [
+            $user_input = $common_actor_input + [
                 $useractors->getItilObjectForeignKey() => $this->fields['id'],
-                '_do_not_compute_takeintoaccount'      => $do_not_compute_takeintoaccount,
-                '_from_object'                         => true,
             ];
 
             if (isset($this->input["_users_id_requester"])) {
@@ -2636,10 +2637,8 @@ abstract class CommonITILObject extends CommonDBTM
         }
 
         if (!is_null($groupactors)) {
-            $group_input = [
+            $group_input = $common_actor_input + [
                 $groupactors->getItilObjectForeignKey() => $this->fields['id'],
-                '_do_not_compute_takeintoaccount'       => $do_not_compute_takeintoaccount,
-                '_from_object'                          => true,
             ];
 
             if (isset($this->input["_groups_id_requester"])) {
@@ -2699,10 +2698,8 @@ abstract class CommonITILObject extends CommonDBTM
         }
 
         if (!is_null($supplieractors)) {
-            $supplier_input = [
+            $supplier_input = $common_actor_input + [
                 $supplieractors->getItilObjectForeignKey() => $this->fields['id'],
-                '_do_not_compute_takeintoaccount'          => $do_not_compute_takeintoaccount,
-                '_from_object'                             => true,
             ];
 
             if (
@@ -2750,7 +2747,7 @@ abstract class CommonITILObject extends CommonDBTM
         }
 
        // Additional actors
-        $this->addAdditionalActors($this->input);
+        $this->addAdditionalActors($this->input, true);
 
         parent::post_addItem();
     }
@@ -2781,10 +2778,14 @@ abstract class CommonITILObject extends CommonDBTM
     }
 
     /**
-     * @since 0.84
-     * @since 0.85 must have param $input
-     **/
-    private function addAdditionalActors($input)
+     * Add additionnal actors (those that are not added by UI).
+     *
+     * @param array $input
+     * @param bool $disable_notifications
+     *
+     * @return void
+     */
+    private function addAdditionalActors(array $input, bool $disable_notifications = false): void
     {
 
         $useractors = null;
@@ -2801,15 +2802,17 @@ abstract class CommonITILObject extends CommonDBTM
             $supplieractors = new $this->supplierlinkclass();
         }
 
-       // "do not compute" flag set by business rules for "takeintoaccount_delay_stat" field
-        $do_not_compute_takeintoaccount = $this->isTakeIntoAccountComputationBlocked($input);
+        $common_actor_input = [
+            '_do_not_compute_takeintoaccount' => $this->isTakeIntoAccountComputationBlocked($this->input),
+            '_from_object'                    => true,
+        ];
+        if ($disable_notifications) {
+            $common_actor_input['_disablenotif'] = true;
+        }
 
-       // Additional groups actors
+        // Additional groups actors
         if (!is_null($groupactors)) {
-            $group_input = [
-                '_do_not_compute_takeintoaccount'       => $do_not_compute_takeintoaccount,
-                '_from_object'                          => true,
-            ];
+            $group_input = $common_actor_input;
 
            // Requesters
             if (
@@ -2877,10 +2880,8 @@ abstract class CommonITILObject extends CommonDBTM
 
        // Additional suppliers actors
         if (!is_null($supplieractors)) {
-            $supplier_input = [
+            $supplier_input = $common_actor_input + [
                 $supplieractors->getItilObjectForeignKey() => $this->fields['id'],
-                '_do_not_compute_takeintoaccount'          => $do_not_compute_takeintoaccount,
-                '_from_object'                             => true,
             ];
 
            // Assigns
@@ -2906,10 +2907,8 @@ abstract class CommonITILObject extends CommonDBTM
 
        // Additional actors : using default notification parameters
         if (!is_null($useractors)) {
-            $user_input = [
+            $user_input = $common_actor_input + [
                 $useractors->getItilObjectForeignKey() => $this->fields['id'],
-                '_do_not_compute_takeintoaccount'      => $do_not_compute_takeintoaccount,
-                '_from_object'                         => true,
             ];
 
            // Observers : for mailcollector
@@ -8064,11 +8063,13 @@ abstract class CommonITILObject extends CommonDBTM
      * New way to do it with a general array containing all item actors.
      * We compare to old actors (in case of items's update) to know which we need to remove/add/update
      *
+     * @param bool $disable_notifications
+     *
      * @since 10.0.0
      *
      * @return void
      */
-    protected function updateActors()
+    protected function updateActors(bool $disable_notifications = false)
     {
         if (
             !isset($this->input['_actors'])
@@ -8170,9 +8171,13 @@ abstract class CommonITILObject extends CommonDBTM
             }
 
            // update actors
+            $common_actor_input = [];
+            if ($disable_notifications) {
+                $common_actor_input['_disablenotif'] = true;
+            }
             foreach ($added as $actor) {
                 $actor_obj = $this->getActorObjectForItem($actor['itemtype']);
-                $actor_obj->add($actor + [
+                $actor_obj->add($common_actor_input + $actor + [
                     $actor_obj::$items_id_1 => $this->fields['id'], // ex 'tickets_id' => 1
                     $actor_obj::$items_id_2 => $actor['items_id'],   // ex 'users_id' => 1
                     'type'                  => $actortype,
@@ -8180,7 +8185,7 @@ abstract class CommonITILObject extends CommonDBTM
             }
             foreach ($updated as $actor) {
                 $actor_obj = $this->getActorObjectForItem($actor['itemtype']);
-                $actor_obj->update($actor + [
+                $actor_obj->update($common_actor_input + $actor + [
                     'type' => $actortype
                 ]);
             }
