@@ -37,7 +37,6 @@ use Glpi\Application\ErrorHandler;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\Console\Application;
 use Glpi\Plugin\Hooks;
-use Glpi\Toolbox\FrontEnd;
 use Glpi\Toolbox\Sanitizer;
 use ScssPhp\ScssPhp\Compiler;
 
@@ -1666,17 +1665,6 @@ HTML;
                     $link = "";
                     if (is_string($PLUGIN_HOOKS["helpdesk_menu_entry"][$plugin])) {
                         $link = $PLUGIN_HOOKS["helpdesk_menu_entry"][$plugin];
-
-                        // Ensure menu entries have all a starting `/`
-                        if (!str_starts_with($link, '/')) {
-                            $link = '/' . $link;
-                        }
-
-                        // Prefix with plugin path if plugin path is missing
-                        $plugin_dir = Plugin::getWebDir($plugin, false);
-                        if (!str_starts_with($link, '/' . $plugin_dir)) {
-                            $link = '/' . $plugin_dir . $link;
-                        }
                     }
                     $infos['page'] = $link;
                     $infos['title'] = $infos['name'];
@@ -3798,7 +3786,7 @@ JS;
         $content_css = preg_replace('/^.*href="([^"]+)".*$/', '$1', self::scss('css/palettes/' . $_SESSION['glpipalette'] ?? 'auror'))
          . ',' . preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('public/lib/base.css'));
 
-        $cache_suffix = '?v=' . FrontEnd::getVersionCacheKey(GLPI_VERSION);
+        $cache_suffix = '?v=' . GLPI_VERSION;
         $readonlyjs   = $readonly ? 'true' : 'false';
 
         $invalid_elements = 'applet,canvas,embed,form,object';
@@ -3846,7 +3834,6 @@ JS;
 
             // init editor
             tinyMCE.init(Object.assign({
-               branding: false,
                selector: '#{$name}',
 
                plugins: {$pluginsjs},
@@ -5367,7 +5354,7 @@ HTML;
         $url = self::getPrefixedUrl($url);
 
         if ($version) {
-            $url .= '?v=' . FrontEnd::getVersionCacheKey($version);
+            $url .= '?v=' . $version;
         }
 
         return sprintf('<script type="%s" src="%s"></script>', $type, $url);
@@ -5450,7 +5437,7 @@ HTML;
             unset($options['version']);
         }
 
-        $url .= ((strpos($url, '?') !== false) ? '&' : '?') . 'v=' . FrontEnd::getVersionCacheKey($version);
+        $url .= ((strpos($url, '?') !== false) ? '&' : '?') . 'v=' . $version;
 
         return sprintf(
             '<link rel="stylesheet" type="text/css" href="%s" %s>',
@@ -5524,10 +5511,7 @@ HTML;
             if ($p['showtitle']) {
                 $display .= "<b>";
                 $display .= sprintf(__('%1$s (%2$s)'), __('File(s)'), Document::getMaxUploadSize());
-                $display .= DocumentType::showAvailableTypesLink([
-                    'display' => false,
-                    'rand'    => $p['rand']
-                ]);
+                $display .= DocumentType::showAvailableTypesLink(['display' => false]);
                 if ($p['required']) {
                     $display .= '<span class="required">*</span>';
                 }

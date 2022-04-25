@@ -190,8 +190,8 @@ class Search
             ];
             $globallinkto = Toolbox::append_params(
                 [
-                    'criteria'     => Sanitizer::unsanitize($criteria),
-                    'metacriteria' => Sanitizer::unsanitize($data['search']['metacriteria'])
+                    'criteria'     => Toolbox::stripslashes_deep($criteria),
+                    'metacriteria' => Toolbox::stripslashes_deep($data['search']['metacriteria'])
                 ],
                 '&amp;'
             );
@@ -1204,8 +1204,8 @@ class Search
                 } else {
                     $tmplink = " AND ";
                 }
-                // Manage Link if not first item
-                if (!empty($sql) && !$is_having) {
+               // Manage Link if not first item
+                if (!empty($sql)) {
                     $sql .= $globallink;
                 }
                 $first2 = true;
@@ -1663,8 +1663,8 @@ class Search
 
        // Contruct parameters
         $globallinkto  = Toolbox::append_params([
-            'criteria'     => Sanitizer::unsanitize($search['criteria']),
-            'metacriteria' => Sanitizer::unsanitize($search['metacriteria'])
+            'criteria'     => Toolbox::stripslashes_deep($search['criteria']),
+            'metacriteria' => Toolbox::stripslashes_deep($search['metacriteria'])
         ], '&');
 
         $parameters = http_build_query([
@@ -2536,13 +2536,12 @@ class Search
         $idor_display_meta_criteria  = Session::getNewIDORToken($itemtype);
         $idor_display_criteria_group = Session::getNewIDORToken($itemtype);
 
-        $itemtype_escaped = addslashes($itemtype);
         $JS = <<<JAVASCRIPT
          $('#addsearchcriteria$rand_criteria').on('click', function(event) {
             event.preventDefault();
             $.post('{$CFG_GLPI['root_doc']}/ajax/search.php', {
                'action': 'display_criteria',
-               'itemtype': '$itemtype_escaped',
+               'itemtype': '$itemtype',
                'num': $nbsearchcountvar,
                'p': $json_p,
                '_idor_token': '$idor_display_criteria'
@@ -2557,7 +2556,7 @@ class Search
             event.preventDefault();
             $.post('{$CFG_GLPI['root_doc']}/ajax/search.php', {
                'action': 'display_meta_criteria',
-               'itemtype': '$itemtype_escaped',
+               'itemtype': '$itemtype',
                'meta': true,
                'num': $nbsearchcountvar,
                'p': $json_p,
@@ -2573,7 +2572,7 @@ class Search
             event.preventDefault();
             $.post('{$CFG_GLPI['root_doc']}/ajax/search.php', {
                'action': 'display_criteria_group',
-               'itemtype': '$itemtype_escaped',
+               'itemtype': '$itemtype',
                'meta': true,
                'num': $nbsearchcountvar,
                'p': $json_p,
@@ -2660,8 +2659,7 @@ JAVASCRIPT;
         $p           = $request['p'];
         $options     = self::getCleanedOptions($request["itemtype"]);
         $randrow     = mt_rand();
-        $normalized_itemtype = strtolower(str_replace('\\', '', $request["itemtype"]));
-        $rowid       = 'searchrow' . $normalized_itemtype . $randrow;
+        $rowid       = 'searchrow' . $request['itemtype'] . $randrow;
         $addclass    = $num == 0 ? ' headerRow' : '';
         $prefix      = isset($p['prefix_crit']) ? $p['prefix_crit'] : '';
         $parents_num = isset($p['parents_num']) ? $p['parents_num'] : [];
@@ -2794,7 +2792,7 @@ JAVASCRIPT;
         ]);
         echo "</div>";
         $field_id = Html::cleanId("dropdown_criteria{$prefix}[$num][field]$rand");
-        $spanid   = Html::cleanId('SearchSpan' . $normalized_itemtype . $prefix . $num);
+        $spanid   = Html::cleanId('SearchSpan' . $request["itemtype"] . $prefix . $num);
 
         echo "<div class='col-auto'>";
         echo "<div class='row g-1' id='$spanid'>";
@@ -2809,7 +2807,7 @@ JAVASCRIPT;
                      ? $criteria['searchtype']
                      : "";
         $p_value    = isset($criteria['value'])
-                     ? Sanitizer::dbUnescape($criteria['value'])
+                     ? stripslashes($criteria['value'])
                      : "";
 
         $params = [
@@ -3143,9 +3141,8 @@ JAVASCRIPT;
         }
 
         $rands = -1;
-        $normalized_itemtype = strtolower(str_replace('\\', '', $request["itemtype"]));
         $dropdownname = Html::cleanId("spansearchtype$fieldname" .
-                                    $normalized_itemtype .
+                                    $request["itemtype"] .
                                     $prefix .
                                     $num);
         $searchopt = [];
@@ -3168,7 +3165,7 @@ JAVASCRIPT;
 
         echo "<div class='col-auto' id='$dropdownname' data-itemtype='{$request["itemtype"]}' data-fieldname='$fieldname' data-prefix='$prefix' data-num='$num'>";
         $params = [
-            'value'       => rawurlencode(Sanitizer::dbUnescape($request['value'])),
+            'value'       => rawurlencode(stripslashes($request['value'])),
             'searchopt'   => $searchopt,
             'searchtype'  => $request["searchtype"],
             'num'         => $num,
@@ -6313,16 +6310,12 @@ JAVASCRIPT;
                         return sprintf(__('%1$s %2$s'), $usernameformat, $toadd);
                     }
 
-                    $current_users_id = $data[$ID][0]['id'] ?? 0;
-                    if ($current_users_id > 0) {
-                        return TemplateRenderer::getInstance()->render('components/user/picture.html.twig', [
-                            'users_id'      => $current_users_id,
-                            'display_login' => true,
-                            'force_login'   => true,
-                            'avatar_size'   => "avatar-sm",
-                        ]);
-                    }
-                    break;
+                    return TemplateRenderer::getInstance()->render('components/user/picture.html.twig', [
+                        'users_id'      => $data['id'],
+                        'display_login' => true,
+                        'force_login'   => true,
+                        'avatar_size'   => "avatar-sm",
+                    ]);
 
                 case "glpi_profiles.name":
                     if (
@@ -7964,7 +7957,6 @@ HTML;
 
             if (isset($searchopt[$field_num]['datatype'])) {
                 switch ($searchopt[$field_num]['datatype']) {
-                    case 'mio':
                     case 'count':
                     case 'number':
                         $opt = [

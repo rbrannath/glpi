@@ -287,7 +287,7 @@ abstract class AbstractRequest
             return false;
         }
         $this->deviceid = (string)$xml->DEVICEID;
-        //query is not mandatory. Defaults to inventory
+       //query is not mandatory. Defaults to inventory
         $action = self::INVENT_QUERY;
         if (property_exists($xml, 'QUERY')) {
             $action = strtolower((string)$xml->QUERY);
@@ -312,7 +312,7 @@ abstract class AbstractRequest
             return false;
         }
 
-        $this->deviceid = $jdata->deviceid ?? null;
+        $this->deviceid = $jdata->deviceid;
         $action = self::INVENT_ACTION;
         if (property_exists($jdata, 'action')) {
             $action = $jdata->action;
@@ -320,7 +320,7 @@ abstract class AbstractRequest
             $action = $jdata->query;
         }
 
-        return $this->handleAction($action, $jdata);
+        return $this->handleAction($action, $data);
     }
 
     /**
@@ -351,11 +351,11 @@ abstract class AbstractRequest
             if ($this->mode === self::JSON_MODE) {
                 $this->addToResponse([
                     'status' => 'error',
-                    'message' => \Html::resume_text($message, 250),
+                    'message' => $message,
                     'expiration' => self::DEFAULT_FREQUENCY
                 ]);
             } else {
-                $this->addToResponse(['ERROR' => \Html::resume_text($message, 250)]);
+                $this->addToResponse(['ERROR' => $message]);
             }
         }
     }

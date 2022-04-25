@@ -130,7 +130,8 @@ if (
                         value='" . htmlentities($default_email, ENT_QUOTES, 'utf-8') . "'>";
     }
 
-    echo "$email_string";
+    echo "$email_string
+   </div>";
 }
 
 Ajax::commonDropdownUpdateItem($_POST);

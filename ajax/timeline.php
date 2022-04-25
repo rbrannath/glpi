@@ -64,8 +64,7 @@ if (($_POST['action'] ?? null) === 'change_task_state') {
         $task->update([
             'id'        => intval($_POST['tasks_id']),
             $foreignKey => intval($_POST[$foreignKey]),
-            'state'     => $new_state,
-            'users_id_editor' => Session::getLoginUserID()
+            'state'     => $new_state
         ]);
     }
 } else if (($_REQUEST['action'] ?? null) === 'viewsubitem') {

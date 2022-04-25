@@ -34,7 +34,7 @@
 use Glpi\SocketModel;
 
 // Current version of GLPI
-define('GLPI_VERSION', '10.0.0');
+define('GLPI_VERSION', '10.0.0-rc3');
 define(
     "GLPI_SCHEMA_VERSION",
     GLPI_VERSION . (
@@ -270,9 +270,7 @@ $CFG_GLPI["location_types"]               = ['Budget', 'CartridgeItem', 'Consuma
     'Computer', 'Monitor', "Glpi\\Socket",
     'NetworkEquipment', 'Peripheral', 'Phone',
     'Printer', 'Software', 'SoftwareLicense',
-    'Ticket', 'User', 'Certificate', 'Item_DeviceSimcard',
-    'Line', 'Appliance', 'PassiveDCEquipment', 'DataCenter',
-    'DCRoom', 'Rack', 'Enclosure', 'PDU'
+    'Ticket', 'User', 'Certificate', 'Item_DeviceSimcard'
 ];
 
 $CFG_GLPI["ticket_types"]                 = ['Computer', 'Monitor', 'NetworkEquipment',

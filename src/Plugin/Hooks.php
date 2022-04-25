@@ -43,21 +43,16 @@ class Hooks
     const ADD_JAVASCRIPT = 'add_javascript';
 
    // Function hooks with no parameters
-    const CHANGE_ENTITY               = 'change_entity';
-    const CHANGE_PROFILE              = 'change_profile';
-    const DISPLAY_LOGIN               = 'display_login';
-    const DISPLAY_CENTRAL             = 'display_central';
-    const DISPLAY_NETPORT_LIST_BEFORE = 'display_netport_list_before';
-    const INIT_SESSION                = 'init_session';
-    const POST_INIT                   = 'post_init';
+    const CHANGE_ENTITY    = 'change_entity';
+    const CHANGE_PROFILE   = 'change_profile';
+    const DISPLAY_LOGIN    = 'display_login';
+    const DISPLAY_CENTRAL  = 'display_central';
+    const INIT_SESSION     = 'init_session';
+    const POST_INIT        = 'post_init';
 
    // Specific function hooks with parameters
-    const RULE_MATCHED          = 'rule_matched';
-    const VCARD_DATA            = 'vcard_data';
-    const POST_PLUGIN_DISABLE   = 'post_plugin_disable';
-    const POST_PLUGIN_CLEAN     = 'post_plugin_clean';
-    const POST_PLUGIN_UNINSTALL = 'post_plugin_uninstall';
-    const POST_PLUGIN_ENABLE    = 'post_plugin_enable' ;
+    const RULE_MATCHED        = 'rule_matched';
+    const VCARD_DATA          = 'vcard_data';
 
    // Function hooks with parameters and output
     const DISPLAY_LOCKED_FIELDS         = 'display_locked_fields';

@@ -64,18 +64,20 @@ class NetworkPort extends InventoryAsset
 
         $this->extra_data['\Glpi\Inventory\Asset\\' . $this->item->getType()] = null;
         $mapping = [
-            'ifname'       => 'name',
-            'ifnumber'     => 'logical_number',
+            'ifname'   => 'name',
+            'ifnumber' => 'logical_number',
             'ifportduplex' => 'portduplex',
-            'ifinoctets'   => 'ifinbytes',
-            'ips'          => 'ipaddress',
-            'ifoutoctets'  => 'ifoutbytes'
+            'ifinoctets' => 'ifinbytes',
+            'ifoutoctets' => 'ifoutbytes'
         ];
 
         foreach ($this->data as $k => &$val) {
             $keep = true;
             if (!property_exists($val, 'instantiation_type')) {
                 $val->instantiation_type = 'NetworkPortEthernet';
+            }
+            if (!property_exists($val, 'ipaddress')) {
+                $val->ipaddress = [];
             }
 
             if (!property_exists($val, 'logical_number') && !property_exists($val, 'ifnumber')) {

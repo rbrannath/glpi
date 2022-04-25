@@ -1268,7 +1268,10 @@ final class DbUtils
                 $name = $result['completename'];
             }
 
-            $name = CommonTreeDropdown::sanitizeSeparatorInCompletename($name);
+           // Separator is not encoded in DB, and it could not be changed as this is mandatory to be able to split tree
+           // correctly even if some tree elements are containing ">" char in their name (this one will be encoded).
+            $separator = ' > ';
+            $name = implode(Sanitizer::sanitize($separator), explode($separator, $name));
 
             if ($tooltip) {
                 $comment  = sprintf(

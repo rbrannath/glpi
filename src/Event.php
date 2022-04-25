@@ -81,7 +81,7 @@ class Event extends CommonDBTM
             $full_message = "[" . $this->fields['service'] . "] " .
                          $message_type .
                          $this->fields['level'] . ": " .
-                         $this->fields['message'] . "\n";
+                         Toolbox::stripslashes_deep($this->fields['message']) . "\n";
 
             Toolbox::logInFile("event", $full_message);
         }

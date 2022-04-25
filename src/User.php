@@ -829,7 +829,7 @@ class User extends CommonDBTM
             }
             if ($newPicture) {
                 $fullpath = GLPI_TMP_DIR . "/" . $input["_picture"];
-                if (Document::isImage($fullpath, 'image')) {
+                if (Toolbox::getMime($fullpath, 'image')) {
                    // Unlink old picture (clean on changing format)
                     self::dropPictureFiles($this->fields['picture']);
                    // Move uploaded file
@@ -846,7 +846,10 @@ class User extends CommonDBTM
                     $picture_path = GLPI_PICTURE_DIR  . "/$sub/${filename}.$extension";
                     self::dropPictureFiles("$sub/${filename}.$extension");
 
-                    if (Document::renameForce($fullpath, $picture_path)) {
+                    if (
+                        Document::isImage($fullpath)
+                        && Document::renameForce($fullpath, $picture_path)
+                    ) {
                         Session::addMessageAfterRedirect(__('The file is valid. Upload is successful.'));
                         // For display
                         $input['picture'] = "$sub/${filename}.$extension";
@@ -856,11 +859,10 @@ class User extends CommonDBTM
                         Toolbox::resizePicture($picture_path, $thumb_path);
                     } else {
                         Session::addMessageAfterRedirect(
-                            __('Moving temporary file failed.'),
+                            __('Potential upload attack or file too large. Moving temporary file failed.'),
                             false,
                             ERROR
                         );
-                        @unlink($fullpath);
                     }
                 } else {
                     Session::addMessageAfterRedirect(
@@ -868,7 +870,6 @@ class User extends CommonDBTM
                         false,
                         ERROR
                     );
-                    @unlink($fullpath);
                 }
             } else {
                //ldap jpegphoto synchronisation.
@@ -1766,7 +1767,6 @@ class User extends CommonDBTM
            // force authtype as we retrieve this user by ldap (we could have login with SSO)
             $this->fields["authtype"] = Auth::LDAP;
 
-            $import_fields = [];
             foreach ($fields as $k => $e) {
                 $val = AuthLDAP::getFieldValue(
                     [$e => self::getLdapFieldValue($e, $v)],
@@ -1815,10 +1815,29 @@ class User extends CommonDBTM
                             break;
 
                         case "usertitles_id":
+                            $this->fields[$k] = Dropdown::importExternal('UserTitle', $val);
+                            break;
+
                         case 'locations_id':
+                           // use import to build the location tree
+                            $this->fields[$k] = Dropdown::import(
+                                'Location',
+                                ['completename' => $val,
+                                    'entities_id'  => 0,
+                                    'is_recursive' => 1
+                                ]
+                            );
+                            break;
+
                         case "usercategories_id":
+                            $this->fields[$k] = Dropdown::importExternal('UserCategory', $val);
+                            break;
+
                         case 'users_id_supervisor':
-                            $import_fields[$k] = $val;
+                            $supervisor_id = self::getIdByField('user_dn', $val, false);
+                            if ($supervisor_id) {
+                                $this->fields[$k] = $supervisor_id;
+                            }
                             break;
 
                         default:
@@ -1917,33 +1936,6 @@ class User extends CommonDBTM
                     }
                 }
 
-                foreach ($import_fields as $k => $val) {
-                    switch ($k) {
-                        case "usertitles_id":
-                            $this->fields[$k] = Dropdown::importExternal('UserTitle', $val);
-                            break;
-                        case 'locations_id':
-                            // use import to build the location tree
-                            $this->fields[$k] = Dropdown::import(
-                                'Location',
-                                ['completename' => $val,
-                                    'entities_id'  => 0,
-                                    'is_recursive' => 1
-                                ]
-                            );
-                            break;
-                        case "usercategories_id":
-                            $this->fields[$k] = Dropdown::importExternal('UserCategory', $val);
-                            break;
-                        case 'users_id_supervisor':
-                            $supervisor_id = self::getIdByField('user_dn', $val, false);
-                            if ($supervisor_id) {
-                                $this->fields[$k] = $supervisor_id;
-                            }
-                            break;
-                    }
-                }
-
                // Add ldap result to data send to the hook
                 $this->fields['_ldap_result'] = $v;
                 $this->fields['_ldap_conn']   = $ldap_connection;
@@ -1951,7 +1943,6 @@ class User extends CommonDBTM
                 $this->fields = Plugin::doHookFunction(Hooks::RETRIEVE_MORE_DATA_FROM_LDAP, $this->fields);
                 unset($this->fields['_ldap_result']);
             }
-
             return true;
         }
         return false;
@@ -3806,9 +3797,6 @@ JAVASCRIPT;
             'name'               => __('Responsible'),
             'datatype'           => 'dropdown',
             'massiveaction'      => false,
-            'additionalfields'   => [
-                '0' => 'id'
-            ]
         ];
 
        // add objectlock search options

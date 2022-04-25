@@ -8,7 +8,6 @@ vendor/bin/atoum \
   --use-dot-report \
   --bootstrap-file tests/bootstrap.php \
   --no-code-coverage \
-  --fail-if-void-methods \
   --fail-if-skipped-methods \
   --max-children-number 1 \
   -d tests/web

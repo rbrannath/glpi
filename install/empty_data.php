@@ -7461,227 +7461,227 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'cluster',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'cluster',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'cluster',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'cluster',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'cluster',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'cluster',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'cluster',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'cluster',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'externalevent',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'externalevent',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'externalevent',
-                'rights' => ALLSTANDARDRIGHT | PlanningExternalEvent::MANAGE_BG_EVENTS,
+                'rights' => 1055,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'externalevent',
-                'rights' => ALLSTANDARDRIGHT | PlanningExternalEvent::MANAGE_BG_EVENTS,
+                'rights' => 1055,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'externalevent',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'externalevent',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'externalevent',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'externalevent',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'dashboard',
-                'rights' => READ | UPDATE | CREATE | PURGE,
+                'rights' => 23,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'dashboard',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'appliance',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'appliance',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'appliance',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'appliance',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'appliance',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'appliance',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'appliance',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'appliance',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'inventory',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'inventory',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'inventory',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'pendingreason',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'pendingreason',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'pendingreason',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'pendingreason',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'pendingreason',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'pendingreason',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'pendingreason',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'pendingreason',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_SELF_SERVICE,
                 'name' => 'database',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_OBSERVER,
                 'name' => 'database',
-                'rights' => READ,
+                'rights' => 1,
             ], [
                 'profiles_id' => self::PROFILE_ADMIN,
                 'name' => 'database',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPER_ADMIN,
                 'name' => 'database',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_HOTLINER,
                 'name' => 'database',
-                'rights' => self::RIGHT_NONE,
+                'rights' => 0,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'database',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_SUPERVISOR,
                 'name' => 'database',
-                'rights' => ALLSTANDARDRIGHT,
+                'rights' => 31,
             ], [
                 'profiles_id' => self::PROFILE_READ_ONLY,
                 'name' => 'database',
-                'rights' => READ,
+                'rights' => 1,
             ],
         ];
 

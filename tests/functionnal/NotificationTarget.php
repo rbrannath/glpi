@@ -217,7 +217,7 @@ class NotificationTarget extends DbTestCase
      *
      * @return Generator
      */
-    protected function getSenderProvider(): Generator
+    public function testGetSenderProvider(): Generator
     {
         global $CFG_GLPI;
 
@@ -291,7 +291,7 @@ class NotificationTarget extends DbTestCase
     /**
      * Functionnals tests for the getSender method
      *
-     * @dataprovider getSenderProvider
+     * @dataprovider testGetSenderProvider
      *
      * @param bool        $allow_response Use reply to or admin email ?
      * @param string|null $email          Expected email

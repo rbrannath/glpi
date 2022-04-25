@@ -203,12 +203,13 @@ class Dropdown
             $params['condition'] = static::addNewCondition($params['condition']);
         }
 
-        if ($params['multiple']) {
-            $names = Sanitizer::unsanitize($names);
-        } else {
-            $name = Sanitizer::unsanitize($name);
+        if (!$item instanceof CommonTreeDropdown) {
+            if ($params['multiple']) {
+                $names = Sanitizer::unsanitize($names);
+            } else {
+                $name = Sanitizer::unsanitize($name);
+            }
         }
-
         $p = [
             'width'                => $params['width'],
             'itemtype'             => $itemtype,
@@ -2832,9 +2833,6 @@ class Dropdown
                         } else {
                             $outputval = $data['completename'];
                         }
-
-                        $outputval = CommonTreeDropdown::sanitizeSeparatorInCompletename($outputval);
-
                         $level = 0;
                     } else { // Need to check if parent is the good one
                         // Do not do if only get one item
@@ -2853,8 +2851,6 @@ class Dropdown
                                         // Do not do for first item for next page load
                                         if (!$firstitem) {
                                             $title = $item->fields['completename'];
-
-                                            $title = CommonTreeDropdown::sanitizeSeparatorInCompletename($title);
 
                                             $selection_text = $title;
 
@@ -2923,8 +2919,6 @@ class Dropdown
                         } else {
                             $title = $data['completename'];
                         }
-
-                        $title = CommonTreeDropdown::sanitizeSeparatorInCompletename($title);
 
                         $selection_text = $title;
 

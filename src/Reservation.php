@@ -585,7 +585,8 @@ JAVASCRIPT;
             ],
             'FROM'   => $res_i_table,
             'WHERE'  => [
-                'is_active'  => 1
+                'is_active'  => 1,
+                'is_deleted' => 0
             ]
         ]);
 

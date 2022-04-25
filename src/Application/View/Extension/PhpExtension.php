@@ -48,7 +48,6 @@ class PhpExtension extends AbstractExtension
         return [
             new TwigFunction('php_config', [$this, 'phpConfig']),
             new TwigFunction('call', [$this, 'call']),
-            new TwigFunction('get_static', [$this, 'getStatic']),
         ];
     }
 
@@ -84,22 +83,6 @@ class PhpExtension extends AbstractExtension
     {
         if (is_callable($callable)) {
             return call_user_func_array($callable, $parameters);
-        }
-        return null;
-    }
-
-    /**
-     * Return static property value.
-     *
-     * @param mixed $class
-     * @param string $property
-     *
-     * @return mixed
-     */
-    public function getStatic($class, string $property)
-    {
-        if ((is_object($class) || class_exists($class)) && property_exists($class, $property)) {
-            return $class::$$property;
         }
         return null;
     }

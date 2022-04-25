@@ -97,13 +97,11 @@ class Item_OperatingSystem extends DbTestCase
             (int)\Item_OperatingSystem::countForItem($computer)
         )->isIdenticalTo(1);
 
-        $expected_error = "/Duplicate entry '{$computer->getID()}-Computer-{$objects['']->getID()}-{$objects['Architecture']->getID()}' for key '(glpi_items_operatingsystems\.)?unicity'/";
-        $this->output(
-            function () use ($ios, $input) {
-                $this->boolean($ios->add($input))->isFalse();
-            }
-        )->matches($expected_error);
-        $this->hasSqlLogRecordThatMatches($expected_error, LogLevel::ERROR);
+        $this->boolean($ios->add($input))->isFalse();
+        $this->hasSqlLogRecordThatMatches(
+            "/Error: Duplicate entry '{$computer->getID()}-Computer-{$objects['']->getID()}-{$objects['Architecture']->getID()}' for key '(glpi_items_operatingsystems\.)?unicity'/",
+            LogLevel::ERROR
+        );
 
         $this->integer(
             (int)\Item_OperatingSystem::countForItem($computer)

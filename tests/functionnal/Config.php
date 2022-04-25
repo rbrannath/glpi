@@ -134,6 +134,11 @@ class Config extends DbTestCase
                ->isIdenticalTo($expected);
     }
 
+    public function testPrepareInputForUpdate()
+    {
+       // /!\ Config::prepareInputForUpdate() do store data! /!\
+    }
+
     public function testUnsetUndisclosedFields()
     {
         $input = [

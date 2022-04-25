@@ -254,15 +254,15 @@ class RuleMatchedLog extends CommonDBTM
         ];
         foreach ($DB->request($params) as $data) {
             echo "<tr class='tab_bg_1'>";
-            echo "<td>";
+            echo "<td align='center'>";
             echo Html::convDateTime($data['date']);
             echo "</td>";
-            echo "<td>";
+            echo "<td align='center'>";
             if ($rule->getFromDB($data['rules_id'])) {
                 echo $rule->getLink(1);
             }
             echo "</td>";
-            echo "<td>";
+            echo "<td align='center'>";
             if ($agent->getFromDB($data['agents_id'])) {
                 echo $agent->getLink(1);
             }

@@ -39,13 +39,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class DeactivateCommand extends AbstractPluginCommand
 {
-    /**
-     * Error code returned when a plugin deactivation failed.
-     *
-     * @var integer
-     */
-    const ERROR_PLUGIN_DEACTIVATION_FAILED = 1;
-
     protected function configure()
     {
         parent::configure();
@@ -62,8 +55,6 @@ class DeactivateCommand extends AbstractPluginCommand
 
         $directories   = $input->getArgument('directory');
 
-        $failed = false;
-
         foreach ($directories as $directory) {
             $output->writeln(
                 '<info>' . sprintf(__('Processing plugin "%s"...'), $directory) . '</info>',
@@ -74,8 +65,7 @@ class DeactivateCommand extends AbstractPluginCommand
             $plugin->checkPluginState($directory); // Be sure that plugin information are up to date in DB
 
             if (!$this->canRunDeactivateMethod($directory)) {
-                $failed = true;
-                continue;
+                 continue;
             }
 
             if (!$plugin->getFromDBByCrit(['directory' => $directory])) {
@@ -83,7 +73,6 @@ class DeactivateCommand extends AbstractPluginCommand
                     '<error>' . sprintf(__('Unable to load plugin "%s" information.'), $directory) . '</error>',
                     OutputInterface::VERBOSITY_QUIET
                 );
-                $failed = true;
                 continue;
             }
 
@@ -93,7 +82,6 @@ class DeactivateCommand extends AbstractPluginCommand
                     OutputInterface::VERBOSITY_QUIET
                 );
                 $this->outputSessionBufferedMessages([WARNING, ERROR]);
-                $failed = true;
                 continue;
             }
 
@@ -101,10 +89,6 @@ class DeactivateCommand extends AbstractPluginCommand
                 '<info>' . sprintf(__('Plugin "%1$s" has been deactivated.'), $directory) . '</info>',
                 OutputInterface::VERBOSITY_NORMAL
             );
-        }
-
-        if ($failed) {
-            return self::ERROR_PLUGIN_DEACTIVATION_FAILED;
         }
 
         return 0; // Success

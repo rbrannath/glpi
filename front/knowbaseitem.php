@@ -31,8 +31,6 @@
  * ---------------------------------------------------------------------
  */
 
-use Glpi\Toolbox\Sanitizer;
-
 include('../inc/includes.php');
 
 if (!Session::haveRightsOr('knowbase', [READ, KnowbaseItem::READFAQ])) {
@@ -46,7 +44,7 @@ if (isset($_GET["id"])) {
 Html::header(KnowbaseItem::getTypeName(1), $_SERVER['PHP_SELF'], "tools", "knowbaseitem");
 
 // Clean for search
-$_GET = Sanitizer::dbUnescapeRecursive($_GET);
+$_GET = Toolbox::stripslashes_deep($_GET);
 
 // Search a solution
 if (

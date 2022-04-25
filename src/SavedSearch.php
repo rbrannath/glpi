@@ -33,7 +33,6 @@
 
 use Glpi\Application\ErrorHandler;
 use Glpi\Application\View\TemplateRenderer;
-use Glpi\Features\Clonable;
 use Glpi\Toolbox\Sanitizer;
 
 /**
@@ -43,8 +42,6 @@ use Glpi\Toolbox\Sanitizer;
  **/
 class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
 {
-    use Clonable;
-
     public static $rightname               = 'bookmark_public';
 
     const SEARCH = 1; //SEARCH SYSTEM bookmark
@@ -1363,10 +1360,5 @@ class SavedSearch extends CommonDBTM implements ExtraVisibilityCriteria
     public static function getIcon()
     {
         return "ti ti-bookmarks";
-    }
-
-    public function getCloneRelations(): array
-    {
-        return [];
     }
 }

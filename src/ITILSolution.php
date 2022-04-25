@@ -295,12 +295,7 @@ class ITILSolution extends CommonDBChild
             ]
         );
 
-        // Add documents if needed, without notification
-        $this->input = $this->addFiles($this->input, [
-            'force_update' => true,
-        ]);
-
-        // Add solution to duplicates
+       // Add solution to duplicates
         if ($this->item->getType() == 'Ticket' && !isset($this->input['_linked_ticket'])) {
             Ticket_Ticket::manageLinkedTicketsOnSolved($this->item->getID(), $this);
         }
@@ -359,11 +354,6 @@ class ITILSolution extends CommonDBChild
             'content_field' => 'content',
         ];
         $this->input = $this->addFiles($this->input, $options);
-
-        // Add documents if needed, without notification
-        $this->input = $this->addFiles($this->input, [
-            'force_update' => true,
-        ]);
 
         parent::post_updateItem($history);
     }

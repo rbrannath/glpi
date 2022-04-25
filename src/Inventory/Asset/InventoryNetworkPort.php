@@ -148,7 +148,7 @@ trait InventoryNetworkPort
         $stmt = $DB->prepare($query);
 
         foreach ($this->ports as $port) {
-            if (!$this->isMainPartial() && property_exists($port, 'mac') && $port->mac != '') {
+            if (property_exists($port, 'mac') && $port->mac != '') {
                 $stmt->bind_param(
                     's',
                     $port->mac
@@ -405,7 +405,7 @@ trait InventoryNetworkPort
                     $this->handleInstantiation($type, $data, $keydb, true);
                 }
 
-                $ips = $data->ipaddress ?? [];
+                $ips = $data->ipaddress;
                 if (count($ips)) {
                    //handle network name
                     if ($netname_stmt == null) {
@@ -593,7 +593,7 @@ trait InventoryNetworkPort
         }
         foreach ($ports as $port) {
             $netports_id = $this->addNetworkPort($port);
-            if (count(($port->ipaddress ?? []))) {
+            if (count($port->ipaddress)) {
                 $netnames_id = $this->addNetworkName($netports_id, $port->netname ?? null);
                 $this->addIPAddresses($port->ipaddress, $netnames_id);
             }

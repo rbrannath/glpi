@@ -309,7 +309,7 @@ class Toolbox
     public static function getHtmLawedSafeConfig(): array
     {
         $config = [
-            'elements'         => '* -applet -canvas -embed -form -object -script -link',
+            'elements'         => '* -applet -canvas -embed -form -object -script',
             'deny_attribute'   => 'on*, srcdoc',
             'comment'          => 1, // 1: remove HTML comments (and do not display their contents)
             'cdata'            => 1, // 1: remove CDATA sections (and do not display their contents)
@@ -2723,7 +2723,7 @@ class Toolbox
 
     /**
      * Decode JSON in GLPI
-     * Because json can have been modified from Sanitizer
+     * Because json can have been modified from addslashes_deep
      *
      * @param string $encoded Encoded JSON
      * @param boolean $assoc  assoc parameter of json_encode native function
@@ -2740,8 +2740,8 @@ class Toolbox
         $json = json_decode($encoded, $assoc);
 
         if (json_last_error() != JSON_ERROR_NONE) {
-           //something went wrong... Try to unsanitize before decoding.
-            $json = json_decode(Sanitizer::unsanitize($encoded), $assoc);
+           //something went wrong... Try to stripslashes before decoding.
+            $json = json_decode(self::stripslashes_deep($encoded), $assoc);
             if (json_last_error() != JSON_ERROR_NONE) {
                 self::log(null, Logger::NOTICE, ['Unable to decode JSON string! Is this really JSON?']);
                 return $encoded;

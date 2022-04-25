@@ -50,11 +50,6 @@ class Request extends AbstractRequest
     /** @var Inventory */
     private $inventory;
 
-    /** @var bool */
-    private bool $is_discovery = false;
-
-    /** @var string */
-    private string $network_inventory_mode;
 
     protected function initHeaders(): Common
     {
@@ -238,9 +233,37 @@ class Request extends AbstractRequest
      */
     public function networkDiscovery($data)
     {
-        $this->network_inventory_mode = Hooks::NETWORK_DISCOVERY;
-        $this->is_discovery = true;
-        return $this->network($data);
+        $this->inventory = new Inventory();
+        $this->inventory->setData($data, $this->getMode());
+
+        $response = [];
+        $hook_params = [
+            'mode' => $this->getMode(),
+            'inventory' => $this->inventory,
+            'deviceid' => $this->getDeviceID(),
+            'response' => $response,
+            'query' => $this->query
+        ];
+
+        $hook_response = Plugin::doHookFunction(
+            Hooks::NETWORK_DISCOVERY,
+            $hook_params
+        );
+
+        if ($hook_response == $hook_params) {
+           //no hook, use native capabilities
+            $this->inventory($data);
+        } else {
+           //try to use hook response
+            if (isset($hook_response['response']) && count($hook_response['response'])) {
+                $this->addToResponse($response);
+            } else if (isset($hook_response['errors']) && count($hook_response['errors'])) {
+                $this->addError($hook_response['errors'], 400);
+            } else {
+               //nothing expected happens; this is an error
+                $this->addError("Query '" . $this->query . "' is not supported.", 400);
+            }
+        }
     }
 
 
@@ -252,19 +275,6 @@ class Request extends AbstractRequest
      * @return void
      */
     public function networkInventory($data)
-    {
-        $this->network_inventory_mode = Hooks::NETWORK_INVENTORY;
-        return $this->network($data);
-    }
-
-    /**
-     * Handle agent network inventory request
-     *
-     * @param mixed $data Inventory input following specs
-     *
-     * @return void
-     */
-    public function network($data)
     {
         $this->inventory = new Inventory();
         $this->inventory->setData($data, $this->getMode());
@@ -279,25 +289,26 @@ class Request extends AbstractRequest
         ];
 
         $hook_response = Plugin::doHookFunction(
-            $this->network_inventory_mode,
+            Hooks::NETWORK_INVENTORY,
             $hook_params
         );
 
         if ($hook_response == $hook_params) {
-            //no hook, use native capabilities
+           //no hook, use native capabilities
             $this->inventory($data);
         } else {
-            //try to use hook response
+           //try to use hook response
             if (isset($hook_response['response']) && count($hook_response['response'])) {
                 $this->addToResponse($response);
             } else if (isset($hook_response['errors']) && count($hook_response['errors'])) {
                 $this->addError($hook_response['errors'], 400);
             } else {
-                //nothing expected happens; this is an error
+               //nothing expected happens; this is an error
                 $this->addError("Query '" . $this->query . "' is not supported.", 400);
             }
         }
     }
+
 
     /**
      * Handle agent CONTACT request
@@ -318,15 +329,15 @@ class Request extends AbstractRequest
             'status'     => 'ok'
         ];
 
-        //For the moment it's the Agent who informs us about the active tasks
+       //For the moment it's the Agent who informs us about the active tasks
         if (property_exists($this->inventory->getRawData(), 'enabled-tasks')) {
             foreach ($this->inventory->getRawData()->{'enabled-tasks'} as $task) {
                 $handle = $this->handleTask($task);
                 if (is_array($handle) && count($handle)) {
-                    // Insert related task information under tasks list property
+                   // Insert related task information under tasks list property
                     $response['tasks'][$task] = $handle;
                 } else {
-                    // Task is not supported, disable it and add unsupported message in response
+                   // Task is not supported, disable it and add unsupported message in response
                     $this->addToResponse([
                         "message" => "$task task not supported",
                         "disabled" => $task
@@ -349,20 +360,12 @@ class Request extends AbstractRequest
     {
         global $CFG_GLPI;
 
-        if ($this->isDiscovery()) {
-            //force "partial" mode on network discoveries.
-            $data->partial = true;
-        }
-
         $this->inventory = new Inventory();
         $this->inventory
-            ->setDiscovery($this->isDiscovery())
-            ->setRequestQuery($this->query)
-            ->setData($data, $this->getMode());
+         ->setRequestQuery($this->query)
+         ->setData($data, $this->getMode());
 
-        if (!$this->inventory->inError()) {
-            $this->inventory->doInventory($this->test_rules);
-        }
+        $this->inventory->doInventory($this->test_rules);
 
         if ($this->inventory->inError()) {
             foreach ($this->inventory->getErrors() as $error) {
@@ -391,14 +394,14 @@ class Request extends AbstractRequest
      */
     public function handleInventoryTask(array $params): array
     {
-        // Preset response as GLPI supports native inventory by default
+       // Preset response as glpi supports native inventory by default
         $params['options']['response'][self::INVENT_TASK] = [
             'server' => 'glpi',
             'version' => GLPI_VERSION
         ];
         $params = Plugin::doHookFunction(Hooks::HANDLE_INVENTORY_TASK, $params);
 
-        // Return inventory task support
+       // Return inventory task support
         return $params['options']['response'][self::INVENT_TASK] ?? [];
     }
 
@@ -520,7 +523,7 @@ class Request extends AbstractRequest
                 'items_id' => $item->fields['id']
             ];
         } else if (count($items)) {
-            // Defines 'itemtype' only if all items has same type
+           // Defines 'itemtype' only if all items has same type
             $itemtype = null;
             foreach ($items as $item) {
                 if ($itemtype === null && $item->getType() != Unmanaged::class) {
@@ -541,10 +544,5 @@ class Request extends AbstractRequest
     public function getInventory(): Inventory
     {
         return $this->inventory;
-    }
-
-    public function isDiscovery(): bool
-    {
-        return $this->is_discovery;
     }
 }

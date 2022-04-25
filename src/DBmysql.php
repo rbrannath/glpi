@@ -771,13 +771,11 @@ class DBmysql
     /**
      * Returns columns that uses signed integers for primary/foreign keys.
      *
-     * @param bool $exclude_plugins
-     *
      * @return DBmysqlIterator
      *
      * @since 9.5.7
      */
-    public function getSignedKeysColumns(bool $exclude_plugins = false)
+    public function getSignedKeysColumns()
     {
         $query = [
             'SELECT'       => [
@@ -820,10 +818,6 @@ class DBmysql
             ],
             'ORDER'       => ['TABLE_NAME']
         ];
-
-        if ($exclude_plugins) {
-            $query['WHERE'][] = ['NOT' => ['information_schema.tables.table_name' => ['LIKE', 'glpi\_plugin\_%']]];
-        }
 
         $iterator = $this->request($query);
 

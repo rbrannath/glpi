@@ -84,8 +84,8 @@
             <input type="hidden" name="items_id" value="{{ item.fields['id'] }}" />
             {{ call_plugin_hook('pre_item_form', {"item": subitem, 'options': params}) }}
 
-            {% set add_reopen = (_get['_openfollowup'] ?? false) or item.needReopen() %}
-            {% if add_reopen %}
+            {% set openfollowup = _get['_openfollowup'] ?? false %}
+            {% if openfollowup %}
                <input type="hidden" name="add_reopen" value="1" />
             {% endif %}
 
@@ -103,7 +103,6 @@
                         'enable_fileupload': true,
                         'enable_mentions': true,
                         'rand': rand,
-                        'required': add_reopen
                      }
                   ) }}
                </div>
@@ -162,7 +161,7 @@
                         {% if can_read_kb and kb_id_toload > 0 %}
                            {% set link_kb_lbl %}
                               <i class="fas fa-link fa-fw me-1" data-bs-toggle="tooltip" data-bs-placement="top"
-                                 title="{{ __('Link to knowledge base entry #%id')|replace({'%id': kb_id_toload}) }}"></i>
+                                 title="{{ __('Link to knowledge base entry #%id')|format('TODO kb id') }}"></i>
                            {% endset %}
                            {{ fields.sliderField(
                               'kb_linked_id',

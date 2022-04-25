@@ -44,7 +44,7 @@ HEADER
 for file in $*
 do
     NAME="${file#glpi/}"
-    VERSION="${NAME%-*.tar.gz}"
+    BRANCH="${NAME%.*.tar.gz}"
     SIZE=$( stat -c %s "$file" )
     read DATE TIME TZ <<<$(git log -n1 --pretty=%ci -- $file)
     [ "$TZ" == "+0000" ] && TZ="UTC"
@@ -55,7 +55,7 @@ do
         TZ="UTC"
     fi
     cat <<DESCRIPTION
-$VERSION|[$NAME]($NAME)|$DATE $TIME $TZ|$SIZE
+$BRANCH|[$NAME]($NAME)|$DATE $TIME $TZ|$SIZE
 DESCRIPTION
 done
 

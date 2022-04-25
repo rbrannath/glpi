@@ -7,7 +7,9 @@ updates:
     schedule:
       interval: "weekly"
 
-  # Strategy for npm dependencies on main branch.
+  # Strategy for npm dependencies on "future major release":
+  # - monthly check;
+  # - allow version increase in package.json.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -15,10 +17,12 @@ updates:
     allow:
       - dependency-type: "direct"
     open-pull-requests-limit: 100
-    target-branch: "main"
-    versioning-strategy: "lockfile-only"
+    target-branch: "master"
+    versioning-strategy: "increase-if-necessary"
 
-  # Strategy for composer dependencies on main branch.
+  # Strategy for composer dependencies on "future major release":
+  # - monthly check;
+  # - allow version increase in composer.json.
   - package-ecosystem: "composer"
     directory: "/"
     schedule:
@@ -26,5 +30,5 @@ updates:
     allow:
       - dependency-type: "direct"
     open-pull-requests-limit: 100
-    target-branch: "main"
-    versioning-strategy: "lockfile-only"
+    target-branch: "master"
+    versioning-strategy: "increase-if-necessary"
