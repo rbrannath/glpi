@@ -89,7 +89,15 @@
 	      wiring_side,
 	      __('Wiring side'),
 	   ) }}
-   ) }} #}
+
+   {% if params["several"] is not defined %}
+		{{ fields.numberField(
+         'position',
+         item.fields['position'],
+         __('Position')
+      ) }}
+
+	{% endif %}
 
 			{% set networkports %}
 			{% do call('Glpi\\Socket::showNetworkPortForm', [
@@ -104,12 +112,6 @@
          'networkports_id',
          networkports,
          __('Connected to'),
-      ) }}
-
-		{{ fields.numberField(
-         'position',
-         item.fields['position'],
-         __('Position')
       ) }}
 
 	{% if item.id %}
