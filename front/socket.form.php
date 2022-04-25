@@ -57,6 +57,7 @@ if (isset($_POST["add_several"])) {
     
     for ($i = $_POST["from"]; $i <= $_POST["to"]; $i++) {
         $_POST["name"] = $_POST["prefix"]  . $name . $i . $_POST["suffix"];
+        $_POST["position"] = $i;
         $socket->add($_POST);
     }
     if ($_SESSION['glpibackcreated']) {
