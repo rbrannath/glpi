@@ -404,7 +404,7 @@ final class DbUtils
         if ($itemtype === 'GlpiSocket') {
             //to avoid issues when pecl-event is installed...
              $itemtype = 'Glpi\\Socket';
-         }
+        }
 
         if (!is_subclass_of($itemtype, CommonGLPI::class, true)) {
            // Only CommonGLPI sublasses are valid itemtypes
