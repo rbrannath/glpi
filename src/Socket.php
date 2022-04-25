@@ -758,15 +758,6 @@ class Socket extends CommonDBChild
 
         // Link to open a new socket
         if ($item->getID() && self::canCreate()) {
-            // Html::showSimpleForm(
-            //     Socket::getFormURL(),
-            //     '_add_fromitem',
-            //     __('New socket for this item...'),
-            //     [
-            //         '_from_itemtype' => $item->getType(),
-            //         '_from_items_id' => $item->getID(),
-            //     ]
-            // );
             echo "<form method='POST' action='".Socket::getFormURL()."'>";
             echo "<div class='row flex-row'>";
             echo "<div class='col-12 col-sm-2 mb-2'>";
