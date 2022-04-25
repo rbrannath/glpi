@@ -100,7 +100,6 @@ class Socket extends CommonDBChild
      */
     public static function showNetworkPortForm($itemtype, $items_id, $networkports_id = 0, $options = [])
     {
-
         global $CFG_GLPI;
 
         //if form is called from an item, retrive itemtype and items
@@ -131,7 +130,7 @@ class Socket extends CommonDBChild
 
         echo "<span id='show_items_id_field' class='input_listener'>";
         if (!empty($itemtype)) {
-            $rand_items_id =  $itemtype::dropdown(['name'                  => 'items_id',
+            $rand_items_id =  $itemtype::dropdown(['name' => 'items_id',
                 'value'                 => $items_id,
                 'display_emptychoice'   => true,
                 'display_dc_position'   => true,
@@ -187,13 +186,12 @@ class Socket extends CommonDBChild
      **/
     public function showForm($ID, array $options = [])
     {
-
         global $DB;
 
         $itemtype = null;
         if (isset($options['itemtype']) && !empty($options['itemtype'])) {
             $itemtype = $options['itemtype'];
-        } else if (isset($this->fields['itemtype']) && !empty($this->fields['itemtype'])) {
+        } elseif (isset($this->fields['itemtype']) && !empty($this->fields['itemtype'])) {
             $itemtype = $this->fields['itemtype'];
         } else {
             throw new \RuntimeException('Unable to retrieve itemtype');
@@ -317,14 +315,14 @@ class Socket extends CommonDBChild
     public function retrievedataFromNetworkPort($input)
     {
         //get position from networkport if needed
-        if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0 ) && $input["position"] == 'auto') {
+        if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0) && $input["position"] == 'auto') {
             $networkport = new NetworkPort();
             $networkport->getFromDB($input["networkports_id"]);
             $input['position'] = $networkport->fields['logical_number'];
         }
 
         //get name from networkport if needed
-        if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0 ) && empty($input["name"])) {
+        if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0) && empty($input["name"])) {
             $networkport = new NetworkPort();
             $networkport->getFromDB($input["networkports_id"]);
             $input['name'] = $networkport->fields['name'];
@@ -553,7 +551,6 @@ class Socket extends CommonDBChild
      **/
     public static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = [])
     {
-
         if (!is_array($values)) {
             $values = [$field => $values];
         }
@@ -583,7 +580,6 @@ class Socket extends CommonDBChild
      **/
     public static function getSpecificValueToDisplay($field, $values, array $options = [])
     {
-
         if (!is_array($values)) {
             $values = [$field => $values];
         }
@@ -726,7 +722,7 @@ class Socket extends CommonDBChild
         global $CFG_GLPI;
         if ($item->getType() == 'Location') {
             self::showForLocation($item);
-        } else if (in_array($item->getType(), $CFG_GLPI['socket_types'])) {
+        } elseif (in_array($item->getType(), $CFG_GLPI['socket_types'])) {
             self::showListForItem($item);
         }
         return true;
@@ -742,7 +738,6 @@ class Socket extends CommonDBChild
      **/
     public static function showListForItem($item)
     {
-
         global $DB;
 
         $canedit = self::canUpdate();
@@ -1123,7 +1118,6 @@ class Socket extends CommonDBChild
         HTMLTableCell $father = null,
         $options = []
     ) {
-
         $column_name = __CLASS__;
 
         if (isset($options['dont_display'][$column_name])) {

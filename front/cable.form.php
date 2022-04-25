@@ -110,7 +110,7 @@ if (isset($_POST["add"])) {
         'withtemplate' => $_GET["withtemplate"],
         'formoptions'  => "data-track-changes=true",
         'itemtype_endpoint_a' => $_GET["itemtype_endpoint_a"],
-        'items_id_endpoint_a' =>$_GET["items_id_endpoint_a"],
+        'items_id_endpoint_a' => $_GET["items_id_endpoint_a"],
         'sockets_id_endpoint_a' => $_GET["sockets_id_endpoint_a"]
     ]);
 }
