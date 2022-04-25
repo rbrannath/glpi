@@ -51,12 +51,12 @@ use Session;
 /// Socket class
 class Socket extends CommonDBChild
 {
-   // From CommonDBChild
+    // From CommonDBChild
     public static $itemtype = 'itemtype';
     public static $items_id = 'items_id';
     public static $checkParentRights  = self::DONT_CHECK_ITEM_RIGHTS;
 
-   // From CommonDBTM
+    // From CommonDBTM
     public $dohistory          = true;
     public static $rightname          = 'cable_management';
     public $can_be_translated  = false;
@@ -103,7 +103,7 @@ class Socket extends CommonDBChild
 
         global $CFG_GLPI;
 
-       //if form is called from an item, retrive itemtype and items
+        //if form is called from an item, retrive itemtype and items
         if (isset($options['_add_fromitem'])) {
             $itemtype = $options['_add_fromitem']["_from_itemtype"];
             $items_id = $options['_add_fromitem']["_from_items_id"];
@@ -113,7 +113,7 @@ class Socket extends CommonDBChild
         $rand_items_id = rand();
 
         echo "<div id='show_itemtype_field' class='input_listener'>";
-        echo "<label class='form-label'>". __('Asset') ."</label>"; 
+        echo "<label class='form-label'>". __('Asset') ."</label>";
         Dropdown::showFromArray('itemtype', self::getSocketLinkTypes(), ['value' => $itemtype,
             'rand' => $rand_itemtype
         ]);
@@ -142,17 +142,17 @@ class Socket extends CommonDBChild
         echo "</div>";
 
         echo "<div id='show_networkport_field'>";
-        echo "<label class='form-label'>". __('Network port') ."</label>"; 
+            echo "<label class='form-label'>". __('Network port') ."</label>";
         NetworkPort::dropdown(['name'                => 'networkports_id',
-            'value'               => $networkports_id,
-            'display_emptychoice' => true,
-            'condition'           => ['items_id' => $items_id,
-                'itemtype' => $itemtype
-            ]
-        ]);
-        echo "</div>";
+                'value'               => $networkports_id,
+                'display_emptychoice' => true,
+                'condition'           => ['items_id' => $items_id,
+                    'itemtype' => $itemtype
+                ]
+            ]);
+            echo "</div>";
 
-       //Listener to update breacrumb / socket
+        //Listener to update breacrumb / socket
         echo Html::scriptBlock("
          //listener to remove socket selector and breadcrumb
          $(document).on('change', '#dropdown_itemtype" . $rand_itemtype . "', function(e) {
@@ -237,9 +237,9 @@ class Socket extends CommonDBChild
                             AND (`glpi_cables`.sockets_id_endpoint_a = $ID
                             OR `glpi_cables`.sockets_id_endpoint_b = $ID)";
 
-                $rearCable = $DB->fetchArray($DB->query($query));
+            $rearCable = $DB->fetchArray($DB->query($query));
 
-                $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
+            $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
                         CASE `glpi_cables`.itemtype_endpoint_a
                             WHEN 'Computer' THEN computers_a.name
                             WHEN 'Networkequipment' THEN networkequipments_a.name
@@ -313,14 +313,14 @@ class Socket extends CommonDBChild
 
     public function retrievedataFromNetworkPort($input)
     {
-       //get position from networkport if needed
+        //get position from networkport if needed
         if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0 ) && $input["position"] == 'auto') {
             $networkport = new NetworkPort();
             $networkport->getFromDB($input["networkports_id"]);
             $input['position'] = $networkport->fields['logical_number'];
         }
 
-       //get name from networkport if needed
+        //get name from networkport if needed
         if ((isset($input["networkports_id"]) && $input["networkports_id"] > 0 ) && empty($input["name"])) {
             $networkport = new NetworkPort();
             $networkport->getFromDB($input["networkports_id"]);
@@ -404,7 +404,7 @@ class Socket extends CommonDBChild
     public static function getWiringSideName($value)
     {
         $tab  = static::getSides();
-       // Return $value if not defined
+        // Return $value if not defined
         return (isset($tab[$value]) ? $tab[$value] : $value);
     }
 
@@ -461,6 +461,15 @@ class Socket extends CommonDBChild
             'additionalfields'   => ['itemtype']
         ];
 
+        $tab[] = [
+            'id'                 => '9',
+            'table'              => Socket::getTable(),
+            'field'              => 'wiring_side',
+            'name'               => __('Wiring side'),
+            'searchtype'         => 'equals',
+            'datatype'           => 'specific'
+        ];
+
         $tab = array_merge($tab, Location::rawSearchOptionsToAdd());
 
         foreach ($tab as &$t) {
@@ -469,6 +478,18 @@ class Socket extends CommonDBChild
                 break;
             }
         }
+
+        $tab[] = [
+            'id'                 => '1312',
+            'table'              => Socket::getTable(),
+            'field'              => 'wiring_side',
+            'name'               => __('Wiring side'),
+            'searchtype'         => 'equals',
+            'joinparams'         => [
+                'jointype'           => 'itemtype_item',
+            ],
+            'datatype'           => 'specific'
+        ];
 
         return $tab;
     }
@@ -604,10 +625,10 @@ class Socket extends CommonDBChild
                 ]
             ]);
 
-           // Check twin :
+            // Check twin :
             if (count($iterator)) {
-                 $result = $iterator->current();
-                 return $result['id'];
+                $result = $iterator->current();
+                return $result['id'];
             }
         }
         return -1;
@@ -635,7 +656,7 @@ class Socket extends CommonDBChild
     public function cleanIfStealNetworkPort()
     {
         global $DB;
-       //find other socket with same networkport and reset it
+        //find other socket with same networkport and reset it
         if ($this->fields['networkports_id'] > 0) {
             $iter = $DB->request(['SELECT' => 'id',
                 'FROM'  => getTableForItemType(Socket::getType()),
@@ -646,8 +667,8 @@ class Socket extends CommonDBChild
             ]);
 
             foreach (Socket::getFromIter($iter) as $socket) {
-                 $socket->fields['networkports_id'] = 0;
-                 $socket->update($socket->fields);
+                $socket->fields['networkports_id'] = 0;
+                $socket->update($socket->fields);
             }
         }
     }
@@ -682,12 +703,12 @@ class Socket extends CommonDBChild
                 default:
                     if (in_array($item->getType(), $CFG_GLPI['socket_types'])) {
                         if ($_SESSION['glpishow_count_on_tabs']) {
-                              $nb =  countElementsInTable(
-                                  $this->getTable(),
-                                  ['itemtype' => $item->getType(),
+                            $nb =  countElementsInTable(
+                                $this->getTable(),
+                                ['itemtype' => $item->getType(),
                                       'items_id' => $item->getID()
                                   ]
-                              );
+                            );
                         }
                         return self::createTabEntry(self::getTypeName(Session::getPluralNumber()), $nb);
                     }
@@ -732,7 +753,7 @@ class Socket extends CommonDBChild
             return false;
         }
 
-       // Link to open a new socket
+        // Link to open a new socket
         if ($item->getID() && self::canCreate()) {
             // Html::showSimpleForm(
             //     Socket::getFormURL(),
@@ -834,6 +855,7 @@ class Socket extends CommonDBChild
 
             echo "<td>" . $socket->fields["position"] . "</td>";
             echo "<td>" . Dropdown::getDropdownName(SocketModel::getTable(), $socket->fields["socketmodels_id"]) . "</td>";
+            echo "<td>" . self::getWiringSideName($socket->fields["wiring_side"]) . "</td>";
 
             $networkport = new NetworkPort();
             if ($networkport->getFromDB($socket->fields["networkports_id"])) {
@@ -893,7 +915,7 @@ class Socket extends CommonDBChild
         if ($canedit) {
             $socket_itemtypes = array_keys(self::getSocketLinkTypes());
             echo "<div class='first-bloc'>";
-           // Minimal form for quick input.
+            // Minimal form for quick input.
             echo "<form action='" . $socket->getFormURL() . "' method='post'>";
             echo "<br><table class='tab_cadre_fixe'>";
             echo "<tr class='tab_bg_2 center'>";
@@ -909,6 +931,9 @@ class Socket extends CommonDBChild
             echo "<td>" . SocketModel::getTypeName(1) . "</td><td>";
             SocketModel::dropdown("socketmodels_id", []);
             echo "</td>";
+            echo "<td>" . __('Wiring side') . "</td><td>";
+            Socket::dropdownWiringSide("wiring_side", []);
+            echo "</td>";
             echo "<td>" . __('Itemtype') . "</td><td>";
             Dropdown::showSelectItemFromItemtypes([
                 'itemtypes' => $socket_itemtypes,
@@ -923,7 +948,7 @@ class Socket extends CommonDBChild
             echo "</table>\n";
             Html::closeForm();
 
-           // Minimal form for massive input.
+            // Minimal form for massive input.
             echo "<form action='" . $socket->getFormURL() . "' method='post'>";
             echo "<table class='tab_cadre_fixe'>";
             echo "<tr class='tab_bg_2 center'>";
@@ -1004,6 +1029,7 @@ class Socket extends CommonDBChild
             echo "<th>" . __('Socket Model') . "</th>"; // socket Model
             echo "<th>" . _n('Asset', 'Assets', Session::getPluralNumber()) . "</th>"; // Asset
             echo "<th>" . __('NetworkPort') . "</th>"; // NetworkPort
+            echo "<th>" . __('Wiring side') . "</th>"; // Wiring side
             echo "<th>" . __('Comments') . "</th>"; // Comment
             echo "</tr>\n";
 
@@ -1050,7 +1076,7 @@ class Socket extends CommonDBChild
                 $networkport = new NetworkPort();
                 $networkport->getFromDB($data['networkports_id']);
                 echo "<td>" . $networkport->getLink() . "</td>";
-
+                echo "<td>" . self::getSides()[$data['wiring_side']] . "</td>";
                 echo "<td>" . $data['comment'] . "</td>";
                 echo "</tr>\n";
             }
