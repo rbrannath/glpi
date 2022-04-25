@@ -140,10 +140,11 @@ class Socket extends CommonDBChild
         }
         echo "</span>";
         echo "</div>";
-
-        echo "<div id='show_networkport_field'>";
+        if (!isset($options['several'])) {
+            echo "<div>";
             echo "<label class='form-label'>". __('Network port') ."</label>";
-        NetworkPort::dropdown(['name'                => 'networkports_id',
+            echo "<div id='show_networkport_field'>";
+            NetworkPort::dropdown(['name' => 'networkports_id',
                 'value'               => $networkports_id,
                 'display_emptychoice' => true,
                 'condition'           => ['items_id' => $items_id,
@@ -151,6 +152,8 @@ class Socket extends CommonDBChild
                 ]
             ]);
             echo "</div>";
+            echo "</div>";
+        }
 
         //Listener to update breacrumb / socket
         echo Html::scriptBlock("
