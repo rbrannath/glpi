@@ -112,7 +112,7 @@ class Socket extends CommonDBChild
         $rand_items_id = rand();
 
         echo "<div id='show_itemtype_field' class='input_listener'>";
-        echo "<label class='form-label'>". __('Asset') ."</label>";
+        echo "<label class='form-label'>" . __('Asset') . "</label>";
         Dropdown::showFromArray('itemtype', self::getSocketLinkTypes(), ['value' => $itemtype,
             'rand' => $rand_itemtype
         ]);
@@ -141,7 +141,7 @@ class Socket extends CommonDBChild
         echo "</div>";
         if (!isset($options['several'])) {
             echo "<div>";
-            echo "<label class='form-label'>". __('Network port') ."</label>";
+            echo "<label class='form-label'>" . __('Network port') . "</label>";
             echo "<div id='show_networkport_field'>";
             NetworkPort::dropdown(['name' => 'networkports_id',
                 'value'               => $networkports_id,
@@ -711,8 +711,8 @@ class Socket extends CommonDBChild
                             $nb =  countElementsInTable(
                                 $this->getTable(),
                                 ['itemtype' => $item->getType(),
-                                      'items_id' => $item->getID()
-                                  ]
+                                    'items_id' => $item->getID()
+                                ]
                             );
                         }
                         return self::createTabEntry(self::getTypeName(Session::getPluralNumber()), $nb);
@@ -759,20 +759,20 @@ class Socket extends CommonDBChild
 
         // Link to open a new socket
         if ($item->getID() && self::canCreate()) {
-            echo "<form method='POST' action='".Socket::getFormURL()."'>";
+            echo "<form method='POST' action='" . Socket::getFormURL() . "'>";
             echo "<div class='row flex-row'>";
             echo "<div class='col-12 col-sm-2 mb-2'>";
-            echo "<button type='submit' class='btn btn-primary'>".__('New socket for this item...')."</button>";
+            echo "<button type='submit' class='btn btn-primary'>" . __('New socket for this item...') . "</button>";
             echo "</div>";
             echo "<div class='form-field row col-12 col-sm-10 mb-2'>";
-            echo "<label class='col-form-label col-xxl-2 text-xxl-end'>".__('Add several sockets')."</label>";
+            echo "<label class='col-form-label col-xxl-2 text-xxl-end'>" . __('Add several sockets') . "</label>";
             echo "<div class='col-xxl-10 field-container'>";
-            echo "<input type='checkbox' name='_several' value='several' class='form-check-input mt-2' id='several_".mt_rand()."' />";
+            echo "<input type='checkbox' name='_several' value='several' class='form-check-input mt-2' id='several_" . mt_rand() . "' />";
             echo "</div>";
             echo "</div>";
             echo "<input type='hidden' name='_add_fromitem' value='1'/>";
-            echo "<input type='hidden' name='_from_itemtype' value='".$item->getType()."'/>";
-            echo "<input type='hidden' name='_from_items_id' value='".$item->getID()."'/>";
+            echo "<input type='hidden' name='_from_itemtype' value='" . $item->getType() . "'/>";
+            echo "<input type='hidden' name='_from_items_id' value='" . $item->getID() . "'/>";
             echo "</div>";
             Html::closeForm();
         }
