@@ -188,16 +188,10 @@ class Socket extends CommonDBChild
     {
         global $DB;
 
-        global $DB;
-
-        global $DB;
-
-        global $DB;
-
         $itemtype = null;
         if (isset($options['itemtype']) && !empty($options['itemtype'])) {
             $itemtype = $options['itemtype'];
-        } elseif (isset($this->fields['itemtype']) && !empty($this->fields['itemtype'])) {
+        } else if (isset($this->fields['itemtype']) && !empty($this->fields['itemtype'])) {
             $itemtype = $this->fields['itemtype'];
         } else {
             throw new \RuntimeException('Unable to retrieve itemtype');
@@ -210,77 +204,92 @@ class Socket extends CommonDBChild
             $this->check($ID, READ);
             $item->getFromDB($this->fields['items_id']);
 
-            $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
-                        CASE `glpi_cables`.itemtype_endpoint_a
-                            WHEN 'Computer' THEN computers_a.name
-                            WHEN 'Networkequipment' THEN networkequipments_a.name
-                            WHEN 'Printer' THEN printers_a.name
-                            WHEN 'Phone' THEN phones_a.name
-                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_a.name
-                            ELSE NULL
-                        END endpoint_a_name,
-                        CASE `glpi_cables`.itemtype_endpoint_b
-                            WHEN 'Computer' THEN computers_b.name
-                            WHEN 'Networkequipment' THEN networkequipments_b.name
-                            WHEN 'Printer' THEN printers_b.name
-                            WHEN 'Phone' THEN phones_b.name
-                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_b.name
-                            ELSE NULL
-                        END endpoint_b_name
-                        FROM  `glpi_cables`
-                        LEFT JOIN `glpi_sockets` socket_endpoint_a ON `glpi_cables`.sockets_id_endpoint_a = socket_endpoint_a.id
-                        LEFT JOIN `glpi_sockets` socket_endpoint_b ON `glpi_cables`.sockets_id_endpoint_b = socket_endpoint_b.id
-                        LEFT JOIN glpi_computers computers_a ON computers_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_networkequipments networkequipments_a ON networkequipments_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_printers printers_a ON printers_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_phones phones_a ON phones_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_passivedcequipments passivedcequipments_a ON passivedcequipments_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_computers computers_b ON computers_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_networkequipments networkequipments_b ON networkequipments_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_printers printers_b ON printers_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_phones phones_b ON phones_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_passivedcequipments passivedcequipments_b ON passivedcequipments_b.id = glpi_cables.items_id_endpoint_b
-                        WHERE `glpi_cables`.wiring_side = 2
-                            AND (`glpi_cables`.sockets_id_endpoint_a = $ID
-                            OR `glpi_cables`.sockets_id_endpoint_b = $ID)";
+            $leftJoins = [
+                'glpi_sockets' . ' AS socket_endpoint_a' => [
+                    'FKEY' => [
+                        'glpi_cables'   => 'sockets_id_endpoint_a',
+                        'socket_endpoint_a' => 'id'
+                    ]
+                ],
 
-            $rearCable = $DB->fetchArray($DB->query($query));
+                'glpi_sockets' . ' AS socket_endpoint_b' => [
+                    'FKEY'   => [
+                        'glpi_cables'   => 'sockets_id_endpoint_b',
+                        'socket_endpoint_b' => 'id'
+                    ]
+                ],
+            ];
 
-            $query  = "SELECT `glpi_cables`.*, socket_endpoint_a.name as socket_name_endpoint_a, socket_endpoint_b.name as socket_name_endpoint_b,
-                        CASE `glpi_cables`.itemtype_endpoint_a
-                            WHEN 'Computer' THEN computers_a.name
-                            WHEN 'Networkequipment' THEN networkequipments_a.name
-                            WHEN 'Printer' THEN printers_a.name
-                            WHEN 'Phone' THEN phones_a.name
-                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_a.name
-                            ELSE NULL
-                        END endpoint_a_name,
-                        CASE `glpi_cables`.itemtype_endpoint_b
-                            WHEN 'Computer' THEN computers_b.name
-                            WHEN 'Networkequipment' THEN networkequipments_b.name
-                            WHEN 'Printer' THEN printers_b.name
-                            WHEN 'Phone' THEN phones_b.name
-                            WHEN 'PassiveDCEquipment' THEN passivedcequipments_b.name
-                            ELSE NULL
-                        END endpoint_b_name
-                        FROM  `glpi_cables`
-                        LEFT JOIN `glpi_sockets` socket_endpoint_a ON `glpi_cables`.sockets_id_endpoint_a = socket_endpoint_a.id
-                        LEFT JOIN `glpi_sockets` socket_endpoint_b ON `glpi_cables`.sockets_id_endpoint_b = socket_endpoint_b.id
-                        LEFT JOIN glpi_computers computers_a ON computers_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_networkequipments networkequipments_a ON networkequipments_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_printers printers_a ON printers_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_phones phones_a ON phones_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_passivedcequipments passivedcequipments_a ON passivedcequipments_a.id = glpi_cables.items_id_endpoint_a
-                        LEFT JOIN glpi_computers computers_b ON computers_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_networkequipments networkequipments_b ON networkequipments_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_printers printers_b ON printers_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_phones phones_b ON phones_b.id = glpi_cables.items_id_endpoint_b
-                        LEFT JOIN glpi_passivedcequipments passivedcequipments_b ON passivedcequipments_b.id = glpi_cables.items_id_endpoint_b
-                        WHERE `glpi_cables`.wiring_side = 1
-                            AND (`glpi_cables`.sockets_id_endpoint_a = $ID
-                            OR `glpi_cables`.sockets_id_endpoint_b = $ID)";
+            $itemTypeTables = [
+                'glpi_computers',
+                'glpi_networkequipments',
+                'glpi_printers',
+                'glpi_passivedcequipments',
+                'glpi_phones',
+                'glpi_passivedcequipments'
+            ];
 
-            $frontCable = $DB->fetchArray($DB->query($query));
+            foreach ($itemTypeTables as $itemTypeTable) {
+                $leftJoin = [
+                    $itemTypeTable . ' AS ' . $itemTypeTable . '_a' => [
+                        'FKEY'   => [
+                            'glpi_cables'   => 'items_id_endpoint_a',
+                            $itemTypeTable . '_a' => 'id'
+                        ]
+                    ],
+                ];
+                $leftJoins = array_merge($leftJoins, $leftJoin);
+                $leftJoin = [
+                    $itemTypeTable . ' AS ' . $itemTypeTable . '_b' => [
+                        'FKEY'   => [
+                            'glpi_cables'   => 'items_id_endpoint_b',
+                            $itemTypeTable . '_b' => 'id'
+                        ]
+                    ],
+                ];
+                $leftJoins = array_merge($leftJoins, $leftJoin);
+            }
+
+            $where = function ($wiringSide, $ID) {
+                return [
+                    'WHERE' => [
+                        'glpi_cables.wiring_side' => $wiringSide,
+                        'OR' => [
+                            'glpi_cables.sockets_id_endpoint_a' => $ID,
+                            'glpi_cables.sockets_id_endpoint_a' => $ID
+                        ]
+                    ]
+                ];
+            };
+
+            $criteria = [
+                'SELECT' => new \QueryExpression(
+                    'glpi_cables.*,
+                    socket_endpoint_a.name as socket_name_endpoint_a,
+                    socket_endpoint_b.name as socket_name_endpoint_b,
+                    CASE glpi_cables.itemtype_endpoint_a
+                        WHEN "Computer" THEN glpi_computers_a.name
+                        WHEN "Networkequipment" THEN glpi_networkequipments_a.name
+                        WHEN "Printer" THEN glpi_printers_a.name
+                        WHEN "Phone" THEN glpi_phones_a.name
+                        WHEN "PassiveDCEquipment" THEN glpi_passivedcequipments_a.name
+                        ELSE NULL
+                    END endpoint_a_name,
+                    CASE glpi_cables.itemtype_endpoint_b
+                        WHEN "Computer" THEN glpi_computers_b.name
+                        WHEN "Networkequipment" THEN glpi_networkequipments_b.name
+                        WHEN "Printer" THEN glpi_printers_b.name
+                        WHEN "Phone" THEN glpi_phones_b.name
+                        WHEN "PassiveDCEquipment" THEN glpi_passivedcequipments_b.name
+                        ELSE NULL
+                    END endpoint_b_name'
+                ),
+                'FROM'   => 'glpi_cables',
+                'LEFT JOIN' => $leftJoins
+            ];
+
+            $rearCable = $DB->request(array_merge($criteria, $where(1, $ID)))->current();
+            $frontCable = $DB->request(array_merge($criteria, $where(2, $ID)))->current();
         } else {
             $this->check(-1, CREATE, $options);
             $item->getFromDB($options['items_id']);
@@ -728,7 +737,7 @@ class Socket extends CommonDBChild
         global $CFG_GLPI;
         if ($item->getType() == 'Location') {
             self::showForLocation($item);
-        } elseif (in_array($item->getType(), $CFG_GLPI['socket_types'])) {
+        } else if (in_array($item->getType(), $CFG_GLPI['socket_types'])) {
             self::showListForItem($item);
         }
         return true;
