@@ -1664,60 +1664,6 @@
             "time": "2022-03-23T19:32:04+00:00"
         },
         {
-            "name": "php-http/message-factory",
-            "version": "v1.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/php-http/message-factory.git",
-                "reference": "a478cb11f66a6ac48d8954216cfed9aa06a501a1"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/php-http/message-factory/zipball/a478cb11f66a6ac48d8954216cfed9aa06a501a1",
-                "reference": "a478cb11f66a6ac48d8954216cfed9aa06a501a1",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=5.4",
-                "psr/http-message": "^1.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "1.0-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Http\\Message\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Márk Sági-Kazár",
-                    "email": "mark.sagikazar@gmail.com"
-                }
-            ],
-            "description": "Factory interfaces for PSR-7 HTTP Message",
-            "homepage": "http://php-http.org",
-            "keywords": [
-                "factory",
-                "http",
-                "message",
-                "stream",
-                "uri"
-            ],
-            "support": {
-                "issues": "https://github.com/php-http/message-factory/issues",
-                "source": "https://github.com/php-http/message-factory/tree/master"
-            },
-            "time": "2015-12-19T14:08:53+00:00"
-        },
-        {
             "name": "phplang/scope-exit",
             "version": "1.0.0",
             "source": {
@@ -2745,16 +2691,16 @@
         },
         {
             "name": "sabre/vobject",
-            "version": "4.4.1",
+            "version": "4.4.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sabre-io/vobject.git",
-                "reference": "06feff370141fd3118609f808e86d9315864bf14"
+                "reference": "b8a44ea1610d9b7012e42a7ff6f1cb66f0b757dd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sabre-io/vobject/zipball/06feff370141fd3118609f808e86d9315864bf14",
-                "reference": "06feff370141fd3118609f808e86d9315864bf14",
+                "url": "https://api.github.com/repos/sabre-io/vobject/zipball/b8a44ea1610d9b7012e42a7ff6f1cb66f0b757dd",
+                "reference": "b8a44ea1610d9b7012e42a7ff6f1cb66f0b757dd",
                 "shasum": ""
             },
             "require": {
@@ -2845,7 +2791,7 @@
                 "issues": "https://github.com/sabre-io/vobject/issues",
                 "source": "https://github.com/fruux/sabre-vobject"
             },
-            "time": "2021-12-07T09:45:33+00:00"
+            "time": "2022-06-24T11:36:21+00:00"
         },
         {
             "name": "sabre/xml",
