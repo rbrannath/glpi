@@ -21,7 +21,7 @@
         "@tabler/core": "^1.0.0-beta13",
         "@tabler/icons": "^1.68.0",
         "animate.css": "^4.1.1",
-        "bootstrap": "^5.2.1",
+        "bootstrap": "^5.2.3",
         "codemirror": "^5.51.0",
         "cytoscape": "^3.13.0",
         "cytoscape-canvas": "^3.0.1",
