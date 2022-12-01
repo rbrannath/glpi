@@ -60,7 +60,7 @@
         "symfony/dom-crawler": "^5.4",
         "symfony/mailer": "^5.4",
         "symfony/mime": "^5.4",
-        "symfony/polyfill-ctype": "^1.26",
+        "symfony/polyfill-ctype": "^1.27",
         "symfony/polyfill-iconv": "^1.26",
         "symfony/polyfill-mbstring": "^1.26",
         "symfony/polyfill-php80": "^1.26",
