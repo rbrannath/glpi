@@ -40,7 +40,7 @@
         "league/csv": "^9.7",
         "mexitek/phpcolors": "^1.0",
         "michelf/php-markdown": "^2.0",
-        "monolog/monolog": "^2.8",
+        "monolog/monolog": "^2.9",
         "paragonie/sodium_compat": "^1.17",
         "psr/cache": "^2.0",
         "psr/log": "^2.0",
