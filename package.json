@@ -20,7 +20,7 @@
         "@fullcalendar/core": "^4.4.2",
         "@fullcalendar/daygrid": "^4.4.2",
         "@fullcalendar/interaction": "^4.4.2",
-        "@fullcalendar/list": "^4.4.2",
+        "@fullcalendar/list": "^5.11.5",
         "@fullcalendar/resource-common": "^4.4.2",
         "@fullcalendar/resource-timeline": "^4.4.2",
         "@fullcalendar/rrule": "^4.4.2",
