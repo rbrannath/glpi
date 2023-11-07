@@ -7458,9 +7458,9 @@ abstract class CommonITILObject extends CommonDBTM
                     . (empty($validation_row['validation_date']) ? '' : '_request'); // If no answer, no suffix to see attached documents on request
 
                 $content = __('Validation request');
-                if (is_a($validation['itemtype_target'], CommonDBTM::class, true)) {
-                    $validation_target = new $validation['itemtype_target']();
-                    if ($validation_target->getFromDB($validation['items_id_target'])) {
+                if (is_a($validation_row['itemtype_target'], CommonDBTM::class, true)) {
+                    $validation_target = new $validation_row['itemtype_target']();
+                    if ($validation_target->getFromDB($validation_row['items_id_target'])) {
                         $content .= " <i class='ti ti-arrow-right'></i><i class='{$validation_target->getIcon()} text-muted me-1'></i>"
                             . $validation_target->getlink();
                     }
@@ -9609,7 +9609,7 @@ abstract class CommonITILObject extends CommonDBTM
             $itemtype = $item['_itemtype'];
             $card = [
                 'id'              => "{$itemtype}-{$item['id']}",
-                'title'           => '<span class="pointer">' . $item['name'] . '</span>',
+                'title'           => $item['name'],
                 'title_tooltip'   => Html::resume_text(RichText::getTextFromHtml($item['content'], false, true), 100),
                 'is_deleted'      => $item['is_deleted'] ?? false,
             ];
@@ -9673,13 +9673,7 @@ abstract class CommonITILObject extends CommonDBTM
 
         $category_ids = [];
         foreach ($columns as $column_id => $column) {
-            if (
-                $column_id !== 0 && !in_array($column_id, $column_ids) &&
-                (!isset($column['items']) || !count($column['items']))
-            ) {
-                // If no specific columns were asked for, drop empty columns.
-                // If specific columns were asked for, such as when loading a user's Kanban view, we must preserve them.
-                // We always preserve the 'No Status' column.
+            if ($column_id !== 0 && !in_array($column_id, $column_ids)) {
                 unset($columns[$column_id]);
             } else if (isset($column['items'])) {
                 foreach ($column['items'] as $item) {
