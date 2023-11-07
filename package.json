@@ -78,6 +78,10 @@
         "vue": "^3.3.4"
     },
     "scripts": {
+        "ddev:curl": "sudo curl -fsSL https://pkg.ddev.com/apt/gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/ddev.gpg > /dev/null",
+        "ddev:deb": "echo \"deb [signed-by=/usr/share/keyrings/ddev.gpg] https://pkg.ddev.com/apt/ stable main\" | sudo tee /etc/apt/sources.list.d/ddev.list >/dev/null",
+        "ddev:apt-update": "sudo apt update",
+        "ddev:install": "sudo apt install -y ddev",
         "build:pack": "webpack --config .webpack.config.js",
         "build:vue": "webpack --config .vue.webpack.config.js",
         "build": "npm run build:pack && npm run build:vue",
