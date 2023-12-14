@@ -369,7 +369,92 @@ class DBmysql
      */
     public function query($query)
     {
-        trigger_error('Executing direct queries is not allowed!', E_USER_ERROR);
+        global $CFG_GLPI, $DEBUG_SQL, $SQL_TOTAL_REQUEST;
+
+        //FIXME Remove use of $DEBUG_SQL and $SQL_TOTAL_REQUEST
+
+        $debug_data = [
+            'query' => $query,
+            'time' => 0,
+            'rows' => 0,
+            'errors' => '',
+            'warnings' => '',
+        ];
+
+        $is_debug = isset($_SESSION['glpi_use_mode']) && ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE);
+        if ($is_debug && $CFG_GLPI["debug_sql"]) {
+            $SQL_TOTAL_REQUEST++;
+            $DEBUG_SQL["queries"][$SQL_TOTAL_REQUEST] = $query;
+        }
+
+        $TIMER = new Timer();
+        $TIMER->start();
+
+        $this->checkForDeprecatedTableOptions($query);
+
+        $res = $this->dbh->query($query);
+        if (!$res) {
+           // no translation for error logs
+            $error = "  *** MySQL query error:\n  SQL: " . $query . "\n  Error: " .
+                   $this->dbh->error . "\n";
+            $error .= Toolbox::backtrace(false, 'DBmysql->query()', ['Toolbox::backtrace()']);
+
+            Toolbox::logSqlError($error);
+
+            ErrorHandler::getInstance()->handleSqlError($this->dbh->errno, $this->dbh->error, $query);
+
+            if (($is_debug || isAPI()) && $CFG_GLPI["debug_sql"]) {
+                $DEBUG_SQL["errors"][$SQL_TOTAL_REQUEST] = $this->error();
+                $debug_data['errors'] = $this->error();
+            }
+        }
+
+        if ($is_debug && $CFG_GLPI["debug_sql"]) {
+            $TIME = $TIMER->getTime();
+            $debug_data['time'] = (int) ($TIME * 1000);
+            $debug_data['rows'] = $this->affectedRows();
+            $DEBUG_SQL["times"][$SQL_TOTAL_REQUEST] = $TIME;
+            $DEBUG_SQL['rows'][$SQL_TOTAL_REQUEST] = $this->affectedRows();
+        }
+
+        $this->last_query_warnings = $this->fetchQueryWarnings();
+        $DEBUG_SQL['warnings'][$SQL_TOTAL_REQUEST] = $this->last_query_warnings;
+
+        $warnings_string = implode(
+            "\n",
+            array_map(
+                static function ($warning) {
+                    return sprintf('%s: %s', $warning['Code'], $warning['Message']);
+                },
+                $this->last_query_warnings
+            )
+        );
+        $debug_data['warnings'] = $warnings_string;
+
+        // Output warnings in SQL log
+        if (!empty($this->last_query_warnings)) {
+            $message = sprintf(
+                "  *** MySQL query warnings:\n  SQL: %s\n  Warnings: \n%s\n",
+                $query,
+                $warnings_string
+            );
+            $message .= Toolbox::backtrace(false, 'DBmysql->query()', ['Toolbox::backtrace()']);
+            Toolbox::logSqlWarning($message);
+
+            ErrorHandler::getInstance()->handleSqlWarnings($this->last_query_warnings, $query);
+        }
+
+        \Glpi\Debug\Profile::getCurrent()->addSQLQueryData(
+            $debug_data['query'],
+            $debug_data['time'],
+            $debug_data['rows'],
+            $debug_data['errors'],
+            $debug_data['warnings']
+        );
+        if ($this->execution_time === true) {
+            $this->execution_time = $TIMER->getTime(0, true);
+        }
+        return $res;
     }
 
     /**
@@ -493,7 +578,23 @@ class DBmysql
      */
     public function queryOrDie($query, $message = '')
     {
-        trigger_error('Executing direct queries is not allowed!', E_USER_ERROR);
+        $res = $this->query($query);
+        if (!$res) {
+           //TRANS: %1$s is the description, %2$s is the query, %3$s is the error message
+            $message = sprintf(
+                __('%1$s - Error during the database query: %2$s - Error is %3$s'),
+                $message,
+                $query,
+                $this->error()
+            );
+            if (isCommandLine()) {
+                 throw new \RuntimeException($message);
+            } else {
+                echo $message . "\n";
+                die(1);
+            }
+        }
+        return $res;
     }
 
     /**
