@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -112,7 +112,7 @@ class Notification_NotificationTemplate extends CommonDBRelation
      * Print the notification templates
      *
      * @param Notification $notif        Notification object
-     * @param boolean      $withtemplate Template or basic item (default '')
+     * @param integer      $withtemplate Template or basic item (default '')
      *
      * @return void
      **/
@@ -212,7 +212,7 @@ class Notification_NotificationTemplate extends CommonDBRelation
      * Print associated notifications
      *
      * @param NotificationTemplate $template     Notification template object
-     * @param boolean              $withtemplate Template or basic item (default '')
+     * @param integer              $withtemplate Template or basic item (default '')
      *
      * @return void
      */
@@ -301,7 +301,7 @@ class Notification_NotificationTemplate extends CommonDBRelation
      *     - target for the Form
      *     - computers_id ID of the computer for add process
      *
-     * @return true if displayed  false if item not found or not right to display
+     * @return boolean true if displayed  false if item not found or not right to display
      **/
     public function showForm($ID, array $options = [])
     {
@@ -366,11 +366,9 @@ class Notification_NotificationTemplate extends CommonDBRelation
     }
 
     /**
-     * Get notification method label
+     * Get modes
      *
-     * @since 0.84
-     *
-     * @return the mode's label
+     * @return array
      **/
     public static function getModes()
     {

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -182,13 +182,6 @@ class Config extends CommonDBTM
                 $input["url_base"] = rtrim($input["url_base"], '/');
             } else {
                 Session::addMessageAfterRedirect(__('Invalid base URL!'), false, ERROR);
-                return false;
-            }
-        }
-
-        if (isset($input["url_base_api"]) && !empty($input["url_base_api"])) {
-            if (!Toolbox::isValidWebUrl($input["url_base_api"])) {
-                Session::addMessageAfterRedirect(__('Invalid API base URL!'), false, ERROR);
                 return false;
             }
         }
@@ -538,6 +531,8 @@ class Config extends CommonDBTM
 
         // Options just for new API
         $api_versions = \Glpi\Api\HL\Router::getAPIVersions();
+        $legacy_version = array_filter($api_versions, static fn ($version) => $version['api_version'] === '1');
+        $legacy_version = reset($legacy_version);
         $current_version = array_filter($api_versions, static fn ($version) => $version['version'] === \Glpi\Api\HL\Router::API_VERSION);
         $current_version = reset($current_version);
         $getting_started_doc = $current_version['endpoint'] . '/getting-started';
@@ -549,8 +544,8 @@ class Config extends CommonDBTM
             'getting_started_doc_url' => $getting_started_doc,
             'endpoint_doc_url' => $endpoint_doc,
             'api_url' => $current_version['endpoint'],
-            'legacy_doc_url' => trim($CFG_GLPI['url_base_api'], '/') . "/",
-            'legacy_api_url' => $CFG_GLPI["url_base_api"],
+            'legacy_doc_url' => $legacy_version['endpoint'],
+            'legacy_api_url' => $legacy_version['endpoint'],
         ]);
         TemplateRenderer::getInstance()->display('pages/setup/general/api_apiclients_section.html.twig');
     }
@@ -627,13 +622,15 @@ class Config extends CommonDBTM
         }
 
         $central = new Central();
+        $palettes = $this->getPalettes(true);
         TemplateRenderer::getInstance()->display('pages/setup/general/preferences_setup.html.twig', [
             'is_user' => $userpref,
             'canedit' => (!$userpref && $canedit) || ($userpref && $canedituser),
             'form_path' => $url,
             'can_edit_config' => $canedit,
             'config' => $data,
-            'palettes' => $this->getPalettes(),
+            'palettes' => array_combine(array_keys($palettes), array_column($palettes, 'name')),
+            'palettes_isdark' => array_combine(array_keys($palettes), array_column($palettes, 'dark')),
             'timezones' => $DB->use_timezones ? $DB->getTimezones() : null,
             'central_tabs' => $central->getTabNameForItem($central, 0),
         ]);
@@ -830,7 +827,7 @@ class Config extends CommonDBTM
             $dir = getcwd();
             chdir(GLPI_ROOT);
             $returnCode = 1;
-            /** @var array $output */
+            $output = [];
             $gitrev = @exec('git show --format="%h" --no-patch 2>&1', $output, $returnCode);
             $gitbranch = '';
             if (!$returnCode) {
@@ -907,8 +904,10 @@ class Config extends CommonDBTM
 
     /**
      * Retrieve full directory of a lib
+     *
      * @param  $libstring  object, class or function
-     * @return string       the path or false
+     *
+     * @return false|string the path or false
      *
      * @since 9.1
      */
@@ -1061,7 +1060,11 @@ class Config extends CommonDBTM
             ],
             [
                 'name'  => 'symfony/polyfill-php82',
-                'check' => 'Symfony\\Polyfill\\Php82\\SensitiveParameterValue'
+                'check' => 'ini_parse_quantity'
+            ],
+            [
+                'name'  => 'symfony/polyfill-php83',
+                'check' => 'json_validate'
             ],
             [
                 'name'  => 'league/oauth2-client',
@@ -1301,11 +1304,11 @@ class Config extends CommonDBTM
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
 
-        switch ($item->getType()) {
-            case 'Preference':
+        switch (get_class($item)) {
+            case Preference::class:
                 return __('Personalization');
 
-            case 'User':
+            case User::class:
                 if (
                     User::canUpdate()
                     && $item->currentUserHaveMoreRightThan($item->getID())
@@ -1314,7 +1317,7 @@ class Config extends CommonDBTM
                 }
                 break;
 
-            case __CLASS__:
+            case self::class:
                 $tabs = [
                     1 => self::createTabEntry(__('General setup')),  // Display
                     2 => self::createTabEntry(__('Default values')), // Prefs
@@ -1354,18 +1357,18 @@ class Config extends CommonDBTM
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
-        if ($item->getType() == 'Preference') {
+        if ($item instanceof Preference) {
             $config = new self();
             $user   = new User();
             if ($user->getFromDB(Session::getLoginUserID())) {
                 $user->computePreferences();
                 $config->showFormUserPrefs($user->fields);
             }
-        } else if ($item->getType() == 'User') {
+        } else if ($item instanceof User) {
             $config = new self();
             $item->computePreferences();
             $config->showFormUserPrefs($item->fields);
-        } else if ($item->getType() == __CLASS__) {
+        } else if ($item instanceof self) {
             switch ($tabnum) {
                 case 1:
                     $item->showFormDisplay();
@@ -1846,14 +1849,23 @@ class Config extends CommonDBTM
     /**
      * Get available palettes
      *
+     * @param bool $expanded_info Get expanded info for each palette
      * @return array
+     * @phpstan-return $expanded_info ? array<string, {name: string, dark: boolean}> : array<string, string>
      */
-    public function getPalettes()
+    public function getPalettes(bool $expanded_info = false)
     {
         $all_themes = ThemeManager::getInstance()->getAllThemes();
         $themes = [];
         foreach ($all_themes as $theme) {
-            $themes[$theme->getKey()] = $theme->getName();
+            if ($expanded_info) {
+                $themes[$theme->getKey()] = [
+                    'name' => $theme->getName(),
+                    'dark' => $theme->isDarkTheme(),
+                ];
+            } else {
+                $themes[$theme->getKey()] = $theme->getName();
+            }
         }
         return $themes;
     }
@@ -1993,7 +2005,7 @@ class Config extends CommonDBTM
         $this->logConfigChange($this->fields['context'], $this->fields['name'], (string)$this->fields['value'], '');
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /**
          * @var array $CFG_GLPI
@@ -2333,12 +2345,11 @@ class Config extends CommonDBTM
         /** @var \DBmysql $DB */
         global $DB;
         $iterator = $DB->request([
-            'SELECT' => 'id',
+            'SELECT' => ['MIN' => 'id AS id'],
             'FROM'   => self::getTable(),
             'WHERE'  => [
                 'context' => $context,
             ],
-            'LIMIT'  => 1,
         ]);
         if (count($iterator)) {
             return $iterator->current()['id'];

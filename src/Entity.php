@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -654,20 +654,14 @@ class Entity extends CommonTreeDropdown
         $_SESSION['glpiactiveentities_string']              .= ",'" . $this->fields['id'] . "'";
         // Root entity cannot be deleted, so if we added an entity this means GLPI is now multi-entity
         $_SESSION['glpi_multientitiesmode'] = 1;
-
-       // clean entity tree cache
-        $this->cleanEntitySelectorCache();
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
         global $GLPI_CACHE;
 
         parent::post_updateItem($history);
-
-       // clean entity tree cache
-        $this->cleanEntitySelectorCache();
 
         // Delete any cache entry corresponding to an updated entity config
         // for current entities and all its children
@@ -712,9 +706,6 @@ class Entity extends CommonTreeDropdown
                 Entity_RSSFeed::class,
             ]
         );
-
-       // clean entity tree cache
-        $this->cleanEntitySelectorCache();
     }
 
 
@@ -724,13 +715,11 @@ class Entity extends CommonTreeDropdown
      * @since 10.0
      *
      * @return void
+     * @deprecated 10.0.12
      */
     public function cleanEntitySelectorCache()
     {
-        /** @var \Psr\SimpleCache\CacheInterface $GLPI_CACHE */
-        global $GLPI_CACHE;
-
-        $GLPI_CACHE->delete('entity_selector');
+        Toolbox::deprecated('`Entity::cleanEntitySelectorCache()` no longer has any effect as the entity selector is no longer cached as a unique entry');
     }
 
     public function rawSearchOptions()
@@ -1759,7 +1748,7 @@ class Entity extends CommonTreeDropdown
         TemplateRenderer::getInstance()->display('pages/admin/entity/assets.html.twig', [
             'item' => $entity,
             'params' => [
-                'canedit' => (Infocom::canUpdate() && Session::haveAccessToEntity($ID)),
+                'canedit' => $entity->can($ID, UPDATE),
                 'candel' => false, // No deleting from the non-main tab
                 'entities_id' => $entity->fields['entities_id'],
             ],
@@ -1897,93 +1886,48 @@ class Entity extends CommonTreeDropdown
      */
     public static function showUiCustomizationOptions(Entity $entity)
     {
-
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
         $ID = $entity->getField('id');
         if (!$entity->can($ID, READ) || !Session::haveRight(Config::$rightname, UPDATE)) {
             return false;
         }
 
-       // Codemirror lib
-        echo Html::script("public/lib/codemirror.js");
-
        // Notification right applied
         $canedit = Session::haveRight(Config::$rightname, UPDATE)
          && Session::haveAccessToEntity($ID);
-
-        echo "<div class='spaced'>";
-        if ($canedit) {
-            echo "<form method='post' name=form action='" . Toolbox::getItemTypeFormURL(__CLASS__) . "' data-track-changes='true'>";
-        }
-
-        echo "<table class='tab_cadre_fixe custom_css_configuration'>";
-
-        Plugin::doHook(Hooks::PRE_ITEM_FORM, ['item' => $entity, 'options' => []]);
-
-        $rand = mt_rand();
-
-        echo "<tr><th colspan='2'>" . __('UI options') . "</th></tr>";
-
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Enable CSS customization') . "</td>";
-        echo "<td>";
-        $values = [];
+        $enable_css_options = [];
         if (($ID > 0) ? 1 : 0) {
-            $values[Entity::CONFIG_PARENT] = __('Inherits configuration from the parent entity');
+            $enable_css_options[self::CONFIG_PARENT] = __('Inherits configuration from the parent entity');
         }
-        $values[0] = __('No');
-        $values[1] = __('Yes');
-        echo Dropdown::showFromArray(
-            'enable_custom_css',
-            $values,
-            [
-                'display' => false,
-                'rand'    => $rand,
-                'value'   => $entity->fields['enable_custom_css']
-            ]
-        );
-        echo "</td></tr>";
+        $enable_css_options[0] = __('No');
+        $enable_css_options[1] = __('Yes');
 
-        echo "<tr class='tab_bg_1'>";
-        echo "<td colspan='2'>";
-        echo "<div id='custom_css_container' class='custom_css_container'>";
-        $value = $entity->fields['enable_custom_css'];
-       // wrap call in function to prevent modifying variables from current scope
-        call_user_func(function () use ($value, $ID) {
-            $_POST  = [
-                'enable_custom_css' => $value,
-                'entities_id'       => $ID
-            ];
-            include GLPI_ROOT . '/ajax/entityCustomCssCode.php';
-        });
-        echo "</div>\n";
-        echo "</td></tr>";
-
-        Ajax::updateItemOnSelectEvent(
-            'dropdown_enable_custom_css' . $rand,
-            'custom_css_container',
-            $CFG_GLPI['root_doc'] . '/ajax/entityCustomCssCode.php',
-            [
-                'enable_custom_css' => '__VALUE__',
-                'entities_id'       => $ID
-            ]
-        );
-
-        Plugin::doHook(Hooks::POST_ITEM_FORM, ['item' => $entity, 'options' => []]);
-
-        echo "</table>";
-
-        if ($canedit) {
-            echo "<div class='center'>";
-            echo "<input type='hidden' name='id' value='" . $entity->fields["id"] . "'>";
-            echo "<input type='submit' name='update' value=\"" . _sx('button', 'Save') . "\" class='btn btn-primary'>";
-            echo "</div>";
-            Html::closeForm();
+        $enable_css_inheritance_label = null;
+        $inherited_css = null;
+        $inherited_value = null;
+        if ($entity->fields['enable_custom_css'] === self::CONFIG_PARENT) {
+            $inherited_strategy = self::getUsedConfig('enable_custom_css', $entity->fields['entities_id']);
+            $inherited_value = $inherited_strategy === 0
+                ? self::getUsedConfig('enable_custom_css', $entity->fields['entities_id'], 'enable_custom_css')
+                : $inherited_strategy;
+            $enable_css_inheritance_label = self::inheritedValue(
+                self::getSpecificValueToDisplay('enable_custom_css', $inherited_value),
+                false,
+                false
+            );
+            $inherited_css = self::getUsedConfig('enable_custom_css', $entity->fields['entities_id'], 'custom_css_code');
         }
 
-        echo "</div>";
+        TemplateRenderer::getInstance()->display('pages/admin/entity/custom_ui.html.twig', [
+            'item' => $entity,
+            'enable_css_options' => $enable_css_options,
+            'enable_css_inheritance_label' => $enable_css_inheritance_label,
+            'enabled_css_inherited_value' => $inherited_value,
+            'inherited_css' => $inherited_css,
+            'params' => [
+                'canedit' => $canedit,
+                'candel' => false, // No deleting from the non-main tab
+            ],
+        ]);
     }
 
     /**
@@ -3218,6 +3162,7 @@ class Entity extends CommonTreeDropdown
             case 'transfers_id':
                 $strategy = $values['transfers_strategy'] ?? $values[$field];
                 if ($strategy == self::CONFIG_NEVER) {
+                    return __('No automatic transfer');
                 }
                 if ($strategy == self::CONFIG_PARENT) {
                     return __('Inheritance of the parent entity');
@@ -3275,6 +3220,11 @@ class Entity extends CommonTreeDropdown
                     __('Clear status'),
                 );
                 return $states[$values[$field]];
+            case 'enable_custom_css':
+                if ($values[$field] === self::CONFIG_PARENT) {
+                    return __('Inheritance of the parent entity');
+                }
+                return Dropdown::getYesNo($values[$field]);
         }
         return parent::getSpecificValueToDisplay($field, $values, $options);
     }
@@ -3606,5 +3556,124 @@ class Entity extends CommonTreeDropdown
             return self::badgeCompletenameLink($entity);
         }
         return null;
+    }
+
+    private static function getEntityTree(int $entities_id_root): array
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        $sons = getSonsOf('glpi_entities', $entities_id_root);
+        if (!isset($sons[$entities_id_root])) {
+            $sons[$entities_id_root] = $entities_id_root;
+        }
+
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name', 'entities_id'],
+            'FROM'   => 'glpi_entities',
+            'WHERE'  => ['entities_id' => $sons],
+            'ORDER'  => 'name'
+        ]);
+
+        $grouped = [];
+        foreach ($iterator as $row) {
+            if (!array_key_exists($row['entities_id'], $grouped)) {
+                $grouped[$row['entities_id']] = [];
+            }
+            $grouped[$row['entities_id']][] = [
+                'id'   => $row['id'],
+                'name' => $row['name']
+            ];
+        }
+
+        \Glpi\Debug\Profiler::getInstance()->start('constructTreeFromList');
+        $fn_construct_tree_from_list = static function (array $list, int $root) use (&$fn_construct_tree_from_list): array {
+            $tree = [];
+            if (array_key_exists($root, $list)) {
+                foreach ($list[$root] as $data) {
+                    $tree[$data['id']] = [
+                        'name' => $data['name'],
+                        'tree' => $fn_construct_tree_from_list($list, $data['id']),
+                    ];
+                }
+            }
+            return $tree;
+        };
+
+        $constructed = $fn_construct_tree_from_list($grouped, $entities_id_root);
+        \Glpi\Debug\Profiler::getInstance()->stop('constructTreeFromList');
+        return [
+            $entities_id_root => [
+                'name' => Dropdown::getDropdownName('glpi_entities', $entities_id_root),
+                'tree' => $constructed,
+            ],
+        ];
+    }
+
+    public static function getEntitySelectorTree(): array
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        $base_path = $CFG_GLPI['root_doc'] . "/front/central.php";
+        if (Session::getCurrentInterface() == 'helpdesk') {
+            $base_path = $CFG_GLPI["root_doc"] . "/front/helpdesk.public.php";
+        }
+
+        $ancestors = getAncestorsOf('glpi_entities', $_SESSION['glpiactive_entity']);
+
+        \Glpi\Debug\Profiler::getInstance()->start('Generate entity tree');
+        $entitiestree = [];
+        foreach ($_SESSION['glpiactiveprofile']['entities'] as $default_entity) {
+            $default_entity_id = $default_entity['id'];
+            $entitytree = $default_entity['is_recursive'] ? self::getEntityTree($default_entity_id) : [$default_entity['id'] => $default_entity];
+
+            $adapt_tree = static function (&$entities) use (&$adapt_tree, $base_path) {
+                foreach ($entities as $entities_id => &$entity) {
+                    $entity['key']   = $entities_id;
+
+                    $title = "<a href='$base_path?active_entity={$entities_id}'>{$entity['name']}</a>";
+                    $entity['title'] = $title;
+                    unset($entity['name']);
+
+                    if (isset($entity['tree']) && count($entity['tree']) > 0) {
+                        $entity['folder'] = true;
+
+                        $entity['title'] .= "<a href='$base_path?active_entity={$entities_id}&is_recursive=1'>
+            <i class='fas fa-angle-double-down ms-1' data-bs-toggle='tooltip' data-bs-placement='right' title='" . __('+ sub-entities') . "'></i>
+            </a>";
+
+                        $children = $adapt_tree($entity['tree']);
+                        $entity['children'] = array_values($children);
+                    }
+
+                    unset($entity['tree']);
+                }
+
+                return $entities;
+            };
+            $adapt_tree($entitytree);
+
+            $entitiestree = array_merge($entitiestree, $entitytree);
+        }
+        \Glpi\Debug\Profiler::getInstance()->stop('Generate entity tree');
+
+        /* scans the tree to select the active entity */
+        $select_tree = static function (&$entities) use (&$select_tree, $ancestors) {
+            foreach ($entities as &$entity) {
+                if (isset($ancestors[$entity['key']])) {
+                    $entity['expanded'] = 'true';
+                }
+                if ($entity['key'] == $_SESSION['glpiactive_entity']) {
+                    $entity['selected'] = 'true';
+                }
+                if (isset($entity['children'])) {
+                    $select_tree($entity['children']);
+                }
+            }
+        };
+        $select_tree($entitiestree);
+
+        return $entitiestree;
     }
 }

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -299,7 +299,7 @@ class Domain extends CommonDBTM
         $this->addStandardTab('DomainRecord', $ong, $options);
         $this->addStandardTab('Domain_Item', $ong, $options);
         $this->addStandardTab('Infocom', $ong, $options);
-        $this->addStandardTab('Ticket', $ong, $options);
+        $this->addStandardTab('Item_Ticket', $ong, $options);
         $this->addStandardTab('Item_Problem', $ong, $options);
         $this->addStandardTab('Change_Item', $ong, $options);
         $this->addStandardTab('Contract_Item', $ong, $options);
@@ -782,13 +782,8 @@ class Domain extends CommonDBTM
         return $types;
     }
 
-    /**
-     * @FIXME Uncomment $safe_url parameter declaration in GLPI 10.1.
-     */
-    public static function generateLinkContents($link, CommonDBTM $item/*, bool $safe_url = true*/)
+    public static function generateLinkContents($link, CommonDBTM $item, bool $safe_url = true)
     {
-        $safe_url = func_num_args() === 3 ? func_get_arg(2) : true;
-
         if (strstr($link, "[DOMAIN]")) {
             $link = str_replace("[DOMAIN]", $item->getName(), $link);
             if ($safe_url) {
@@ -875,7 +870,7 @@ class Domain extends CommonDBTM
         return "fas fa-globe-americas";
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         $this->cleanAlerts([Alert::END, Alert::NOTICE]);
         parent::post_updateItem($history);

@@ -7,7 +7,7 @@
 #
 # http://glpi-project.org
 #
-# @copyright 2015-2023 Teclib' and contributors.
+# @copyright 2015-2024 Teclib' and contributors.
 # @copyright 2003-2014 by the INDEPNET Development Team.
 # @licence   https://www.gnu.org/licenses/gpl-3.0.html
 #
@@ -91,3 +91,6 @@ for node in "${dev_nodes[@]}"
 do
     rm -rf $WORKING_DIR/$node
 done
+
+echo "Generating file manifest..."
+$WORKING_DIR/bin/console build:generate_code_manifest -a crc32c

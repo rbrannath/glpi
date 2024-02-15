@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -84,6 +84,7 @@ define('GLPI_NETWORK_MAIL', null);
 define('GLPI_NETWORK_SERVICES', null);
 define('GLPI_SERVERSIDE_URL_ALLOWLIST', null);
 define('GLPI_TELEMETRY_URI', null);
+define('GLPI_TEXT_MAXSIZE', null);
 define('GLPI_USE_CSRF_CHECK', null);
 define('GLPI_USE_IDOR_CHECK', null);
 define('GLPI_USER_AGENT_EXTRA_COMMENTS', null);

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -33,11 +33,15 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Features\Clonable;
+
 /**
  * ITILCategory class
  **/
 class ITILCategory extends CommonTreeDropdown
 {
+    use Clonable;
+
    // From CommonDBTM
     public $dohistory          = true;
     public $can_be_translated  = true;
@@ -55,14 +59,14 @@ class ITILCategory extends CommonTreeDropdown
             ],
             [
                 'name'      => 'users_id',
-                'label'     => __('Technician in charge of the hardware'),
+                'label'     => __('Technician in charge'),
                 'type'      => 'UserDropdown',
                 'right'     => 'own_ticket',
                 'list'      => true,
             ],
             [
                 'name'      => 'groups_id',
-                'label'     => __('Group in charge of the hardware'),
+                'label'     => __('Group in charge'),
                 'type'      => 'dropdownValue',
                 'condition' => ['is_assign' => 1],
                 'list'      => true,
@@ -157,7 +161,7 @@ class ITILCategory extends CommonTreeDropdown
             'id'                 => '70',
             'table'              => 'glpi_users',
             'field'              => 'name',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown',
             'right'              => 'own_ticket'
         ];
@@ -403,6 +407,13 @@ class ITILCategory extends CommonTreeDropdown
         return $input;
     }
 
+    public function prepareInputForClone($input)
+    {
+        // The code must be unique so we cannot clone it
+        unset($input['code']);
+        return $input;
+    }
+
     /**
      * @since 0.84
      *
@@ -526,5 +537,10 @@ class ITILCategory extends CommonTreeDropdown
         }
 
         echo "</table></div>";
+    }
+
+    public function getCloneRelations(): array
+    {
+        return [];
     }
 }

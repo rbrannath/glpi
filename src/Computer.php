@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -47,7 +47,7 @@ class Computer extends CommonDBTM
    // From CommonDBTM
     public $dohistory                   = true;
 
-    protected static $forward_entity_to = ['Item_Disk','ComputerVirtualMachine',
+    protected static $forward_entity_to = ['Item_Disk','ItemVirtualMachine',
         'Item_SoftwareVersion', 'Infocom',
         'NetworkPort', 'ReservationItem',
         'Item_OperatingSystem'
@@ -77,7 +77,7 @@ class Computer extends CommonDBTM
             Notepad::class,
             KnowbaseItem_Item::class,
             Item_RemoteManagement::class,
-            ComputerAntivirus::class
+            ItemAntivirus::class,
         ];
     }
 
@@ -119,10 +119,10 @@ class Computer extends CommonDBTM
          ->addStandardTab('Infocom', $ong, $options)
          ->addStandardTab('Contract_Item', $ong, $options)
          ->addStandardTab('Document_Item', $ong, $options)
-         ->addStandardTab('ComputerVirtualMachine', $ong, $options)
-         ->addStandardTab('ComputerAntivirus', $ong, $options)
+         ->addStandardTab('ItemVirtualMachine', $ong, $options)
+         ->addStandardTab('ItemAntivirus', $ong, $options)
          ->addStandardTab('KnowbaseItem_Item', $ong, $options)
-         ->addStandardTab('Ticket', $ong, $options)
+         ->addStandardTab('Item_Ticket', $ong, $options)
          ->addStandardTab('Item_Problem', $ong, $options)
          ->addStandardTab('Change_Item', $ong, $options)
          ->addStandardTab('ManualLink', $ong, $options)
@@ -156,7 +156,7 @@ class Computer extends CommonDBTM
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /**
          * @var array $CFG_GLPI
@@ -324,8 +324,8 @@ class Computer extends CommonDBTM
         $this->deleteChildrenAndRelationsFromDb(
             [
                 Computer_Item::class,
-                ComputerAntivirus::class,
-                ComputerVirtualMachine::class,
+                ItemAntivirus::class,
+                ItemVirtualMachine::class,
                 Item_Environment::class,
                 Item_Process::class,
             ]
@@ -556,7 +556,7 @@ class Computer extends CommonDBTM
             'table'              => 'glpi_users',
             'field'              => 'name',
             'linkfield'          => 'users_id_tech',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown',
             'right'              => 'own_ticket'
         ];
@@ -566,7 +566,7 @@ class Computer extends CommonDBTM
             'table'              => 'glpi_groups',
             'field'              => 'completename',
             'linkfield'          => 'groups_id_tech',
-            'name'               => __('Group in charge of the hardware'),
+            'name'               => __('Group in charge'),
             'condition'          => ['is_assign' => 1],
             'datatype'           => 'dropdown'
         ];
@@ -590,18 +590,6 @@ class Computer extends CommonDBTM
             'datatype'           => 'dropdown'
         ];
 
-        $tab[] = [
-            'id'                 => '81',
-            'table'              => 'glpi_reservationitems',
-            'name'               => __('Reservable'),
-            'field'              => 'is_active',
-            'joinparams'         => [
-                'jointype' => 'itemtype_item'
-            ],
-            'datatype'           => 'bool',
-            'massiveaction'      => false
-        ];
-
        // add operating system search options
         $tab = array_merge($tab, Item_OperatingSystem::rawSearchOptionsToAdd(get_class($this)));
 
@@ -611,9 +599,9 @@ class Computer extends CommonDBTM
 
         $tab = array_merge($tab, Item_Disk::rawSearchOptionsToAdd(get_class($this)));
 
-        $tab = array_merge($tab, ComputerVirtualMachine::rawSearchOptionsToAdd(get_class($this)));
+        $tab = array_merge($tab, ItemVirtualMachine::rawSearchOptionsToAdd(get_class($this)));
 
-        $tab = array_merge($tab, ComputerAntivirus::rawSearchOptionsToAdd());
+        $tab = array_merge($tab, ItemAntivirus::rawSearchOptionsToAdd());
 
         $tab = array_merge($tab, Monitor::rawSearchOptionsToAdd());
 
@@ -630,6 +618,12 @@ class Computer extends CommonDBTM
         $tab = array_merge($tab, Socket::rawSearchOptionsToAdd());
 
         $tab = array_merge($tab, Agent::rawSearchOptionsToAdd());
+
+        $tab = array_merge($tab, ComputerModel::rawSearchOptionsToAdd());
+
+        $tab = array_merge($tab, DCRoom::rawSearchOptionsToAdd());
+
+        $tab = array_merge($tab, Item_RemoteManagement::rawSearchOptionsToAdd(self::class));
 
         return $tab;
     }

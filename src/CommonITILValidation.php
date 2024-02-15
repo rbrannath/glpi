@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -67,9 +67,9 @@ abstract class CommonITILValidation extends CommonDBChild
         return 'ti ti-thumb-up';
     }
 
-    public function getItilObjectItemType()
+    public static function getItilObjectItemType()
     {
-        return str_replace('Validation', '', $this->getType());
+        return str_replace('Validation', '', static::class);
     }
 
     public static function getCreateRights()
@@ -221,7 +221,7 @@ abstract class CommonITILValidation extends CommonDBChild
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-
+        /** @var CommonDBTM $item */
         $hidetab = false;
        // Hide if no rights on validations
         if (!static::canView()) {
@@ -438,7 +438,7 @@ abstract class CommonITILValidation extends CommonDBChild
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
@@ -508,7 +508,7 @@ abstract class CommonITILValidation extends CommonDBChild
      **/
     public function getHistoryChangeWhenUpdateField($field)
     {
-
+        $result = [];
         if ($field == 'status') {
             $result   = ['0', '', ''];
             if ($this->fields["status"] == self::ACCEPTED) {
@@ -518,9 +518,8 @@ abstract class CommonITILValidation extends CommonDBChild
                 //TRANS: %s is the username
                 $result[2] = sprintf(__('Update the approval request to %s'), $this->getTargetName());
             }
-            return $result;
         }
-        return false;
+        return $result;
     }
 
 
@@ -1102,6 +1101,7 @@ abstract class CommonITILValidation extends CommonDBChild
            "</th></tr>";
 
         if ($canadd) {
+            /** @var CommonITILObject $item */
             if (
                 !in_array($item->fields['status'], array_merge(
                     $item->getSolvedStatusArray(),
@@ -1898,7 +1898,7 @@ abstract class CommonITILValidation extends CommonDBChild
 
         if ($total = count($validations)) {
             foreach ($validations as $validation) {
-                $statuses[$validation['status']] ++;
+                $statuses[$validation['status']]++;
             }
         }
 

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -36,6 +36,7 @@
 namespace Glpi\Features;
 
 use CommonDBTM;
+use CommonDropdown;
 use CommonITILObject;
 use CommonTreeDropdown;
 use DropdownTranslation;
@@ -272,7 +273,7 @@ JAVASCRIPT;
         $categories = [];
         $parents = [];
         foreach ($cat_iterator as $category) {
-            if (DropdownTranslation::canBeTranslated($inst)) {
+            if ($category instanceof CommonDropdown && $category->maybeTranslated()) {
                 $tname = DropdownTranslation::getTranslatedValue(
                     $category['id'],
                     $inst->getType()

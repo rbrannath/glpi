@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -57,6 +57,7 @@ class ClientRepository implements ClientRepositoryInterface
             $client = new Client();
             $client->setIdentifier($clientIdentifier);
             $client->setName($iterator->current()['name']);
+            $client->setRedirectUri(json_decode($iterator->current()['redirect_uri'], true) ?? []);
             return $client;
         }
 

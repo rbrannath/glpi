@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -486,8 +486,10 @@ class Webhook extends CommonDBTM implements FilterableInterface
     {
         $data = $api_data;
         if ($data !== null) {
+            $data['item'] = $api_data;
+            $data['event'] = $event;
+            $this->addParentItemData($data, $itemtype, $items_id);
             if ($raw_output) {
-                $data['event'] = $event;
                 return json_encode($data, JSON_PRETTY_PRINT);
             } else {
                 $payload_template = isset($this->fields['payload']) ? $this->fields['payload'] : null;
@@ -508,11 +510,6 @@ class Webhook extends CommonDBTM implements FilterableInterface
                     };
                     $data = $fn_desanitize($data);
                     try {
-                        $data = [
-                            'item' => $data
-                        ];
-                        $this->addParentItemData($data, $itemtype, $items_id);
-                        $data['event'] = $event;
                         $env = new \Twig\Environment(
                             new \Twig\Loader\ArrayLoader([
                                 'payload' => $payload_template
@@ -524,7 +521,6 @@ class Webhook extends CommonDBTM implements FilterableInterface
                         return null;
                     }
                 } else {
-                    $data['event'] = $event;
                     return json_encode($data, JSON_PRETTY_PRINT);
                 }
             }
@@ -537,7 +533,7 @@ class Webhook extends CommonDBTM implements FilterableInterface
      * @param string $itemtype The itemtype to get the parent item schema for.
      * @return array
      */
-    private function getParentItemSchema(string $itemtype): array
+    private static function getParentItemSchema(string $itemtype): array
     {
         $supported = self::getAPIItemtypeData();
         $parent_itemtypes = [];
@@ -594,7 +590,7 @@ class Webhook extends CommonDBTM implements FilterableInterface
         } else {
             return;
         }
-        $parent_schema = $this->getParentItemSchema($itemtype);
+        $parent_schema = self::getParentItemSchema($itemtype);
         // filter properties in parent schema by the resolved parent itemtype (checks the x-parent-itemtype property)
         foreach ($parent_schema['properties'] as $property_name => $property_data) {
             if (in_array($parent_itemtype, $property_data['x-parent-itemtype'] ?? [], true)) {
@@ -688,7 +684,7 @@ class Webhook extends CommonDBTM implements FilterableInterface
                 $parent_name = $itemtypes[$controller]['main'][$itemtype_value]['name'];
                 $parent_id = $items_id_value;
             } else if ($item instanceof CommonITILTask) {
-                $parent_itemtype = $item->getItilObjectItemType();
+                $parent_itemtype = $item::getItilObjectItemType();
                 $parent_name = $itemtypes[$controller]['main'][$parent_itemtype]['name'];
                 $parent_id = $item->fields[$parent_itemtype::getForeignKeyField()];
             }
@@ -724,7 +720,8 @@ class Webhook extends CommonDBTM implements FilterableInterface
         $this->initForm($id, $options);
 
         TemplateRenderer::getInstance()->display('pages/setup/webhook/webhook.html.twig', [
-            'item' => $this
+            'item' => $this,
+            'response_schema' => self::getMonacoSuggestions($this->fields['itemtype']),
         ]);
 
         return true;
@@ -804,6 +801,7 @@ class Webhook extends CommonDBTM implements FilterableInterface
         TemplateRenderer::getInstance()->display('pages/setup/webhook/webhook_headers.html.twig', [
             'item' => $this,
             'item_fields' => $item_fields,
+            'response_schema' => self::getMonacoSuggestions($this->fields['itemtype']),
             'params' => [
                 'candel' => false,
                 'formfooter' => false,
@@ -896,11 +894,14 @@ class Webhook extends CommonDBTM implements FilterableInterface
         return $controller_class::getKnownSchemas()[$schema_name] ?? null;
     }
 
-    private function showPayloadEditor(): void
+    public static function getMonacoSuggestions(string|null $itemtype): array
     {
-        $schema = self::getAPISchemaBySupportedItemtype($this->fields['itemtype']);
+        if (empty($itemtype)) {
+            return [];
+        }
+        $schema = self::getAPISchemaBySupportedItemtype($itemtype);
         $props = Schema::flattenProperties($schema['properties'], 'item.');
-        $parent_schema = $this->getParentItemSchema($this->fields['itemtype']);
+        $parent_schema = self::getParentItemSchema($itemtype);
         $parent_props = !empty($parent_schema) ? Schema::flattenProperties($parent_schema['properties'], 'parent_item.') : [];
 
         $response_schema = [
@@ -939,6 +940,13 @@ class Webhook extends CommonDBTM implements FilterableInterface
 
             $response_schema[] = $suggestion;
         }
+        return $response_schema;
+    }
+
+    private function showPayloadEditor(): void
+    {
+        $schema = self::getAPISchemaBySupportedItemtype($this->fields['itemtype']);
+        $response_schema = self::getMonacoSuggestions($this->fields['itemtype']);
 
         TemplateRenderer::getInstance()->display('pages/setup/webhook/payload_editor.html.twig', [
             'item' => $this,
@@ -1008,17 +1016,8 @@ class Webhook extends CommonDBTM implements FilterableInterface
             'connect_timeout' => 1,
         ];
 
-        // add proxy string if configured in glpi
-        if (!empty($CFG_GLPI["proxy_name"])) {
-            $proxy_creds      = !empty($CFG_GLPI["proxy_user"])
-            ? $CFG_GLPI["proxy_user"] . ":" . (new GLPIKey())->decrypt($CFG_GLPI["proxy_passwd"]) . "@"
-            : "";
-            $proxy_string     = "http://{$proxy_creds}" . $CFG_GLPI['proxy_name'] . ":" . $CFG_GLPI['proxy_port'];
-            $options['proxy'] = $proxy_string;
-        }
-
         // init guzzle client with base options
-        $httpClient = new Guzzle_Client($options);
+        $httpClient = Toolbox::getGuzzleClient($options);
         try {
             //prepare query / body
             $response = $httpClient->request('GET', '', [
@@ -1146,9 +1145,11 @@ class Webhook extends CommonDBTM implements FilterableInterface
             ];
 
             $api_data = [
+                'event' => $event,
                 'item' => $api_data
             ];
-            $api_data['event'] = $event;
+            $webhook->addParentItemData($api_data, $item::getType(), $item->getID());
+
             $custom_headers = $webhook->fields['custom_headers'];
             foreach ($custom_headers as $key => $value) {
                 $env = new \Twig\Environment(

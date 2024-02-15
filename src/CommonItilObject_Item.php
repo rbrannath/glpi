@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -360,20 +360,16 @@ abstract class CommonItilObject_Item extends CommonDBRelation
 
         $types_iterator = static::getDistinctTypes($instID);
         $number = count($types_iterator);
-
-        $can_add_item = $obj instanceof CommonITILRecurrent
-            || (
-                $obj instanceof CommonITILObject
-                && !in_array(
-                    $obj->fields['status'],
-                    array_merge(
-                        $obj->getClosedStatusArray(),
-                        $obj->getSolvedStatusArray()
-                    )
+        $is_closed = $obj instanceof CommonITILObject
+            && in_array(
+                $obj->fields['status'],
+                array_merge(
+                    $obj->getClosedStatusArray(),
+                    $obj->getSolvedStatusArray()
                 )
             );
 
-        if ($canedit && $can_add_item) {
+        if ($canedit && !$is_closed) {
             echo "<div class='firstbloc'>";
             echo "<form name='commonitilobject_item_form$rand' method='post'
                     action='" . Toolbox::getItemTypeFormURL(static::class) . "'>";
@@ -403,7 +399,7 @@ abstract class CommonItilObject_Item extends CommonDBRelation
         }
 
         echo "<div class='spaced'>";
-        if ($canedit && $number) {
+        if ($canedit && $number && !$is_closed) {
             Html::openMassiveActionsForm('mass' . static::class . $rand);
             $massiveactionparams = ['container' => 'mass' . static::class . $rand];
             Html::showMassiveActions($massiveactionparams);
@@ -413,7 +409,7 @@ abstract class CommonItilObject_Item extends CommonDBRelation
         $header_top    = '';
         $header_bottom = '';
         $header_end    = '';
-        if ($canedit && $number) {
+        if ($canedit && $number && !$is_closed) {
             $header_top    .= "<th width='10'>" . Html::getCheckAllAsCheckbox('mass' . static::class . $rand);
             $header_top    .= "</th>";
             $header_bottom .= "<th width='10'>" . Html::getCheckAllAsCheckbox('mass' . static::class . $rand);
@@ -458,7 +454,7 @@ abstract class CommonItilObject_Item extends CommonDBRelation
                     }
 
                     echo "<tr class='tab_bg_1'>";
-                    if ($canedit) {
+                    if ($canedit && !$is_closed) {
                         echo "<td width='10'>";
                         Html::showMassiveActionCheckBox(static::class, $data["linkid"]);
                         echo "</td>";
@@ -495,7 +491,7 @@ abstract class CommonItilObject_Item extends CommonDBRelation
         }
 
         echo "</table>";
-        if ($canedit && $number) {
+        if ($canedit && $number && !$is_closed) {
             $massiveactionparams['ontop'] = false;
             Html::showMassiveActions($massiveactionparams);
             Html::closeForm();
@@ -765,7 +761,8 @@ abstract class CommonItilObject_Item extends CommonDBRelation
                         'FROM'   => $itemtable,
                         'WHERE'  => [
                             'users_id' => $userID
-                        ] + getEntitiesRestrictCriteria($itemtable, '', $entity_restrict, $item->maybeRecursive()),
+                        ] + getEntitiesRestrictCriteria($itemtable, '', $entity_restrict, $item->maybeRecursive())
+                          + $itemtype::getSystemSQLCriteria(),
                         'ORDER'  => $item->getNameField()
                     ];
 
@@ -851,7 +848,8 @@ abstract class CommonItilObject_Item extends CommonDBRelation
                                 'FROM'   => $itemtable,
                                 'WHERE'  => [
                                     'groups_id' => $groups
-                                ] + getEntitiesRestrictCriteria($itemtable, '', $entity_restrict, $item->maybeRecursive()),
+                                ] + getEntitiesRestrictCriteria($itemtable, '', $entity_restrict, $item->maybeRecursive())
+                                  + $itemtype::getSystemSQLCriteria(),
                                 'ORDER'  => $item->getNameField()
                             ];
 
@@ -1577,5 +1575,37 @@ abstract class CommonItilObject_Item extends CommonDBRelation
             echo "</div>";
         }
         return $rand;
+    }
+
+    /**
+     * ITIL tabs for assets should only be displayed if the asset already
+     * has associated ITIL items OR if the current user profile is allowed to
+     * link this asset to ITIL items
+     *
+     * @param CommonDBTM $asset
+     *
+     * @return bool
+     */
+    protected function shouldDisplayTabForAsset(CommonDBTM $asset): bool
+    {
+        // Always display tab if the current profile is allowed to link ITIL
+        // items to this asset
+        if (
+            in_array(
+                $asset::class,
+                $_SESSION["glpiactiveprofile"]["helpdesk_item_type"] ?? []
+            )
+        ) {
+            return true;
+        }
+
+        // Only show if at least one item is already linked
+        return countElementsInTable(
+            static::getTable(),
+            [
+                'itemtype' => $asset::getType(),
+                'items_id' => $asset->getId(),
+            ]
+        ) > 0;
     }
 }

@@ -5,7 +5,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -41,8 +41,8 @@
 
 .aa-Panel {
    position: absolute; z-index: 1000;
-   background-color: var(--input-bg);
-   color: var(--input-color);
+   background-color: var(--tblr-bg-forms);
+   color: var(--tblr-body-color);
    max-height: 200px;
    overflow: auto;
 }
@@ -58,6 +58,6 @@
 }
 
 .aa-Autocomplete .aa-InputWrapper input.aa-Input {
-   color: var(--input-color) !important;
-   background-color: var(--input-bg) !important;
+   color: var(--tblr-body-color) !important;
+   background-color: var(--tblr-bg-forms) !important;
 }

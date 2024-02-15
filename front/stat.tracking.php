@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -53,6 +53,12 @@ if (!$item = getItemForItemtype($_GET['itemtype'])) {
     exit;
 }
 
+//sanitize dates
+foreach (['date1', 'date2'] as $key) {
+    if (array_key_exists($key, $_GET) && preg_match('/\d{4}-\d{2}-\d{2}/', (string)$_GET[$key]) !== 1) {
+        unset($_GET[$key]);
+    }
+}
 if (empty($_GET["date1"]) && empty($_GET["date2"])) {
     $_GET["date1"] = date("Y-m-d", mktime(1, 0, 0, date("m"), date("d"), date("Y") - 1));
     $_GET["date2"] = date("Y-m-d");
@@ -70,12 +76,12 @@ if (
 
 $params = [
     'itemtype'  => $_GET["itemtype"] ?? "",
-    'type'      => $_GET["type"] ?? "user",
+    'type'      => (string)$_GET["type"] ?? "user",
     'date1'     => $_GET["date1"],
     'date2'     => $_GET["date2"],
     'value2'    => $_GET["value2"] ?? 0,
-    'start'     => $_GET["start"] ?? 0,
-    'showgraph' => $_GET["showgraph"] ?? 0,
+    'start'     => (int)$_GET["start"] ?? 0,
+    'showgraph' => (int)$_GET["showgraph"] ?? 0,
 ];
 
 $caract = [
@@ -120,12 +126,20 @@ foreach ($items as $label => $tab) {
     }
 }
 
+$val = Stat::getItems(
+    $params["itemtype"],
+    $params["date1"],
+    $params["date2"],
+    $params["type"],
+    $params["value2"]
+);
+
 Stat::title();
 Html::printPager(
     $params['start'],
     count($val),
     $CFG_GLPI['root_doc'] . '/front/stat.tracking.php',
-    http_build_query($params),
+    http_build_query($params, '', '&amp;'),
     'Stat',
     $params
 );
@@ -139,14 +153,6 @@ TemplateRenderer::getInstance()->display('pages/assistance/stats/tracking_form.h
     'value2'    => $params["value2"],
     'showgraph' => $params["showgraph"],
 ]);
-
-$val = Stat::getItems(
-    $params["itemtype"],
-    $params["date1"],
-    $params["date2"],
-    $params["type"],
-    $params["value2"]
-);
 
 if (!$params['showgraph']) {
     Stat::showTable(

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -105,16 +105,23 @@ class ITILFollowup extends CommonDBChild
         return true;
     }
 
-
     public static function canView()
     {
-        return (Session::haveRightsOr(self::$rightname, [self::SEEPUBLIC, self::SEEPRIVATE])
-              || Session::haveRight('ticket', Ticket::OWN))
-              || Session::haveRight('ticket', READ)
-              || Session::haveRight('change', READ)
-              || Session::haveRight('problem', READ);
-    }
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
 
+        if (!Session::haveRightsOr(self::$rightname, [self::SEEPUBLIC, self::SEEPRIVATE])) {
+            return false;
+        }
+        $itil_types = $CFG_GLPI['itil_types'];
+        /** @var class-string<CommonITILObject> $type */
+        foreach ($itil_types as $type) {
+            if ($type::canView()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public static function canCreate()
     {
@@ -363,6 +370,17 @@ class ITILFollowup extends CommonDBChild
                 ],
                 $input
             );
+
+            $pendingReason = new PendingReason();
+            if (
+                $template->fields['pendingreasons_id'] > 0
+                && $pendingReason->getFromDB($template->fields['pendingreasons_id'])
+            ) {
+                $input['pending']           = 1;
+                $input['pendingreasons_id'] = $pendingReason->getID();
+                $input['followup_frequency'] = $pendingReason->fields['followup_frequency'];
+                $input['followups_before_resolution'] = $pendingReason->fields['followups_before_resolution'];
+            }
         }
 
         $input["_job"] = new $input['itemtype']();
@@ -470,7 +488,7 @@ class ITILFollowup extends CommonDBChild
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;

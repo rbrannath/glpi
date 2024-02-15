@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -310,25 +310,12 @@ class Application extends BaseApplication
     /**
      * Initalize GLPI.
      *
-     * @global array $CFG_GLPI
      * @global GLPI  $GLPI
      *
      * @return void
      */
     private function initApplication()
     {
-
-       // Disable debug at bootstrap (will be re-enabled later if requested by verbosity level).
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-        $CFG_GLPI = array_merge(
-            $CFG_GLPI,
-            [
-                'debug_sql'  => 0,
-                'debug_vars' => 0,
-            ]
-        );
-
         /** @var \GLPI $GLPI */
         global $GLPI;
         $GLPI = new GLPI();
@@ -380,7 +367,7 @@ class Application extends BaseApplication
     private function initSession()
     {
 
-        if (!is_writable(GLPI_SESSION_DIR)) {
+        if (!Session::canWriteSessionFiles()) {
             throw new \Symfony\Component\Console\Exception\RuntimeException(
                 sprintf(__('Cannot write in "%s" directory.'), GLPI_SESSION_DIR)
             );

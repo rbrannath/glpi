@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -33,11 +33,15 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Features\Clonable;
+
 /**
  * ValidationTemplate Class
  **/
 class ITILValidationTemplate extends AbstractITILChildTemplate
 {
+    use Clonable;
+
     // From CommonDBTM
     public $dohistory = true;
 
@@ -163,5 +167,10 @@ class ITILValidationTemplate extends AbstractITILChildTemplate
     public function post_updateItem($history = 1)
     {
         $this->postTargets();
+    }
+
+    public function getCloneRelations(): array
+    {
+        return [];
     }
 }

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -380,6 +380,10 @@ class RuleRight extends Rule
 
         $actions['timezone']['name']                          = __('Timezone');
         $actions['timezone']['type']                          = 'timezone';
+
+        $actions['_deny_login']['name']                       = __('Deny login');
+        $actions['_deny_login']['type']                       = 'yesonly';
+        $actions['_deny_login']['table']                      = '';
 
         return $actions;
     }

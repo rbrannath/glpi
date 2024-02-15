@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -2617,12 +2617,12 @@ abstract class RuleCommonITILObject extends DbTestCase
             'is_recursive' => true,
         ]);
 
-        $builder = new RuleBuilder('Test global_validation criteria rule');
+        $builder = new RuleBuilder('Test global_validation criteria rule', $this->getTestedClass());
         $builder
             ->addCriteria('global_validation', Rule::PATTERN_IS, CommonITILValidation::WAITING)
             ->addCriteria('itilcategories_id', Rule::PATTERN_IS, $category1->getID())
             ->addAction('assign', 'urgency', $urgency_if_rule_triggered);
-        $this->createRule($builder, $this->getTestedClass());
+        $this->createRule($builder);
 
         // Create ITIL object with validation request
         $itil_object = $this->createItem($this->getITILObjectClass(), [
@@ -2681,16 +2681,16 @@ abstract class RuleCommonITILObject extends DbTestCase
         ]);
 
         // Create two rules
-        $builder = new RuleBuilder('Test category code criterion rule');
+        $builder = new RuleBuilder('Test category code criterion rule', $this->getTestedClass());
         $builder
             ->addCriteria('urgency', Rule::PATTERN_IS, 5)
             ->addAction('assign', 'itilcategories_id', $category->getID());
-        $this->createRule($builder, $this->getTestedClass());
+        $this->createRule($builder);
 
         $builder
             ->addCriteria('itilcategories_id_code', Rule::PATTERN_IS, $category->fields['code'])
             ->addAction('assign', 'locations_id', $location->getID());
-        $this->createRule($builder, $this->getTestedClass());
+        $this->createRule($builder);
 
         // Create a itil object with "Very high" urgency
         $itil_object = $this->createItem($this->getITILObjectClass(), [
@@ -2705,5 +2705,90 @@ abstract class RuleCommonITILObject extends DbTestCase
 
         // Check if the location "Test location" is assigned
         $this->integer($itil_object->fields['locations_id'])->isEqualTo($location->getID());
+    }
+
+
+    /**
+     * Test that the "Default profile" criterion works correctly
+     * @return void
+     */
+    public function testDefaultProfileCriterion(): void
+    {
+        // Get the root entity
+        $entity = getItemByTypeName(Entity::class, '_test_root_entity', true);
+
+        // Create a location
+        $location = $this->createItem(Location::class, [
+            'name' => 'Test location',
+            'entities_id' => $entity,
+        ]);
+
+        // Create another location
+        $location2 = $this->createItem(Location::class, [
+            'name' => 'Other Test location',
+            'entities_id' => $entity,
+        ]);
+
+        // Create two rules
+        $builder = new RuleBuilder('Test default profile criterion rule', $this->getTestedClass());
+        $builder
+            ->addCriteria('profiles_id', Rule::PATTERN_IS, 4)
+            ->addAction('assign', 'locations_id', $location->getID());
+        $this->createRule($builder);
+
+
+        // Create two rules
+        $builder = new RuleBuilder('Test default profile criterion rule on update', $this->getTestedClass());
+        $builder
+            ->addCriteria('profiles_id', Rule::PATTERN_IS, 0)
+            ->addAction('assign', 'locations_id', $location2->getID());
+        $this->createRule($builder);
+
+        //Load user jsmith123
+        $user = new \User();
+        $user->getFromDB(getItemByTypeName('User', 'jsmith123', true));
+
+        // Create an ITIL object with "Very high" urgency
+        $itil_object = $this->createItem($this->getITILObjectClass(), [
+            'name' => 'Test',
+            'content' => 'Test content',
+            'entities_id' => $entity,
+            '_users_id_requester' => $user->fields['id']
+        ]);
+
+        // Check if the location "Test location" is assigned
+        $this->integer($itil_object->fields['locations_id'])->isEqualTo($location->getID());
+
+        $this->login('tech', 'tech');
+
+        //remove requester
+        $itil_user = $this->getITILLinkInstance('User');
+        $itil_fk = $this->getITILObjectClass()::getForeignKeyField();
+        $this->boolean($itil_user->deleteByCriteria([
+            "type" => \CommonITILActor::REQUESTER,
+            "users_id" => $user->fields['id'],
+            $itil_fk => $itil_object->getID(),
+        ]))->isTrue();
+
+        //reload ITIL object
+        $this->boolean($itil_object->getFromDB($itil_object->getID()))->isTrue();
+
+        //Load user tech
+        $user = new \User();
+        $user->getFromDB(getItemByTypeName('User', 'tech', true));
+
+        // update ITIL object to update requester
+        $this->boolean($itil_object->update([
+            'name'                  => 'Test update',
+            'id'                    => $itil_object->fields['id'],
+            'content'               => 'test',
+            '_itil_requester'   => [
+                "_type" => "user",
+                "users_id" => $user->fields['id']
+            ]
+        ]))->isTrue();
+
+        // Check if the location "Test location" is assigned
+        $this->integer($itil_object->fields['locations_id'])->isEqualTo($location2->getID());
     }
 }

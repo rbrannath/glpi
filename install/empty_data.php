@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -261,9 +261,6 @@ $empty_data_builder = new class
             'registration_number_ssofield' => '',
             'ssovariables_id' => '0',
             'ssologout_url' => '',
-            'translate_kb' => '0',
-            'translate_dropdowns' => '0',
-            'translate_reminders' => '0',
             'pdffont' => 'dejavusans',
             'keep_devices_when_purging_item' => '0',
             'maintenance_mode' => '0',
@@ -274,7 +271,6 @@ $empty_data_builder = new class
             'palette' => 'auror',
             'page_layout' => 'vertical',
             'fold_menu' => '0',
-            'fold_search' => '0',
             'savedsearches_pinned' => '0',
             'timeline_order' => 'natural',
             'itil_layout' => '',
@@ -291,7 +287,6 @@ $empty_data_builder = new class
             'enable_api' => '0',
             'enable_api_login_credentials' => '0',
             'enable_api_login_external_token' => '1',
-            'url_base_api' => 'http://localhost/glpi/api',
             'login_remember_time' => '604800',
             'login_remember_default' => '1',
             'use_notifications' => '0',
@@ -354,6 +349,7 @@ $empty_data_builder = new class
             '2fa_grace_date_start' => null,
             '2fa_grace_days' => 0,
             'is_notif_enable_default' => 1,
+            'show_search_form' => 0,
         ];
 
         $tables['glpi_configs'] = [];
@@ -3090,7 +3086,7 @@ $empty_data_builder = new class
                 'name'         => 'Automatic reminder',
                 'itemtype'     => 'Ticket',
                 'event'        => 'auto_reminder',
-                'is_recursive' => 0,
+                'is_recursive' => 1,
                 'is_active'    => 0,
             ], [
                 'id'           => 77,
@@ -7121,7 +7117,7 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'problem',
-                'rights' => Problem::READMY | Problem::READALL | READNOTE | UPDATENOTE,
+                'rights' => ALLSTANDARDRIGHT | Problem::READMY | Problem::READALL | READNOTE | UPDATENOTE,
             ], [
                 'profiles_id' => self::PROFILE_TECHNICIAN,
                 'name' => 'knowbasecategory',

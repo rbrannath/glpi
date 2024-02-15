@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -506,7 +506,7 @@ final class AssetController extends AbstractController
                             'table' => \PrinterModel::getTable(),
                             'fkey' => 'printermodels_id',
                             'field' => 'id',
-                            'ref_join' => [
+                            'ref-join' => [
                                 'table' => \CartridgeItem_PrinterModel::getTable(),
                                 'fkey' => 'id', // The ID field of the main table used to refer to the cartridgeitems_id of the joined table
                                 'field' => \CartridgeItem::getForeignKeyField(),

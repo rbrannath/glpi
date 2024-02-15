@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -130,7 +130,7 @@ final class SearchEngine
 
             if ($key === 'itil_types') {
                 if (is_a($item, \CommonITILTask::class) || is_a($item, \CommonITILValidation::class)) {
-                    $linked[] = $item->getItilObjectItemType();
+                    $linked[] = $item::getItilObjectItemType();
                 } else {
                     $timeline_types = [\ITILFollowup::class, \ITILSolution::class];
                     foreach ($timeline_types as $timeline_type) {
@@ -176,6 +176,7 @@ final class SearchEngine
         }
 
         $key_to_itemtypes = [
+            'appliance_types'      => ['Appliance'],
             'directconnect_types'  => ['Computer'],
             'infocom_types'        => ['Budget', 'Infocom'],
             'linkgroup_types'      => ['Group'],
@@ -284,21 +285,22 @@ final class SearchEngine
 
         // Default values of parameters
         $p = [
-            'criteria'              => [],
-            'metacriteria'          => [],
-            'sort'                  => ['1'],
-            'order'                 => ['ASC'],
-            'start'                 => 0,
-            'is_deleted'            => 0,
-            'export_all'            => 0,
-            'display_type'          => \Search::HTML_OUTPUT,
-            'showmassiveactions'    => true,
-            'dont_flush'            => false,
-            'show_pager'            => true,
-            'show_footer'           => true,
-            'no_sort'               => false,
-            'list_limit'            => $_SESSION['glpilist_limit'],
-            'massiveactionparams'   => [],
+            'criteria'                  => [],
+            'metacriteria'              => [],
+            'sort'                      => ['1'],
+            'order'                     => ['ASC'],
+            'start'                     => 0,
+            'is_deleted'                => 0,
+            'export_all'                => 0,
+            'display_type'              => \Search::HTML_OUTPUT,
+            'showmassiveactions'        => true,
+            'dont_flush'                => false,
+            'show_pager'                => true,
+            'show_footer'               => true,
+            'no_sort'                   => false,
+            'list_limit'                => $_SESSION['glpilist_limit'],
+            'massiveactionparams'       => [],
+            'disable_order_by_fallback' => false,
         ];
         if (class_exists($itemtype)) {
             $p['target']       = $itemtype::getSearchURL();
@@ -629,7 +631,10 @@ final class SearchEngine
         $output = self::getOutputForLegacyKey($params['display_type'], $params);
         $output::showPreSearchDisplay($itemtype);
 
-        $search_input_class::showGenericSearch($itemtype, $params);
+        if ($_SESSION['glpishow_search_form']) {
+            $search_input_class::showGenericSearch($itemtype, $params);
+        }
+
         $params = $output::prepareInputParams($itemtype, $params);
         if ((int) $params['browse'] === 1 && \Toolbox::hasTrait($itemtype, TreeBrowse::class)) {
             $itemtype::showBrowseView($itemtype, $params);

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @copyright 2010-2022 by the FusionInventory Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
@@ -710,6 +710,7 @@ class NetworkPort extends InventoryAsset
 
             if (property_exists($port, 'ifdescr') && !empty($port->ifdescr)) {
                 $input['name'] = $port->ifdescr;
+                $input['ifdescr'] = $port->ifdescr;
             }
 
             if (property_exists($port, 'mac') && !empty($port->mac)) {
@@ -799,11 +800,19 @@ class NetworkPort extends InventoryAsset
             $bkp_ports = $this->ports;
             $stack_id = $mainasset->getStackId();
             $need_increment_index = false;
+            $count_char = 0;
             foreach ($this->ports as $k => $val) {
                 $matches = [];
                 if (
                     preg_match('@[\w\s+]+(\d+)/[\w]@', $val->name, $matches)
                 ) {
+                    //reset increment when name lenght differ
+                    //Gi0/0 then Gi0/0/1, Gi0/0/2, Gi0/0/3
+                    if ($count_char && $count_char != strlen($val->name)) {
+                        $need_increment_index = false;
+                    }
+                    $count_char = strlen($val->name);
+
                     //in case when port is related to chassis index 0 (stack_id)
                     //ex : GigabitEthernet 0/1    Gi0/0/1
                     //GLPI compute stack_id by starting with 1 (see: NetworkEquipment->getStackedSwitches)
@@ -813,7 +822,6 @@ class NetworkPort extends InventoryAsset
                         //current NetworkEquipement must have the index incremented
                         $need_increment_index = true;
                     }
-
                     if ($matches[1] != $stack_id) {
                         //port attached to another stack entry, remove from here
                         unset($this->ports[$k]);

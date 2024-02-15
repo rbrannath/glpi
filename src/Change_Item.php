@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -32,6 +32,8 @@
  *
  * ---------------------------------------------------------------------
  */
+
+use Glpi\Asset\Asset;
 
 /**
  * Change_Item Class
@@ -224,9 +226,17 @@ class Change_Item extends CommonItilObject_Item
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        /** @var \DBmysql $DB */
-        global $DB;
+        /**
+         * @var \DBmysql $DB
+         * @var array $CFG_GLPI
+         **/
+        global $DB, $CFG_GLPI;
 
+        if (in_array($item::getType(), $CFG_GLPI['asset_types']) && !$this->shouldDisplayTabForAsset($item)) {
+            return '';
+        }
+
+        /** @var CommonDBTM $item */
         if (!$withtemplate) {
             $nb = 0;
             switch ($item->getType()) {

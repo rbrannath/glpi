@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -464,8 +464,8 @@ class Computer extends DbTestCase
         )->isGreaterThan(0);
 
         //add antivirus
-        $antivirus = new \ComputerAntivirus();
-        $antivirus_id = (int)$antivirus->add(['name' => 'Test link antivirus', 'computers_id' => $id]);
+        $antivirus = new \ItemAntivirus();
+        $antivirus_id = (int)$antivirus->add(['name' => 'Test link antivirus', 'itemtype' => 'Computer', 'items_id' => $id]);
         $this->integer($antivirus_id)->isGreaterThan(0);
 
        //clone!
@@ -520,7 +520,7 @@ class Computer extends DbTestCase
         }
 
         //check antivirus
-        $this->boolean($antivirus->getFromDBByCrit(['computers_id' => $clonedComputer->fields['id']]))->isTrue();
+        $this->boolean($antivirus->getFromDBByCrit(['itemtype' => 'Computer', 'items_id' => $clonedComputer->fields['id']]))->isTrue();
 
        //check processor has been cloned
         $this->boolean($link->getFromDBByCrit(['itemtype' => 'Computer', 'items_id' => $added]))->isTrue();

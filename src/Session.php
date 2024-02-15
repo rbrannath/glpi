@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -379,9 +379,9 @@ class Session
      * Change active entity to the $ID one. Update glpiactiveentities session variable.
      * Reload groups related to this entity.
      *
-     * @param integer|'All' $ID           ID of the new active entity ("all"=>load all possible entities)
-     *                                    (default 'all')
-     * @param boolean       $is_recursive Also display sub entities of the active entity? (false by default)
+     * @param integer|string $ID           ID of the new active entity ("all"=>load all possible entities)
+     *                                     (default 'all')
+     * @param boolean         $is_recursive Also display sub entities of the active entity? (false by default)
      *
      * @return boolean true on success, false on failure
      **/
@@ -389,9 +389,10 @@ class Session
     {
 
         $newentities = [];
+        $ancestors = [];
+
         if (isset($_SESSION['glpiactiveprofile'])) {
             if ($ID === "all") {
-                $ancestors = [];
                 foreach ($_SESSION['glpiactiveprofile']['entities'] as $val) {
                     $ancestors               = array_unique(array_merge(
                         getAncestorsOf(
@@ -994,15 +995,23 @@ class Session
         } else {
             $user_table = User::getTable();
             $pu_table   = Profile_User::getTable();
+            $profile_table = Profile::getTable();
             $result = $DB->request(
                 [
                     'COUNT'     => 'count',
+                    'SELECT'    => [$profile_table . '.last_rights_update'],
                     'FROM'      => $user_table,
                     'LEFT JOIN' => [
                         $pu_table => [
                             'FKEY'  => [
                                 Profile_User::getTable() => 'users_id',
                                 $user_table         => 'id'
+                            ]
+                        ],
+                        $profile_table => [
+                            'FKEY'  => [
+                                $pu_table => 'profiles_id',
+                                $profile_table => 'id'
                             ]
                         ]
                     ],
@@ -1012,10 +1021,20 @@ class Session
                         $user_table . '.is_deleted' => 0,
                         $pu_table . '.profiles_id'  => $profile_id,
                     ] + getEntitiesRestrictCriteria($pu_table, 'entities_id', $entity_id, true),
+                    'GROUPBY'   => [$profile_table . '.id'],
                 ]
             );
-            if ($result->current()['count'] === 0) {
+
+            $row = $result->current();
+
+            if ($row['count'] === 0) {
                 $valid_user = false;
+            } elseif (
+                $row['last_rights_update'] !== null
+                && $row['last_rights_update'] > $_SESSION['glpiactiveprofile']['last_rights_update'] ?? 0
+            ) {
+                Session::reloadCurrentProfile();
+                $_SESSION['glpiactiveprofile']['last_rights_update'] = $row['last_rights_update'];
             }
         }
 
@@ -1261,11 +1280,11 @@ class Session
      * Check if you could access (read) to the entity of id = $ID
      *
      * @param integer $ID           ID of the entity
-     * @param boolean $is_recursive if recursive item (default 0)
+     * @param boolean $is_recursive if recursive item (default false)
      *
      * @return boolean
      **/
-    public static function haveAccessToEntity($ID, $is_recursive = 0)
+    public static function haveAccessToEntity($ID, $is_recursive = false)
     {
 
        // Quick response when passing wrong ID : default value of getEntityID is -1
@@ -1291,14 +1310,14 @@ class Session
 
 
     /**
-     * Check if you could access to one entity of an list
+     * Check if you could access to one entity of a list
      *
      * @param array   $tab          list ID of entities
-     * @param boolean $is_recursive if recursive item (default 0)
+     * @param boolean $is_recursive if recursive item (default false)
      *
      * @return boolean
      **/
-    public static function haveAccessToOneOfEntities($tab, $is_recursive = 0)
+    public static function haveAccessToOneOfEntities($tab, $is_recursive = false)
     {
 
         if (is_array($tab) && count($tab)) {
@@ -1692,7 +1711,7 @@ class Session
         if (!Session::validateCSRF($data)) {
             $requested_url = (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : 'Unknown');
             $user_id = self::getLoginUserID() ?? 'Anonymous';
-            Toolbox::logInFile('access-errors', "CSRF check failed for User ID: $user_id at $requested_url");
+            Toolbox::logInFile('access-errors', "CSRF check failed for User ID: $user_id at $requested_url\n");
 
             // Output JSON if requested by client
             if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
@@ -2071,9 +2090,12 @@ class Session
     /**
      * Start session for a given user
      *
-     * @param int $users_id ID of the user
+     * @param string    $token
+     * @param string    $token_type
+     * @param int|null  $entities_id
+     * @param bool|null $is_recursive
      *
-     * @return User|bool
+     * @return User|false
      */
     public static function authWithToken(
         string $token,
@@ -2143,5 +2165,47 @@ class Session
     public static function getLanguage(): ?string
     {
         return $_SESSION['glpilanguage'] ?? null;
+    }
+
+    /**
+     * Helper function to get the date stored in $_SESSION['glpi_currenttime']
+     *
+     * @return null|string
+     */
+    public static function getCurrentTime(): ?string
+    {
+        // TODO (10.1 refactoring): replace references to $_SESSION['glpi_currenttime'] by a call to this function
+        return $_SESSION['glpi_currenttime'] ?? null;
+    }
+
+    /**
+     * Checks if the GLPI sessions directory can be written to if the PHP session save handler is set to "files".
+     * @return bool True if the directory is writable, or if the session save handler is not set to "files".
+     */
+    public static function canWriteSessionFiles(): bool
+    {
+        $session_handler = ini_get('session.save_handler');
+        return $session_handler !== false
+            && (strtolower($session_handler) !== 'files' || is_writable(GLPI_SESSION_DIR));
+    }
+
+    /**
+     * Reload the current profile from the database
+     * Update the session variable accordingly
+     *
+     * @return void
+     */
+    public static function reloadCurrentProfile(): void
+    {
+        $current_profile_id = $_SESSION['glpiactiveprofile']['id'];
+
+        $profile = new Profile();
+        if ($profile->getFromDB($current_profile_id)) {
+            $profile->cleanProfile();
+            $_SESSION['glpiactiveprofile'] = array_merge(
+                $_SESSION['glpiactiveprofile'],
+                $profile->fields
+            );
+        }
     }
 }

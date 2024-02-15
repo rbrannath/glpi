@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -279,7 +279,7 @@ class ReservationItem extends CommonDBChild
             'table'              => 'glpi_users',
             'field'              => 'name',
             'linkfield'          => 'users_id_tech',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown',
             'right'              => 'interface',
             'massiveaction'      => false
@@ -295,6 +295,23 @@ class ReservationItem extends CommonDBChild
         ];
 
         return $tab;
+    }
+
+    public static function rawSearchOptionsToAdd($itemtype = null)
+    {
+        return [
+            [
+                'id'                 => '81',
+                'table'              => 'glpi_reservationitems',
+                'name'               => __('Reservable'),
+                'field'              => 'is_active',
+                'joinparams'         => [
+                    'jointype' => 'itemtype_item'
+                ],
+                'datatype'           => 'bool',
+                'massiveaction'      => false
+            ]
+        ];
     }
 
 
@@ -371,7 +388,7 @@ class ReservationItem extends CommonDBChild
                 'add',
                 "<i class='fas fa-check'></i>&nbsp;" . __('Authorize reservations'),
                 ['items_id'     => $item->getID(),
-                    'itemtype'     => $item->getType(),
+                    'itemtype'     => $item::class,
                     'entities_id'  => $item->getEntityID(),
                     'is_recursive' => $item->isRecursive(),
                 ]
@@ -1084,6 +1101,7 @@ class ReservationItem extends CommonDBChild
     private static function getAvailableItemsCriteria(string $itemtype): array
     {
         $reservation_table = ReservationItem::getTable();
+        /** @var CommonDBTM $item */
         $item = new $itemtype();
         $item_table = $itemtype::getTable();
 
@@ -1103,6 +1121,10 @@ class ReservationItem extends CommonDBChild
                 "$item_table.is_deleted"  => 0,
             ]
         ];
+
+        if ($item->isEntityAssign()) {
+            $criteria['WHERE'] += getEntitiesRestrictCriteria($item_table, '', '', true);
+        }
 
         if ($item->maybeTemplate()) {
             $criteria['WHERE']["$item_table.is_template"] = 0;

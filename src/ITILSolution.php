@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -76,9 +76,16 @@ class ITILSolution extends CommonDBChild
 
     public static function canView()
     {
-        return Session::haveRight('ticket', READ)
-             || Session::haveRight('change', READ)
-             || Session::haveRight('problem', READ);
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+        $itil_types = $CFG_GLPI['itil_types'];
+        /** @var class-string<CommonITILObject> $type */
+        foreach ($itil_types as $type) {
+            if ($type::canView()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static function canUpdate()
@@ -360,7 +367,7 @@ class ITILSolution extends CommonDBChild
         return $input;
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         // Handle rich-text images and uploaded documents
         $this->input = $this->addFiles($this->input, ['force_update' => true]);

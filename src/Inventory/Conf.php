@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @copyright 2010-2022 by the FusionInventory Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
@@ -292,7 +292,7 @@ class Conf extends CommonGLPI
         return $ong;
     }
 
-    public function getTabNameForItem(CommonGLPI $item, $withtemplate = false)
+    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         switch ($item->getType()) {
             case __CLASS__:
@@ -310,7 +310,7 @@ class Conf extends CommonGLPI
         return '';
     }
 
-    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = false)
+    public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
         if ($item->getType() == __CLASS__) {
             /** @var self $item */
@@ -464,7 +464,7 @@ class Conf extends CommonGLPI
             echo "</td>";
             echo "<td>";
             echo "<label for='import_antivirus'>";
-            echo \ComputerAntivirus::createTabEntry(\ComputerAntivirus::getTypeName(Session::getPluralNumber()), 0, \ComputerAntivirus::getType());
+            echo \ItemAntivirus::createTabEntry(\ItemAntivirus::getTypeName(Session::getPluralNumber()), 0, \ItemAntivirus::getType());
             echo "</label>";
             echo "</td>";
             echo "<td>";
@@ -627,14 +627,14 @@ class Conf extends CommonGLPI
 
             echo "<tr class='tab_bg_1'>";
             echo "<th colspan='4'>";
-            echo \ComputerVirtualMachine::getTypeName(Session::getPluralNumber());
+            echo \ItemVirtualMachine::getTypeName(Session::getPluralNumber());
             echo "</th>";
             echo "</tr>";
 
             echo "<tr class='tab_bg_1'>";
             echo "<td>";
             echo "<label for='import_vm'>";
-            echo \ComputerVirtualMachine::createTabEntry(__('Import virtual machines'), 0, \ComputerVirtualMachine::getType());
+            echo \ItemVirtualMachine::createTabEntry(__('Import virtual machines'), 0, \ItemVirtualMachine::getType());
             echo "</label>";
             echo "</td>";
             echo "<td>";
@@ -677,7 +677,7 @@ class Conf extends CommonGLPI
             echo "</td>";
             echo "<td>";
             echo "<label for='vm_components'>";
-            echo \ComputerVirtualMachine::createTabEntry(__('Create components for virtual machines'), 0, \ComputerVirtualMachine::getType());
+            echo \ItemVirtualMachine::createTabEntry(__('Create components for virtual machines'), 0, \ItemVirtualMachine::getType());
             echo "</label>";
             echo "</td>";
             echo "<td>";
@@ -953,7 +953,7 @@ class Conf extends CommonGLPI
             echo "<tr class='tab_bg_1'><td colspan=2></td>";
             echo "<td>";
             echo "<span id='blocaction1' style='display:none'>";
-            echo __('Change the status');
+            echo \State::createTabEntry(__('Change the status'), 0, \State::getType());
             echo "</span>";
             echo "</td>";
             echo "<td width='20%'>";

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -227,7 +227,7 @@ class SoftwareLicense extends CommonTreeDropdown
      * @since 0.85
      * @see CommonDBTM::post_updateItem()
      **/
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
 
         if (in_array("is_valid", $this->updates)) {
@@ -273,7 +273,7 @@ class SoftwareLicense extends CommonTreeDropdown
         $this->addStandardTab('Contract_Item', $ong, $options);
         $this->addStandardTab('Document_Item', $ong, $options);
         $this->addStandardTab('KnowbaseItem_Item', $ong, $options);
-        $this->addStandardTab('Ticket', $ong, $options);
+        $this->addStandardTab('Item_Ticket', $ong, $options);
         $this->addStandardTab('Item_Problem', $ong, $options);
         $this->addStandardTab('Change_Item', $ong, $options);
         $this->addStandardTab('Notepad', $ong, $options);
@@ -332,6 +332,24 @@ class SoftwareLicense extends CommonTreeDropdown
         }
 
         return true;
+    }
+
+    /**
+     * Is the license recursive ?
+     *
+     * @return boolean
+     **/
+    public function isRecursive()
+    {
+        $soft = new Software();
+        if (
+            isset($this->fields["softwares_id"])
+            && $soft->getFromDB($this->fields["softwares_id"])
+        ) {
+            return $soft->isRecursive();
+        }
+
+        return false;
     }
 
 
@@ -1193,10 +1211,12 @@ class SoftwareLicense extends CommonTreeDropdown
     public function showDebug()
     {
 
-        $license = ['softname' => '',
-            'name'     => '',
-            'serial'   => '',
-            'expire'   => ''
+        $license = [
+            'softname'      => '',
+            'name'          => '',
+            'serial'        => '',
+            'expire'        => '',
+            'entities_id'   => '',
         ];
 
         $options['entities_id'] = $this->getEntityID();
@@ -1208,7 +1228,7 @@ class SoftwareLicense extends CommonTreeDropdown
     /**
      * Get fields to display in the unicity error message
      *
-     * @return an array which contains field => label
+     * @return array
      */
     public function getUnicityFieldsToDisplayInErrorMessage()
     {
@@ -1226,8 +1246,8 @@ class SoftwareLicense extends CommonTreeDropdown
 
         if (!$withtemplate) {
             $nb = 0;
-            switch ($item->getType()) {
-                case 'Software':
+            switch (get_class($item)) {
+                case Software::class:
                     if (!self::canView()) {
                         return '';
                     }
@@ -1239,8 +1259,8 @@ class SoftwareLicense extends CommonTreeDropdown
                         (($nb >= 0) ? $nb : '&infin;'),
                         $item::getType()
                     );
-                break;
-                case 'SoftwareLicense':
+
+                case SoftwareLicense::class:
                     if (!self::canView()) {
                         return '';
                     }
@@ -1255,7 +1275,6 @@ class SoftwareLicense extends CommonTreeDropdown
                         (($nb >= 0) ? $nb : '&infin;'),
                         $item::getType()
                     );
-                break;
             }
         }
         return '';

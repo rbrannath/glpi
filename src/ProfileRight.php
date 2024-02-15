@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -299,26 +299,31 @@ class ProfileRight extends CommonDBChild
     }
 
 
-    /**
-     * To avoid log out and login when rights change (very useful in debug mode)
-     *
-     * @see CommonDBChild::post_updateItem()
-     **/
-    public function post_updateItem($history = 1)
+    public function post_addItem($history = true)
     {
-
-       // update current profile
-        if (
-            isset($_SESSION['glpiactiveprofile']['id'])
-            && $_SESSION['glpiactiveprofile']['id'] == $this->fields['profiles_id']
-            && (!isset($_SESSION['glpiactiveprofile'][$this->fields['name']])
-              || $_SESSION['glpiactiveprofile'][$this->fields['name']] != $this->fields['rights'])
-        ) {
-            $_SESSION['glpiactiveprofile'][$this->fields['name']] = $this->fields['rights'];
-            unset($_SESSION['glpimenu']);
-        }
+        // Refresh session rights to avoid log out and login when rights change
+        $this->updateProfileLastRightsUpdate($this->fields['profiles_id']);
     }
 
+    public function post_updateItem($history = true)
+    {
+        // Refresh session rights to avoid log out and login when rights change
+        $this->updateProfileLastRightsUpdate($this->fields['profiles_id']);
+    }
+
+    /**
+     * Update last rights update for given profile.
+     *
+     * @param int $profile_id
+     * @return void
+     */
+    private function updateProfileLastRightsUpdate(int $profile_id): void
+    {
+        Profile::getById($profile_id)->update([
+            'id'                 => $profile_id,
+            'last_rights_update' => Session::getCurrentTime()
+        ]);
+    }
 
     /**
      * @since 085

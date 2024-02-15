@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -131,10 +131,10 @@ class MassiveAction
     private $timeout_delay;
 
     /**
-     * Current process timer.
-     * @var int
+     * Current process start time.
+     * @var float
      */
-    private $timer;
+    private float $start_time;
 
     /**
      * Item used to check rights.
@@ -233,7 +233,7 @@ class MassiveAction
                             foreach ($ids as $id => $checked) {
                                 if ($checked == 1) {
                                     $items[$id] = $id;
-                                    $this->nb_items ++;
+                                    $this->nb_items++;
                                 }
                             }
                              $POST['items'][$itemtype] = $items;
@@ -410,9 +410,7 @@ class MassiveAction
 
             $this->fields_to_remove_when_reload = ['fields_to_remove_when_reload'];
 
-            $this->timer = new Timer();
-            $this->timer->start();
-            $this->fields_to_remove_when_reload[] = 'timer';
+            $this->start_time = microtime(true);
 
             $max_time = (get_cfg_var("max_execution_time") == 0) ? 60
                                                               : get_cfg_var("max_execution_time");
@@ -457,7 +455,6 @@ class MassiveAction
             case 'redirect':
             case 'remainings':
             case 'timeout_delay':
-            case 'timer':
                 Toolbox::deprecated(sprintf('Reading private property %s::%s is deprecated', __CLASS__, $property));
                 $value = $this->$property;
                 break;
@@ -495,7 +492,6 @@ class MassiveAction
             case 'redirect':
             case 'remainings':
             case 'timeout_delay':
-            case 'timer':
                 Toolbox::deprecated(sprintf('Writing private property %s::%s is deprecated', __CLASS__, $property));
                 $this->$property = $value;
                 break;
@@ -525,7 +521,7 @@ class MassiveAction
     /**
      * Get current action
      *
-     * @return a string with the current action or NULL if we are at initial stage
+     * @return string with the current action or NULL if we are at initial stage
      **/
     public function getAction()
     {
@@ -708,13 +704,13 @@ class MassiveAction
      * Get the standard massive actions
      *
      * @param string|CommonDBTM $item        the item for which we want the massive actions
-     * @param boolean           $is_deleted  massive action for deleted items ?   (default 0)
+     * @param boolean           $is_deleted  massive action for deleted items ?   (default false)
      * @param CommonDBTM        $checkitem   link item to check right              (default NULL)
      * @param int|null          $items_id    Get actions for a single item
      *
      * @return array|false Array of massive actions or false if $item is not valid
      **/
-    public static function getAllMassiveActions($item, $is_deleted = 0, CommonDBTM $checkitem = null, ?int $items_id = null)
+    public static function getAllMassiveActions($item, $is_deleted = false, CommonDBTM $checkitem = null, ?int $items_id = null)
     {
         /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
@@ -1337,7 +1333,7 @@ class MassiveAction
             return;
         }
 
-        if ($this->timer->getTime() > 1) {
+        if ((microtime(true) - $this->start_time) > 1000) {
            // If the action's delay is more than one second, the display progress bars
             $this->display_progress_bars = true;
         }
@@ -1868,7 +1864,7 @@ class MassiveAction
         $this->nb_done += $number;
 
        // If delay is to big, then reload !
-        if ($this->timer->getTime() > $this->timeout_delay) {
+        if ((microtime(true) - $this->start_time) > ($this->timeout_delay * 1000)) {
             Html::redirect($_SERVER['PHP_SELF'] . '?identifier=' . $this->identifier);
         }
 

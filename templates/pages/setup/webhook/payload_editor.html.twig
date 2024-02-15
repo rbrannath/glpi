@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -61,33 +61,35 @@
 <script>
     $(() => {
         {% set payload = item.fields['payload']|default(default_payload) %}
-        const monaco = new GLPI.MonacoEditor('payload', 'twig', {{ payload|json_encode|raw }}, {{ response_schema|json_encode|raw }});
-        $("#webhook-payload-editor-container button[name='editor_find']").on('click', function() {
-            monaco.editor.getAction('actions.find').run();
-        });
-        $("#webhook-payload-editor-container button[name='editor_save']").on('click', function() {
-            let payload_template = '';
-            let reload_page = false;
-            if (!$('#payload').hasClass('d-none')) {
-                payload_template = monaco.editor.getValue();
-            }
-            $.ajax({
-                url: CFG_GLPI['root_doc'] + '/ajax/webhook.php',
-                type: 'POST',
-                data: {
-                    action: 'update_payload_template',
-                    webhook_id: $("#webhook-payload-editor-container").data('webhook-id'),
-                    payload_template: payload_template,
-                    use_default_payload: $('input[name="use_default_payload"]').is(':checked'),
+        window.GLPI.Monaco.createEditor('payload', 'twig', {{ payload|json_encode|raw }}, {{ response_schema|json_encode|raw }}).then((monaco) => {
+            $("#webhook-payload-editor-container button[name='editor_find']").on('click', function() {
+                monaco.editor.getAction('actions.find').run();
+            });
+            $("#webhook-payload-editor-container button[name='editor_save']").on('click', function() {
+                let payload_template = '';
+                let reload_page = false;
+                if (!$('#payload').hasClass('d-none')) {
+                    payload_template = monaco.editor.getValue();
                 }
-            }).done(function() {
-                if (reload_page) {
-                   window.location.reload();
-                } else {
-                   glpi_toast_info(__('Saved'));
-                }
+                $.ajax({
+                    url: CFG_GLPI['root_doc'] + '/ajax/webhook.php',
+                    type: 'POST',
+                    data: {
+                        action: 'update_payload_template',
+                        webhook_id: $("#webhook-payload-editor-container").data('webhook-id'),
+                        payload_template: payload_template,
+                        use_default_payload: $('input[name="use_default_payload"]').is(':checked'),
+                    }
+                }).done(function() {
+                    if (reload_page) {
+                        window.location.reload();
+                    } else {
+                        glpi_toast_info(__('Saved'));
+                    }
+                });
             });
         });
+
         $('input[name="use_default_payload"]').on('change', () => {
            const is_default_payload = $('input[name="use_default_payload"]').is(':checked');
            if (is_default_payload) {

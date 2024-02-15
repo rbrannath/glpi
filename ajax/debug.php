@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -115,6 +115,12 @@ if (isset($_GET['action'])) {
             return is_numeric($k);
         }, ARRAY_FILTER_USE_KEY);
         echo json_encode($options);
+        die();
+    }
+    if ($action === 'get_themes') {
+        header('Content-Type: application/json');
+        $themes = \Glpi\UI\ThemeManager::getInstance()->getAllThemes();
+        echo json_encode($themes);
         die();
     }
 }

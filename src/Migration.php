@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -83,7 +83,7 @@ class Migration
     protected $output_handler;
 
     /**
-     * @param integer $ver Version number
+     * @param string $ver Version number
      **/
     public function __construct($ver)
     {
@@ -104,7 +104,7 @@ class Migration
      *
      * @since 0.84
      *
-     * @param integer $ver Version number
+     * @param string $ver Version number
      *
      * @return void
      **/
@@ -200,7 +200,7 @@ class Migration
        // Do not log if more than 3 log error
         if (
             $this->log_errors < 3
-            && !Toolbox::logInFile($log_file_name, $message . ' @ ', true)
+            && !Toolbox::logInFile($log_file_name, $message . "\n", true)
         ) {
             $this->log_errors++;
         }
@@ -1120,6 +1120,36 @@ class Migration
     }
 
     /**
+     * Remove configuration value(s) to current context; @see Migration::removeConfig()
+     *
+     * @since 10.1.0
+     *
+     * @param array  $values  Value(s) to remove
+     * @param ?string $context Context to remove on. Defaults to the context of this migration instance.
+     *
+     * @return Migration
+     */
+    public function removeConfig(array $values, ?string $context = null)
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        if (empty($values)) {
+            return $this;
+        }
+
+        $context = $context ?? $this->context;
+        $DB->delete(
+            'glpi_configs',
+            [
+                'context' => $context,
+                'name'    => $values
+            ]
+        );
+        return $this;
+    }
+
+    /**
      * Store configuration values that does not exists
      *
      * @since 9.2
@@ -1235,6 +1265,8 @@ class Migration
                 ],
                 sprintf('%1$s add right for %2$s', $this->version, $name)
             );
+
+            $this->updateProfileLastRightsUpdate($profile['id']);
         }
 
         $this->displayWarning(
@@ -1299,6 +1331,8 @@ class Migration
                 ],
                 sprintf('%1$s update right for %2$s', $this->version, $name)
             );
+
+            $this->updateProfileLastRightsUpdate($profile['id']);
         }
 
         $this->displayWarning(
@@ -1368,6 +1402,8 @@ class Migration
                 ],
                 sprintf('%1$s update right for %2$s', $this->version, $name)
             );
+
+            $this->updateProfileLastRightsUpdate($profile['id']);
         }
 
         $this->displayWarning(
@@ -1376,6 +1412,35 @@ class Migration
                 $name
             ),
             true
+        );
+    }
+
+    /**
+     * Update last rights update for given profile.
+     *
+     * @param int $profile_id
+     * @return void
+     */
+    private function updateProfileLastRightsUpdate(int $profile_id): void
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        // Check if the 'last_rights_update' field exists before trying to update it.
+        // This field may not exist yet as it is added by a migration, and other migrations
+        // that add a right could be executed before the migration that adds this field.
+        if (!$DB->fieldExists('glpi_profiles', 'last_rights_update')) {
+            return;
+        }
+
+        $DB->updateOrDie(
+            'glpi_profiles',
+            [
+                'last_rights_update' => Session::getCurrentTime()
+            ],
+            [
+                'id' => $profile_id,
+            ]
         );
     }
 

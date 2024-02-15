@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -384,7 +384,7 @@ HTML;
             $withtemplate = (int)($_GET['withtemplate'] ?? 0);
             $js = <<<JS
          var url_hash = window.location.hash;
-         var loadTabContents = function (tablink, force_reload = false, update_current_tab = true) {
+         var loadTabContents = function (tablink, force_reload = false, update_session_tab = true) {
             var url = tablink.attr('href');
             var target = tablink.attr('data-bs-target');
             const href_url_params = new URLSearchParams(url);
@@ -413,7 +413,7 @@ HTML;
                     }
                });
             }
-            if (update_current_tab && $(target).html() && !force_reload) {
+            if ($(target).html() && !force_reload) {
                 updateCurrentTab();
                 return;
             }
@@ -424,7 +424,9 @@ HTML;
 
                $(target).closest('main').trigger('glpi.tab.loaded');
 
-               updateCurrentTab();
+               if (update_session_tab) {
+                   updateCurrentTab();
+               }
             });
          };
 
@@ -448,6 +450,12 @@ HTML;
          }
 
          $(function() {
+            // Keep track of the first load which will be the tab stored in the
+            // session.
+            // In this case, it is useless to send a request to the
+            // updatecurrenttab endpoint as we already are on this tab
+            let first_load = true;
+
             $('a[data-bs-toggle=\"tab\"]').on('shown.bs.tab', function(e) {
                e.preventDefault();
                if ($(this).attr('data-show-all-tabs') === 'true') {
@@ -458,12 +466,13 @@ HTML;
                   // Remove active and show classes from all tabs except the one that is clicked
                   let clicked_tab = $(this).attr('data-bs-target');
                   $('#$tabdiv_id').parent().find('.tab-pane:not(' + clicked_tab + ')').removeClass('active show');
-                  loadTabContents($(this));
+                  loadTabContents($(this), false, !first_load);
                }
             });
 
             // load initial tab
             $('a[data-bs-target=\"#{$active_id}\"]').tab('show');
+            first_load = false;
 
             // select events in responsive mode
             $('#$tabdiv_id-select').on('change', function (e) {

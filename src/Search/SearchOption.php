@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -34,6 +34,11 @@
  */
 
 namespace Glpi\Search;
+
+use Change;
+use CommonDBTM;
+use Problem;
+use Ticket;
 
 /**
  * Object representing a search option.
@@ -231,13 +236,13 @@ final class SearchOption implements \ArrayAccess
                     $search[$itemtype][24]['table']         = 'glpi_users';
                     $search[$itemtype][24]['field']         = 'name';
                     $search[$itemtype][24]['linkfield']     = 'users_id_tech';
-                    $search[$itemtype][24]['name']          = __('Technician in charge of the hardware');
+                    $search[$itemtype][24]['name']          = __('Technician in charge');
                     $search[$itemtype][24]['condition']     = ['is_assign' => 1];
 
                     $search[$itemtype][49]['table']          = 'glpi_groups';
                     $search[$itemtype][49]['field']          = 'completename';
                     $search[$itemtype][49]['linkfield']      = 'groups_id_tech';
-                    $search[$itemtype][49]['name']           = __('Group in charge of the hardware');
+                    $search[$itemtype][49]['name']           = __('Group in charge');
                     $search[$itemtype][49]['condition']      = ['is_assign' => 1];
                     $search[$itemtype][49]['datatype']       = 'dropdown';
 
@@ -259,39 +264,9 @@ final class SearchOption implements \ArrayAccess
             ) {
                 $search[$itemtype]['tracking']          = __('Assistance');
 
-                $search[$itemtype][60]['table']         = 'glpi_tickets';
-                $search[$itemtype][60]['field']         = 'id';
-                $search[$itemtype][60]['datatype']      = 'count';
-                $search[$itemtype][60]['name']          = _x('quantity', 'Number of tickets');
-                $search[$itemtype][60]['forcegroupby']  = true;
-                $search[$itemtype][60]['usehaving']     = true;
-                $search[$itemtype][60]['massiveaction'] = false;
-                $search[$itemtype][60]['joinparams']    = [
-                    'beforejoin' => [
-                        'table' => 'glpi_items_tickets',
-                        'joinparams' => [
-                            'jointype' => 'itemtype_item'
-                        ]
-                    ],
-                    'condition' => getEntitiesRestrictRequest('AND', 'NEWTABLE')
-                ];
-
-                $search[$itemtype][140]['table']         = 'glpi_problems';
-                $search[$itemtype][140]['field']         = 'id';
-                $search[$itemtype][140]['datatype']      = 'count';
-                $search[$itemtype][140]['name']          = _x('quantity', 'Number of problems');
-                $search[$itemtype][140]['forcegroupby']  = true;
-                $search[$itemtype][140]['usehaving']     = true;
-                $search[$itemtype][140]['massiveaction'] = false;
-                $search[$itemtype][140]['joinparams']    = [
-                    'beforejoin' => [
-                        'table' => 'glpi_items_problems',
-                        'joinparams' => [
-                            'jointype' => 'itemtype_item'
-                        ]
-                    ],
-                    'condition' => getEntitiesRestrictRequest('AND', 'NEWTABLE')
-                ];
+                $fn_append_options(Problem::getSearchOptionsToAdd($itemtype));
+                $fn_append_options(Ticket::getSearchOptionsToAdd($itemtype));
+                $fn_append_options(Change::getSearchOptionsToAdd($itemtype));
             }
 
             if (
@@ -343,6 +318,11 @@ final class SearchOption implements \ArrayAccess
                 $fn_append_options(\ManualLink::getSearchOptionsToAdd($itemtype));
             }
 
+            if (in_array($itemtype, $CFG_GLPI['reservation_types'], true)) {
+                $search[$itemtype]['reservationitem'] = \Reservation::getTypeName(\Session::getPluralNumber());
+                $fn_append_options(\ReservationItem::getSearchOptionsToAdd($itemtype));
+            }
+
             if ($withplugins) {
                 // Search options added by plugins
                 $plugsearch = \Plugin::getAddSearchOptions($itemtype);
@@ -354,10 +334,10 @@ final class SearchOption implements \ArrayAccess
             }
 
             // Complete linkfield if not define
-            if (is_null($item)) { // Special union type
+            if (!is_a($itemtype, CommonDBTM::class, true)) { // Special union type
                 $itemtable = $CFG_GLPI['union_search_type'][$itemtype];
             } else {
-                $itemtable = $item->getTable();
+                $itemtable = $itemtype::getTable();
             }
 
             foreach ($search[$itemtype] as $key => $val) {
@@ -487,6 +467,7 @@ final class SearchOption implements \ArrayAccess
                     case 'count':
                     case 'number':
                     case "integer":
+                    case 'decimal':
                         $opt = [
                             'contains'    => __('contains'),
                             'notcontains' => __('not contains'),
@@ -578,7 +559,7 @@ final class SearchOption implements \ArrayAccess
                     ];
 
                     // Specific case of TreeDropdown : add under
-                    $itemtype_linked = getItemTypeForTable($searchopt[$field_num]['table']);
+                    $itemtype_linked = $searchopt[$field_num]['itemtype'] ?? getItemTypeForTable($searchopt[$field_num]['table']);
                     if ($itemlinked = getItemForItemtype($itemtype_linked)) {
                         if ($itemlinked instanceof \CommonTreeDropdown) {
                             $actions['under']    = __('under');

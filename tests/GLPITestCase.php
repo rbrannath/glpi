@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -43,7 +43,6 @@ use Psr\Log\LogLevel;
 class GLPITestCase extends atoum
 {
     private $int;
-    private $str;
     protected $has_failed = false;
 
     /**
@@ -335,10 +334,13 @@ class GLPITestCase extends atoum
      */
     protected function getUniqueString()
     {
-        if (is_null($this->str)) {
-            return $this->str = uniqid('str');
-        }
-        return $this->str .= 'x';
+        return substr(
+            str_shuffle(
+                str_repeat("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 5)
+            ),
+            0,
+            16
+        );
     }
 
     /**

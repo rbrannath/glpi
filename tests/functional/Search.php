@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -39,6 +39,9 @@ use CommonDBTM;
 use CommonITILActor;
 use DBConnection;
 use DbTestCase;
+use Document;
+use Document_Item;
+use Glpi\Asset\Capacity\HasDocumentsCapacity;
 use Psr\Log\LogLevel;
 use Ticket;
 
@@ -51,7 +54,7 @@ class Search extends DbTestCase
 {
     private function doSearch($itemtype, $params, array $forcedisplay = [])
     {
-        global $DEBUG_SQL;
+        global $CFG_GLPI;
 
        // check param itemtype exists (to avoid search errors)
         if ($itemtype !== 'AllAssets') {
@@ -63,9 +66,11 @@ class Search extends DbTestCase
             $this->login();
         }
 
-       // force session in debug mode (to store & retrieve sql errors)
-        $glpi_use_mode             = $_SESSION['glpi_use_mode'];
-        $_SESSION['glpi_use_mode'] = \Session::DEBUG_MODE;
+        // force item lock
+        if (in_array($itemtype, $CFG_GLPI['lock_lockable_objects'])) {
+            $CFG_GLPI["lock_use_lock_item"] = 1;
+            $CFG_GLPI["lock_item_list"] = [$itemtype];
+        }
 
        // don't compute last request from session
         $params['reset'] = 'reset';
@@ -73,16 +78,6 @@ class Search extends DbTestCase
        // do search
         $params = \Search::manageParams($itemtype, $params);
         $data   = \Search::getDatas($itemtype, $params, $forcedisplay);
-
-       // append existing errors to returned data
-        $data['last_errors'] = [];
-        if (isset($DEBUG_SQL['errors'])) {
-            $data['last_errors'] = implode(', ', $DEBUG_SQL['errors']);
-            unset($DEBUG_SQL['errors']);
-        }
-
-       // restore glpi mode to previous
-        $_SESSION['glpi_use_mode'] = $glpi_use_mode;
 
        // do not store this search from session
         \Search::resetSaveSearch();
@@ -938,9 +933,10 @@ class Search extends DbTestCase
         ]);
         $this->integer($computer_id)->isGreaterThan(0);
 
-        $cvm = new \ComputerVirtualMachine();
+        $cvm = new \ItemVirtualMachine();
         $cvm_id = $cvm->add([
-            'computers_id' => $computer_id,
+            'itemtype' => 'Computer',
+            'items_id' => $computer_id,
             'name'         => $fname,
             'vcpu'         => 1,
         ]);
@@ -954,7 +950,8 @@ class Search extends DbTestCase
         ]);
         $this->integer($computer_id)->isGreaterThan(0);
         $cvm_id = $cvm->add([
-            'computers_id' => $computer_id,
+            'itemtype' => 'Computer',
+            'items_id' => $computer_id,
             'name'         => $fname,
         ]);
         $this->integer($cvm_id)->isGreaterThan(0);
@@ -1140,22 +1137,24 @@ class Search extends DbTestCase
         $this->array(
             $search
         )->isEqualTo([
-            'reset'        => 1,
-            'start'        => 0,
-            'order'        => 'ASC',
-            'sort'         => 1,
-            'is_deleted'   => 0,
-            'criteria'     => [
+            'reset'      => 1,
+            'start'      => 0,
+            'order'      => 'ASC',
+            'sort'       => 0,
+            'is_deleted' => 0,
+            'criteria'   => [
                 [
-                    'field' => 'view',
-                    'link'  => 'contains',
-                    'value' => '',
+                    'link'       => 'AND',
+                    'field'      => 'view',
+                    'searchtype' => 'contains',
+                    'value'      => '',
                 ]
             ],
-            'metacriteria' => [],
-            'as_map'       => 0,
-            'browse'       => 0,
-            'unpublished'  => 1,
+            'metacriteria'              => [],
+            'as_map'                    => 0,
+            'browse'                    => 0,
+            'disable_order_by_fallback' => true,
+            'unpublished'               => true,
         ]);
 
        // now add a bookmark on Computer view
@@ -1193,17 +1192,18 @@ class Search extends DbTestCase
             'is_deleted'   => 0,
             'criteria'     => [
                 0 => [
-                    'field' => 'view',
+                    'field'      => 'view',
                     'searchtype' => 'contains',
-                    'value' => 'test'
+                    'value'      => 'test'
                 ],
             ],
-            'metacriteria' => [],
-            'itemtype' => 'Computer',
-            'savedsearches_id' => $bk_id,
-            'as_map'           => 0,
-            'browse'           => 0,
-            'unpublished'      => 1,
+            'metacriteria'              => [],
+            'itemtype'                  => 'Computer',
+            'savedsearches_id'          => $bk_id,
+            'as_map'                    => 0,
+            'browse'                    => 0,
+            'unpublished'               => 1,
+            'disable_order_by_fallback' => true,
         ]);
     }
 
@@ -1602,6 +1602,9 @@ class Search extends DbTestCase
         \ProfileRight::updateProfileRights(getItemByTypeName('Profile', "Technician", true), [
             'Ticket' => (\Ticket::READMY + \Ticket::READNEWTICKET)
         ]);
+
+        // reload current profile to take into account the new rights
+        $this->login('tech', 'tech');
 
        // do search and check presence of the created problem
         $data = \Search::prepareDatasForSearch('Ticket', ['reset' => 'reset']);
@@ -2184,10 +2187,6 @@ class Search extends DbTestCase
         $this->array($result['data']['cols']);
         $this->array($result['data']['rows']);
         $this->array($result['data']['items']);
-
-       // No errors
-        $this->array($result)->hasKey('last_errors');
-        $this->array($result['last_errors'])->isIdenticalTo([]);
 
         $this->array($result)->hasKey('sql');
         $this->array($result['sql'])->hasKey('search');
@@ -3623,6 +3622,256 @@ class Search extends DbTestCase
             $this->string($data['sql']['search']);
 
             $this->string($this->cleanSQL($data['sql']['search']))->contains($expected_where);
+        }
+    }
+
+    protected function customAssetsProvider(): iterable
+    {
+        $root_entity_id = getItemByTypeName('Entity', '_test_root_entity', true);
+
+        $document_1 = $this->createTxtDocument();
+        $document_2 = $this->createTxtDocument();
+        $document_3 = $this->createTxtDocument();
+
+        $definition_1  = $this->initAssetDefinition(capacities: [HasDocumentsCapacity::class]);
+        $asset_class_1 = $definition_1->getAssetClassName();
+
+        $definition_2  = $this->initAssetDefinition(capacities: [HasDocumentsCapacity::class]);
+        $asset_class_2 = $definition_2->getAssetClassName();
+
+        // Assets for first class
+        $asset_1_1 = $this->createItem(
+            $asset_class_1,
+            [
+                'name'        => 'Asset 1.1',
+                'entities_id' => $root_entity_id,
+            ]
+        );
+        $asset_1_2 = $this->createItem(
+            $asset_class_1,
+            [
+                'name'        => 'Asset 1.2',
+                'entities_id' => $root_entity_id,
+            ]
+        );
+        $asset_1_3 = $this->createItem(
+            $asset_class_1,
+            [
+                'name'        => 'Asset 1.3 (deleted)',
+                'entities_id' => $root_entity_id,
+                'is_deleted'  => true,
+            ]
+        );
+
+        // Assets for second class
+        $asset_2_1 = $this->createItem(
+            $asset_class_2,
+            [
+                'name'        => 'Asset 2.1 (deleted)',
+                'entities_id' => $root_entity_id,
+                'is_deleted'  => true,
+            ]
+        );
+        $asset_2_2 = $this->createItem(
+            $asset_class_2,
+            [
+                'name'        => 'Asset 2.2',
+                'entities_id' => $root_entity_id,
+            ]
+        );
+        $asset_2_3 = $this->createItem(
+            $asset_class_2,
+            [
+                'name'        => 'Asset 2.3 (deleted)',
+                'entities_id' => $root_entity_id,
+                'is_deleted'  => true,
+            ]
+        );
+
+        // Attached documents
+        $this->createItems(
+            Document_Item::class,
+            [
+                [
+                    'documents_id' => $document_1->getID(),
+                    'itemtype'     => $asset_1_1->getType(),
+                    'items_id'     => $asset_1_1->getID(),
+                ],
+                [
+                    'documents_id' => $document_1->getID(),
+                    'itemtype'     => $asset_1_2->getType(),
+                    'items_id'     => $asset_1_2->getID(),
+                ],
+                [
+                    'documents_id' => $document_2->getID(),
+                    'itemtype'     => $asset_1_2->getType(),
+                    'items_id'     => $asset_1_2->getID(),
+                ],
+                [
+                    'documents_id' => $document_1->getID(),
+                    'itemtype'     => $asset_2_1->getType(),
+                    'items_id'     => $asset_2_1->getID(),
+                ],
+            ]
+        );
+
+        // Check search on custom assets.
+        // Validates that searching on assets of class A will not return some assets of class B in results.
+        $asset_search_params = [
+            'criteria' => [
+                [
+                    'field'      => 'view',
+                    'searchtype' => 'contains',
+                    'value'      => 'Asset'
+                ]
+            ]
+        ];
+
+        yield [
+            'class'    => $asset_class_1,
+            'params'   => $asset_search_params + ['is_deleted' => 0],
+            'expected' => [$asset_1_1, $asset_1_2],
+        ];
+        yield [
+            'class'    => $asset_class_1,
+            'params'   => $asset_search_params + ['is_deleted' => 1],
+            'expected' => [$asset_1_3],
+        ];
+        yield [
+            'class'    => $asset_class_2,
+            'params'   => $asset_search_params + ['is_deleted' => 0],
+            'expected' => [$asset_2_2],
+        ];
+        yield [
+            'class'    => $asset_class_2,
+            'params'   => $asset_search_params + ['is_deleted' => 1],
+            'expected' => [$asset_2_1, $asset_2_3],
+        ];
+
+        // Check search on documents using a custom assets as meta criteria.
+        yield [
+            'class'    => Document::class,
+            'params'   => [
+                'criteria' => [
+                    [
+                        'field'      => 'view',
+                        'searchtype' => 'contains',
+                        'value'      => ''
+                    ],
+                    [
+                        'link'       => 'AND',
+                        'itemtype'   => $asset_class_1,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ]
+                ]
+            ],
+            'expected' => [$document_1, $document_2],
+        ];
+        yield [
+            'class'    => Document::class,
+            'params'   => [
+                'criteria' => [
+                    [
+                        'field'      => 'view',
+                        'searchtype' => 'contains',
+                        'value'      => ''
+                    ],
+                    [
+                        'link'       => 'AND NOT',
+                        'itemtype'   => $asset_class_1,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ]
+                ]
+            ],
+            'expected' => [$document_3],
+        ];
+        yield [
+            'class'    => Document::class,
+            'params'   => [
+                'criteria' => [
+                    [
+                        'field'      => 'view',
+                        'searchtype' => 'contains',
+                        'value'      => ''
+                    ],
+                    [
+                        'link'       => 'AND',
+                        'itemtype'   => $asset_class_1,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ],
+                    [
+                        'link'       => 'OR',
+                        'itemtype'   => $asset_class_2,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ]
+                ]
+            ],
+            'expected' => [$document_1, $document_2],
+        ];
+        yield [
+            'class'    => Document::class,
+            'params'   => [
+                'criteria' => [
+                    [
+                        'field'      => 'view',
+                        'searchtype' => 'contains',
+                        'value'      => ''
+                    ],
+                    [
+                        'link'       => 'AND',
+                        'itemtype'   => $asset_class_1,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ],
+                    [
+                        'link'       => 'AND',
+                        'itemtype'   => $asset_class_2,
+                        'meta'       => true,
+                        'field'      => '1', // name
+                        'searchtype' => 'contains',
+                        'value'      => 'Asset'
+                    ]
+                ]
+            ],
+            'expected' => [$document_1],
+        ];
+    }
+
+    /**
+     * @dataProvider customAssetsProvider
+     */
+    public function testCustomAssetSearch(string $class, array $params, array $expected): void
+    {
+        $data = $this->doSearch($class, $params);
+        foreach ($expected as $key => $item) {
+            $this->string($data['data']['rows'][$key]['raw'][sprintf('ITEM_%s_1', $class)])->isEqualTo($item->fields['name']);
+            $this->integer($data['data']['rows'][$key]['raw']['id'])->isEqualTo($item->getID());
+        }
+        $this->integer($data['data']['totalcount'])->isIdenticalTo(count($expected));
+    }
+
+    public function testDCRoomSearchOption()
+    {
+        global $CFG_GLPI;
+        foreach ($CFG_GLPI['rackable_types'] as $rackable_type) {
+            $item = new $rackable_type();
+            $so = $item->rawSearchOptions();
+            //check if search option separator 'dcroom' exist
+            $this->variable(array_search('dcroom', array_column($so, 'id')))->isNotEqualTo(false, $item->getTypeName() . ' should use \'$tab = array_merge($tab, DCRoom::rawSearchOptionsToAdd());');
         }
     }
 }

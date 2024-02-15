@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -82,6 +82,7 @@ function header_html($etape)
     echo Html::script("js/glpi_dialog.js");
 
     // CSS
+    echo Html::scss("css/tabler", [], true);
     echo Html::css('public/lib/base.css');
     echo Html::scss("css/install", [], true);
     echo "</head>";
@@ -318,6 +319,7 @@ function step4($databasename, $newdatabasename)
                 false
             );
             if ($success) {
+                echo "<p>" . __('Initializing database tables and default data...') . "</p>";
                 Toolbox::createSchema($_SESSION["glpilanguage"]);
                 echo "<p>" . __('OK - database was initialized') . "</p>";
 
@@ -345,15 +347,16 @@ function step4($databasename, $newdatabasename)
                 false
             );
             if ($success) {
-                 Toolbox::createSchema($_SESSION["glpilanguage"]);
-                 echo "<p>" . __('OK - database was initialized') . "</p>";
-                 $next_form();
+                echo "<p>" . __('Initializing database tables and default data...') . "</p>";
+                Toolbox::createSchema($_SESSION["glpilanguage"]);
+                echo "<p>" . __('OK - database was initialized') . "</p>";
+                $next_form();
             } else { // can't create config_db file
                 echo "<p>" . __('Impossible to write the database setup file') . "</p>";
                 $prev_form($host, $user, $password);
             }
         } else { // try to create the DB
-            if ($link->doQuery("CREATE DATABASE IF NOT EXISTS `" . $newdatabasename . "`")) {
+            if ($link->query("CREATE DATABASE IF NOT EXISTS `" . $newdatabasename . "`")) {
                 echo "<p>" . __('Database created') . "</p>";
 
                 $select_db = $link->select_db($newdatabasename);
@@ -374,6 +377,7 @@ function step4($databasename, $newdatabasename)
                 }
 
                 if ($success) {
+                    echo "<p>" . __('Initializing database tables and default data...') . "</p>";
                     Toolbox::createSchema($_SESSION["glpilanguage"]);
                     echo "<p>" . __('OK - database was initialized') . "</p>";
                     $next_form();

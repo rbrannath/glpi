@@ -119,6 +119,16 @@
             refreshButton: (button) => {}
         },
         {
+            id: 'theme_switcher',
+            title: 'Palette Switcher',
+            icon: 'ti ti-palette',
+            main_widget: true, // This widget shows directly in the toolbar
+            component_registered_name: 'widget-theme-switcher',
+            refreshButton: (button) => {
+                button.find('.debug-text').html(`<span class="text-muted">Theme: </span> ${document.documentElement.attributes['data-glpi-theme'].value}`);
+            }
+        },
+        {
             id: 'globals',
             main_widget: false,
             component_registered_name: 'widget-globals',
@@ -136,7 +146,10 @@
     ];
 
     $.each(props.initial_request.sql.queries, (i, query) => {
-        props.initial_request.sql.queries[i].query = cleanSQLQuery(query.query);
+        cleanSQLQuery(query.query).then((clean_query) => {
+            // eslint-disable-next-line vue/no-mutating-props
+            props.initial_request.sql.queries[i].query = clean_query;
+        });
     });
     $(document).ajaxSend((event, xhr, settings) => {
         // If the request is going to the debug AJAX endpoint, don't do anything
@@ -236,31 +249,13 @@
     function cleanSQLQuery(query) {
         const newline_keywords = ['UNION', 'FROM', 'WHERE', 'INNER JOIN', 'LEFT JOIN', 'ORDER BY', 'SORT'];
         const post_newline_keywords = ['UNION'];
-        let clean_query = '';
-        window.CodeMirror.runMode(query, window.CodeMirror.languages.sql().language, (text, style) => {
-            text.replace('>', `&gt;`).replace('<', `&lt;`);
-            if (style !== null && style !== undefined) {
-                if (newline_keywords.includes(text.toUpperCase())) {
-                    clean_query += '</br>';
-                }
-                clean_query += `<span class="${style.replace(' ', '')}">${text}</span>`;
-                if (post_newline_keywords.includes(text.toUpperCase())) {
-                    clean_query += '</br>';
-                }
-            } else {
-                clean_query += text;
-            }
+        query = query.replace(/\n/g, ' ');
+        return Promise.resolve(window.GLPI.Monaco.colorizeText(query, 'sql')).then((html) => {
+            // get all 'span' elements with mtk6 class (keywords) and insert the needed line breaks
+            const newline_before_selector = newline_keywords.map((keyword) => `span.mtk6:contains(${keyword})`).join(',');
+            const post_newline_selector = post_newline_keywords.map((keyword) => `span.mtk6:contains(${keyword})`).join(',');
+            return $($.parseHTML(html)).find(newline_before_selector).before('</br>').end().find(post_newline_selector).after('</br>').end().html();
         });
-        if ($('#debug-toolbar style[data-cm-sql-styles]').length === 0) {
-            /** @var {string[]} */
-            const rules = window.CodeMirror.defaultHighlightStyle.module.rules;
-            // Rules are an array of complete css rules. We can just join them together and insert them into a style tag
-            const style_tag = $('<style data-cm-sql-styles></style>');
-            style_tag.text(rules.join(''));
-            $('#debug-toolbar').prepend(style_tag);
-        }
-
-        return clean_query;
     }
 
     function getCombinedSQLData() {
@@ -279,7 +274,7 @@
             // update the total counters
             data.forEach((query) => {
                 sql_data.total_requests += 1;
-                sql_data.total_duration += parseInt(query['time']);
+                sql_data.total_duration += query['time'];
             });
         });
 
@@ -293,12 +288,15 @@
         if (content_area === undefined) {
             content_area = $('#debug-toolbar-expanded-content');
         }
-        active_widget.value = widget_id;
-        show_content_area.value = true;
         // Copy data into data properties of the content_area
         Object.keys(data).forEach((key) => {
             content_area.data(key, data[key]);
         });
+        if (refresh) {
+            active_widget.value = null;
+        }
+        active_widget.value = widget_id;
+        show_content_area.value = true;
     }
 
     function refreshWidgetButtons() {
@@ -315,10 +313,6 @@
             $('body').addClass('debug-folded');
         }
     });
-
-    function toggleExtraContentArea(force_show = false) {
-        show_content_area.value = (force_show || !show_content_area.value);
-    }
 
     function getProfile(request_id) {
         if (request_id === props.initial_request.id) {
@@ -338,7 +332,9 @@
             ajax_request.profile = data;
 
             $.each(ajax_request.profile.sql.queries, (i, query) => {
-                ajax_request.profile.sql.queries[i].query = cleanSQLQuery(query.query);
+                cleanSQLQuery(query.query).then((clean_query) => {
+                    ajax_request.profile.sql.queries[i].query = clean_query;
+                });
             });
 
             const content_area = $('#debug-toolbar-expanded-content');
@@ -394,7 +390,8 @@
         </div>
         <div id="debug-toolbar-expanded-content" class="w-100 card pe-2" v-show="show_content_area && show_toolbar">
             <component v-if="active_widget" :is="active_widget_component" :initial_request="props.initial_request"
-               :ajax_requests="ajax_requests" @switchWidget="switchWidget" :widgets="widgets"></component>
+               :ajax_requests="ajax_requests" @switchWidget="switchWidget" :widgets="widgets"
+               @refreshButton="refreshWidgetButtons"></component>
         </div>
     </div>
 </template>

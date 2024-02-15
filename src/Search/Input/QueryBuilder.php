@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -35,6 +35,7 @@
 
 namespace Glpi\Search\Input;
 
+use AllAssets;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\Search\SearchEngine;
 use Glpi\Search\SearchOption;
@@ -92,6 +93,12 @@ final class QueryBuilder implements SearchInputInterface
 
         $can_disablefilter = \Session::haveRightsOr('search_config', [\DisplayPreference::PERSONAL, \DisplayPreference::GENERAL]);
 
+        $target_query  = parse_url($p['target'], PHP_URL_QUERY);
+        $additional_params = [];
+        if ($target_query !== false && $target_query != '') {
+            parse_str($target_query, $additional_params);
+        }
+
         TemplateRenderer::getInstance()->display('components/search/query_builder/main.html.twig', [
             'mainform'            => $p['mainform'],
             'showaction'          => $p['showaction'],
@@ -101,6 +108,38 @@ final class QueryBuilder implements SearchInputInterface
             'p'                   => $p,
             'linked'              => $linked,
             'can_disablefilter'   => $can_disablefilter,
+            'additional_params'   => $additional_params,
+        ]);
+    }
+
+
+    /**
+     * Print generic ordering form
+     *
+     * Params need to parsed before using Search::manageParams function
+     *
+     * @since 10.1
+     *
+     * @param string $itemtype  Type to display the form
+     * @param array  $params    Array of parameters may include sort, is_deleted, criteria, metacriteria
+     *
+     * @return void
+     */
+    public static function showGenericSort(string $itemtype, array $params): void
+    {
+        $p = [
+            'sort' => [],
+            'order' => [],
+        ];
+
+        foreach ($params as $key => $val) {
+            $p[$key] = $val;
+        }
+
+        TemplateRenderer::getInstance()->display('components/search/query_builder/sort/main.html.twig', [
+            'itemtype'            => $itemtype,
+            'normalized_itemtype' => Toolbox::getNormalizedItemtype($itemtype),
+            'p'                   => $p,
         ]);
     }
 
@@ -321,7 +360,7 @@ final class QueryBuilder implements SearchInputInterface
 
             echo "<input type='text' class='form-control' size='13' name='$inputname' value=\"" .
                 htmlspecialchars($request['value']) . "\" pattern=\"" . htmlspecialchars($pattern) . "\">" .
-                "<span class='info'>" . htmlspecialchars($message) . "</span>";
+                "<span class='invalid-tooltip'>" . htmlspecialchars($message) . "</span>";
         }
     }
 
@@ -441,9 +480,6 @@ final class QueryBuilder implements SearchInputInterface
      */
     public static function displayMetaCriteria($request = [])
     {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
         if (
             !isset($request["itemtype"])
             || !isset($request["num"])
@@ -479,7 +515,7 @@ final class QueryBuilder implements SearchInputInterface
         $linked =  SearchEngine::getMetaItemtypeAvailable($itemtype);
         $rand   = mt_rand();
 
-        $rowid  = 'metasearchrow' . $request['itemtype'] . $rand;
+        $rowid  = 'metasearchrow' . Toolbox::getNormalizedItemtype($request['itemtype']) . $rand;
         TemplateRenderer::getInstance()->display('components/search/query_builder/metacriteria.html.twig', [
             'row_id'       => $rowid,
             'metacriteria' => $metacriteria,
@@ -488,6 +524,73 @@ final class QueryBuilder implements SearchInputInterface
             'itemtype'    => $itemtype,
             'linked'      => $linked,
             'p'           => $p,
+        ]);
+    }
+
+
+    /**
+     * Display a sort-criteria field set, this function should be called by ajax/search.php
+     *
+     * @since 10.1
+     *
+     * @param  array  $request @see displayCriteria method
+     *
+     * @return void
+     */
+    public static function displaySortCriteria(array $request = []): void
+    {
+        if (
+            !isset($request["itemtype"])
+            || !isset($request["num"])
+        ) {
+            return;
+        }
+
+        $num         = (int) $request['num'];
+        $p           = $request['p'] ?? [];
+
+        $sorts      = $p['sort'] ?? [];
+        $orders     = $p['order'] ?? [];
+        $used       = $request['used'] ?? [];
+        $soptions   = SearchOption::getCleanedOptions($request["itemtype"]);
+        $soption_id = $sorts[$num] ?? '';
+        $soption    = $soptions[$soption_id] ?? [];
+
+        $order = [
+            'soption_id' => $soption_id,
+            'name'       => $soption['name'] ?? '',
+            'order'      => $orders[$num] ?? 'ASC',
+        ];
+
+        $randrow     = mt_rand();
+        $normalized_itemtype = Toolbox::getNormalizedItemtype($request["itemtype"]);
+        $rowid       = 'orderrow' . $normalized_itemtype . $randrow;
+
+        $values   = [];
+        reset($soptions);
+        $group = '';
+        foreach ($soptions as $key => $val) {
+            // print groups
+            if (!is_array($val)) {
+                $group = $val;
+            } else if (count($val) == 1) {
+                $group = $val['name'];
+            } else {
+                if (
+                    (!isset($val['nosearch']) || ($val['nosearch'] == false))
+                ) {
+                    $values[$group][$key] = $val["name"];
+                }
+            }
+        }
+
+        TemplateRenderer::getInstance()->display('components/search/query_builder/sort/criteria.html.twig', [
+            'itemtype' => $request["itemtype"],
+            'num'      => $num,
+            'order'    => $order,
+            'rowid'    => $rowid,
+            'values'   => $values,
+            'used'     => array_combine($used, $used),
         ]);
     }
 
@@ -503,10 +606,11 @@ final class QueryBuilder implements SearchInputInterface
      */
     public static function displayCriteriaGroup($request = [])
     {
+
         $num         = (int) $request['num'];
         $p           = $request['p'];
         $randrow     = mt_rand();
-        $rowid       = 'searchrow' . $request['itemtype'] . $randrow;
+        $rowid       = 'searchrow' . Toolbox::getNormalizedItemtype($request['itemtype']) . $randrow;
         $prefix      = isset($p['prefix_crit']) ? htmlspecialchars($p['prefix_crit']) : '';
         $parents_num = isset($p['parents_num']) ? $p['parents_num'] : [];
 
@@ -540,11 +644,34 @@ final class QueryBuilder implements SearchInputInterface
      **/
     public static function manageParams($itemtype, $params = [], $usesession = true, $forcebookmark = false): array
     {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
         $default_values = [];
 
         $default_values["start"]       = 0;
         $default_values["order"]       = "ASC";
-        $default_values["sort"]        = 1;
+        if (
+            (
+                empty($params['criteria'] ?? [])  // No search criteria
+                || $params['criteria'] == self::getDefaultCriteria($itemtype) // Default criteria
+            )
+            && ( // Is an asset
+                in_array($itemtype, $CFG_GLPI['asset_types'])
+                || $itemtype == AllAssets::getType()
+            )
+        ) {
+            // Disable sort on assets default search request
+            // This improve significantly performances on default search queries without much functional costs as users
+            // often don't care about the default search results
+            $default_values["sort"] = 0;
+            // Defining "sort" to 0 is no enough as the search engine will default to sorting on the `id` column.
+            // Sorting by id still has a high performance cost on heavy requests, thus we must explicitly request
+            // that no ORDER BY clause will be set
+            $default_values["disable_order_by_fallback"] = true;
+        } else {
+            $default_values["sort"]    = 1;
+        }
         $default_values["is_deleted"]  = 0;
         $default_values["as_map"]      = 0;
         $default_values["browse"]      = $itemtype::$browse_default ?? 0;
@@ -615,7 +742,7 @@ final class QueryBuilder implements SearchInputInterface
                     $params = $user_default_values;
                 } else {
                     $bookmark = new \SavedSearch();
-                    $bookmark->load($user_default_values['savedsearches_id'], false);
+                    $bookmark->load($user_default_values['savedsearches_id']);
                 }
             }
         }
@@ -654,6 +781,12 @@ final class QueryBuilder implements SearchInputInterface
         ) {
             if (isset($_SESSION['glpisearch'][$itemtype])) {
                 unset($_SESSION['glpisearch'][$itemtype]);
+            }
+
+            // if we ask for reset but without precising particular bookmark
+            // then remove current active bookmark
+            if (!isset($params['savedsearches_id'])) {
+                unset($_SESSION['glpi_loaded_savedsearch']);
             }
         }
 
@@ -694,6 +827,19 @@ final class QueryBuilder implements SearchInputInterface
         return $params;
     }
 
+
+    /**
+     * Remove the active saved search in session
+     *
+     * @since 10.1
+     *
+     * @return void
+     */
+    public static function resetActiveSavedSearch(): void
+    {
+        unset($_SESSION['glpi_loaded_savedsearch']);
+    }
+
     /**
      * construct the default criteria for an itemtype
      *
@@ -725,9 +871,10 @@ final class QueryBuilder implements SearchInputInterface
 
         return [
             [
-                'field' => $field,
-                'link'  => 'contains',
-                'value' => ''
+                'link'       => 'AND',
+                'field'      => $field,
+                'searchtype' => 'contains',
+                'value'      => ''
             ]
         ];
     }
@@ -808,13 +955,13 @@ final class QueryBuilder implements SearchInputInterface
                 break;
 
             case 'datetime':
-                $pattern = $relative_operators_pattern . '([\d:\- ]+|\-?\s*\d+(\.\d+)?)';
+                $pattern = $relative_operators_pattern . '([\d:\- ]+|-?\s*\d+(\.\d+)?)';
                 $message = __('must be a date time (YYYY-MM-DD HH:mm:SS) or be a relative number of months (e.g. > -6 for dates higher than 6 months ago)');
                 break;
 
             case 'date':
             case 'date_delay':
-                $pattern = $relative_operators_pattern . '([\d\-]+|\-?\s*\d+(\.\d+)?)';
+                $pattern = $relative_operators_pattern . '([\d\-]+|-?\s*\d+(\.\d+)?)';
                 $message = __('must be a date (YYYY-MM-DD) or be a relative number of months (e.g. > -6 for dates higher than 6 months ago)');
                 break;
 

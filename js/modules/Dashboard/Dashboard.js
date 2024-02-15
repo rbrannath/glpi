@@ -5,7 +5,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -381,7 +381,7 @@ class GLPIDashboard {
                     x:            item.attr('gs-x'),
                     y:            item.attr('gs-y'),
                     width:        item.attr('gs-w'),
-                    height:       item.attr('gs-h'),
+                    height:       item.attr('gs-h') ?? 1,
                     card_options: card_opt,
                 },
             });
@@ -753,7 +753,7 @@ class GLPIDashboard {
                 x: $(v).attr('gs-x'),
                 y: $(v).attr('gs-y'),
                 width: $(v).attr('gs-w'),
-                height: $(v).attr('gs-h'),
+                height: $(v).attr('gs-h') ?? 1,
                 card_options: options
             } : null;
         });
@@ -901,7 +901,9 @@ class GLPIDashboard {
         this.grid.setStatic(!activate);
 
         // set filters as sortable (draggable) or not
-        sortable(this.filters_selector, activate ? 'enable' : 'disable');
+        if ($(this.filters_selector).children().length > 0) {
+            sortable(this.filters_selector, activate ? 'enable' : 'disable');
+        }
 
         if (!this.edit_mode) {
             // save markdown textareas set as dirty
@@ -1105,7 +1107,8 @@ class GLPIDashboard {
                 'dashboard': this.current_name,
                 'force': (specific_one.length > 0 ? 1 : 0),
                 'd_cache_key': this.cache_key,
-                'cards': card_ajax_data
+                'cards': card_ajax_data,
+                'action': 'get_cards'
             };
             if (this.embed) {
                 data.embed        = 1;
@@ -1117,10 +1120,7 @@ class GLPIDashboard {
             return $.ajax({
                 url:CFG_GLPI.root_doc+"/ajax/dashboard.php",
                 method: 'POST',
-                data: {
-                    'action': 'get_cards',
-                    data: JSON.stringify(data)
-                }
+                data: data
             }).then((results) => {
                 $.each(requested_cards, (i2, crd) => {
                     let has_result = false;

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -34,8 +34,10 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\AssetDefinitionManager;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QuerySubQuery;
+use Glpi\Event;
 
 /**
  * Profile class
@@ -236,12 +238,22 @@ class Profile extends CommonDBTM
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /** @var \DBmysql $DB */
         global $DB;
 
         if (count($this->profileRight) > 0) {
+            // Delegate custom assets specific rights handling to `AssetDefinitionManager`.
+            $definitions = AssetDefinitionManager::getInstance()->getDefinitions();
+            foreach ($definitions as $definition) {
+                $asset_rightname = $definition->getAssetRightname();
+                if (array_key_exists($asset_rightname, $this->profileRight)) {
+                    $definition->setProfileRights($this->getID(), $this->profileRight[$asset_rightname]);
+                    unset($this->profileRight[$asset_rightname]);
+                }
+            }
+
             ProfileRight::updateProfileRights($this->getID(), $this->profileRight);
             $this->profileRight = null;
         }
@@ -421,20 +433,23 @@ class Profile extends CommonDBTM
 
 
         // Check if profile edit right was removed
-        $can_edit_profile = $this->fields['profile'] & UPDATE == UPDATE;
-        $updated_value = $input['_profile'][UPDATE . "_0"] ?? null;
-        $update_profiles_right_was_removed = $updated_value !== null && !(bool) $updated_value;
-        if (
-            $can_edit_profile
-            && $update_profiles_right_was_removed
-            && $this->isLastSuperAdminProfile()
-        ) {
-            Session::addMessageAfterRedirect(
-                __("Can't remove update right on this profile as it is the only remaining profile with this right."),
-                false,
-                ERROR
-            );
-            unset($input['_profile']);
+        // `$this->fields['profile']` will not be present if the `profile` right is not present in DB for the current profile
+        if (array_key_exists('profile', $this->fields)) {
+            $can_edit_profile = $this->fields['profile'] & UPDATE == UPDATE;
+            $updated_value = $input['_profile'][UPDATE . "_0"] ?? null;
+            $update_profiles_right_was_removed = $updated_value !== null && !(bool) $updated_value;
+            if (
+                $can_edit_profile
+                && $update_profiles_right_was_removed
+                && $this->isLastSuperAdminProfile()
+            ) {
+                Session::addMessageAfterRedirect(
+                    __("Can't remove update right on this profile as it is the only remaining profile with this right."),
+                    false,
+                    ERROR
+                );
+                unset($input['_profile']);
+            }
         }
 
         if (isset($input['interface']) && $input['interface'] == 'helpdesk' && $this->isLastSuperAdminProfile()) {
@@ -980,6 +995,10 @@ class Profile extends CommonDBTM
                             $fn_get_rights(__CLASS__, 'central', ['scope' => 'global']),
                             $fn_get_rights(QueuedNotification::class, 'central', ['scope' => 'global']),
                             $fn_get_rights(Log::class, 'central', ['scope' => 'global']),
+                            $fn_get_rights(Event::class, 'central', [
+                                'scope' => 'global',
+                                'label' => __('System logs')
+                            ]),
                         ],
                         'inventory' => [
                             $fn_get_rights(\Glpi\Inventory\Conf::class, 'central', [
@@ -1010,7 +1029,10 @@ class Profile extends CommonDBTM
                                 'rights' => [
                                     READ  => __('Read'),
                                     UPDATE  => __('Update'),
-                                    DELETE => __('Delete'),
+                                    DELETE => [
+                                        'short' => __('Delete'),
+                                        'long'  => _x('button', 'Put in trashbin')
+                                    ],
                                     PURGE   => [
                                         'short' => __('Purge'),
                                         'long'  => _x('button', 'Delete permanently')
@@ -1161,6 +1183,12 @@ class Profile extends CommonDBTM
                     ]
                 ]
             ];
+
+            // Add rights for custom assets
+            $definitions = AssetDefinitionManager::getInstance()->getDefinitions(only_active: true);
+            foreach ($definitions as $definition) {
+                $all_rights['central']['assets']['custom_assets'][] = $fn_get_rights($definition->getAssetClassName(), 'central');
+            }
         }
 
         $result = $all_rights;
@@ -1375,6 +1403,15 @@ class Profile extends CommonDBTM
             'default_class' => 'tab_bg_2',
             'title'         => _n('Asset', 'Assets', Session::getPluralNumber())
         ]);
+
+        $custom_asset_rights = self::getRightsForForm('central', 'assets', 'custom_assets');
+        if (count($custom_asset_rights)) {
+            $this->displayRightsChoiceMatrix($custom_asset_rights, [
+                'canedit' => $canedit,
+                'default_class' => 'tab_bg_2',
+                'title' => _n('Custom asset', 'Custom assets', Session::getPluralNumber())
+            ]);
+        }
 
         if (
             $canedit
@@ -3145,11 +3182,26 @@ class Profile extends CommonDBTM
             'name'               => _n('Log', 'Logs', Session::getPluralNumber()),
             'datatype'           => 'right',
             'rightclass'         => 'Log',
-            'rightname'          => 'logs',
+            'rightname'          => Log::$rightname,
             'nowrite'            => true,
             'joinparams'         => [
                 'jointype'           => 'child',
-                'condition'          => ['NEWTABLE.name' => 'logs']
+                'condition'          => ['NEWTABLE.name' => Log::$rightname]
+            ]
+        ];
+
+        $tab[] = [
+            'id'                 => '62',
+            'table'              => 'glpi_profilerights',
+            'field'              => 'rights',
+            'name'               => __('System logs'),
+            'datatype'           => 'right',
+            'rightclass'         => 'Log',
+            'rightname'          => Event::$rightname,
+            'nowrite'            => true,
+            'joinparams'         => [
+                'jointype'           => 'child',
+                'condition'          => ['NEWTABLE.name' => Event::$rightname]
             ]
         ];
 
@@ -4083,7 +4135,7 @@ class Profile extends CommonDBTM
      *             'canedit'
      *             'default_class' the default CSS class used for the row
      *
-     * @return random value used to generate the ids
+     * @return integer random value used to generate the ids
      **/
     public function displayRightsChoiceMatrix(array $rights, array $options = [])
     {

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -39,7 +39,7 @@ Html::header_nocache();
 
 Session::checkRight("config", READ);
 
-$action = $_POST['action'] ?? null;
+$action = $_REQUEST['action'] ?? null;
 
 switch ($action) {
     case 'valide_cra_challenge':
@@ -66,7 +66,7 @@ switch ($action) {
             $values = [];
             foreach ($data as $items_id => $items_data) {
                 if ($object instanceof CommonITILTask || $object instanceof CommonITILValidation) {
-                    $itil_type = $object->getItilObjectItemType();
+                    $itil_type = $object::getItilObjectItemType();
                     $foreign_key = getForeignKeyFieldForItemType($itil_type);
                     $values[$items_id] = $itil_type::getTypeName(0) . " " . $items_data[$foreign_key] . " => " . $object::getTypeName(0) . " " . $items_id;
                 } else {
@@ -164,6 +164,14 @@ switch ($action) {
             http_response_code(200);
         } else {
             http_response_code(400);
+        }
+        die();
+    case 'get_monaco_suggestions':
+        header("Content-Type: application/json; charset=UTF-8");
+        try {
+            echo json_encode(Webhook::getMonacoSuggestions($_GET['itemtype']), JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            http_response_code(500);
         }
         die();
 }

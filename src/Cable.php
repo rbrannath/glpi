@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -61,7 +61,7 @@ class Cable extends CommonDBTM
         $ong = [];
         $this->addDefaultFormTab($ong)
          ->addStandardTab('Infocom', $ong, $options)
-         ->addStandardTab('Ticket', $ong, $options)
+         ->addStandardTab('Item_Ticket', $ong, $options)
          ->addStandardTab('Item_Problem', $ong, $options)
          ->addStandardTab('Change_Item', $ong, $options)
          ->addStandardTab('Log', $ong, $options);
@@ -284,7 +284,7 @@ class Cable extends CommonDBTM
             'table'              => 'glpi_users',
             'field'              => 'name',
             'linkfield'          => 'users_id_tech',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown'
         ];
 

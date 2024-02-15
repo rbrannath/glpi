@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -33,6 +33,7 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QuerySubQuery;
 
@@ -65,7 +66,7 @@ class RuleAction extends CommonDBChild
 
 
     /**
-     * @param $rule_type
+     * @param string $rule_type
      **/
     public function __construct($rule_type = 'Rule')
     {
@@ -94,9 +95,9 @@ class RuleAction extends CommonDBChild
     /**
      * Get title used in rule
      *
-     * @param $nb  integer  (default 0)
+     * @param integer $nb (default 0)
      *
-     * @return Title of the rule
+     * @return string Title of the rule
      **/
     public static function getTypeName($nb = 0)
     {
@@ -336,7 +337,7 @@ class RuleAction extends CommonDBChild
      *
      * @param $ID the rule_description ID
      *
-     * @return an array of RuleAction objects
+     * @return array of RuleAction objects
      **/
     public function getRuleActions($ID)
     {
@@ -728,81 +729,41 @@ class RuleAction extends CommonDBChild
         }
     }
 
-    /** form for rule action
+    /**
+     * Show the form to add or update an action
+     * @param integer $ID ID of the action
+     * @param array $options Extra options
+     * @phpstan-param array{parent: Rule} $options
      *
+     * @return boolean
      * @since 0.85
-     *
-     * @param $ID      integer : Id of the action
-     * @param $options array of possible options:
-     *     - rule Object : the rule
      **/
     public function showForm($ID, array $options = [])
     {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
        // Yllen: you always have parent for action
         $rule = $options['parent'];
 
-        if ($ID > 0) {
+        if (!static::isNewID($ID)) {
             $this->check($ID, READ);
         } else {
-           // Create item
+            // Create item
             $options[static::$items_id] = $rule->getField('id');
-
-           //force itemtype of parent
+            // force itemtype of parent
             static::$itemtype = get_class($rule);
-
             $this->check(-1, CREATE, $options);
         }
-        $this->showFormHeader($options);
 
-        echo "<tr class='tab_bg_1 center'>";
-        echo "<td>" . _n('Action', 'Actions', 1) . "</td><td colspan='3'>";
-        echo "<input type='hidden' name='" . $rule->getRuleIdField() . "' value='" .
-             $this->fields[static::$items_id] . "'>";
-        $used = $this->getAlreadyUsedForRuleID($this->fields[static::$items_id], $rule->getType());
-       // On edit : unset selected value
-        if (
-            $ID
-            && isset($used[$this->fields['field']])
-        ) {
+        $used = $this->getAlreadyUsedForRuleID($rule->getID(), get_class($rule));
+        if (isset($used[$this->fields['field']]) && !static::isNewID($ID)) {
             unset($used[$this->fields['field']]);
         }
-        $rand   = $rule->dropdownActions(['value' => $this->fields['field'],
-            'used'  => $used
+        TemplateRenderer::getInstance()->display('pages/admin/rules/action.html.twig', [
+            'rule' => $rule,
+            'rules_id_field' => static::$items_id,
+            'item' => $this,
+            'used_actions' => $used,
+            'rand' => mt_rand()
         ]);
-        $params = ['field'                 => '__VALUE__',
-            'sub_type'              => $rule->getType(),
-            'ruleactions_id'        => $this->getID(),
-            $rule->getRuleIdField() => $this->fields[static::$items_id]
-        ];
-
-        Ajax::updateItemOnSelectEvent(
-            "dropdown_field$rand",
-            "action_span",
-            $CFG_GLPI["root_doc"] . "/ajax/ruleaction.php",
-            $params
-        );
-
-        if (isset($this->fields['field']) && !empty($this->fields['field'])) {
-            $params['field']       = $this->fields['field'];
-            $params['action_type'] = $this->fields['action_type'];
-            $params['value']       = $this->fields['value'];
-            echo "<script type='text/javascript' >\n";
-            echo "$(function() {";
-            Ajax::updateItemJsCode(
-                "action_span",
-                $CFG_GLPI["root_doc"] . "/ajax/ruleaction.php",
-                $params
-            );
-            echo '});</script>';
-        }
-        echo "</td></tr>";
-        echo "<tr><td colspan='4'><span id='action_span'>\n";
-        echo "</span></td>\n";
-        echo "</tr>\n";
-        $this->showFormButtons($options);
 
         return true;
     }

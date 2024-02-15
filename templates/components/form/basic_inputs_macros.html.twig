@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -72,6 +72,7 @@
                {{ options.disabled ? 'disabled' : '' }}
                {{ options.multiple ? 'multiple' : '' }} {# Only for emailField #}
                {{ options.required ? 'required' : '' }}
+               {{ options.pattern ? ('pattern="' ~ options.pattern|e('html_attr') ~ '"')|raw : '' }}
                {% if options.min is defined %}min="{{ options.min }}"{% endif %}
                {% if options.max is defined %}max="{{ options.max }}"{% endif %}
                {% if options.step is defined %}step="{{ options.step }}"{% endif %} />
@@ -156,6 +157,8 @@
                 showInput: true,
                 preferredFormat: "hex",
                 type: "text",
+                cancelText: "{{ __('Cancel') }}",
+                chooseText: "{{ __('Validate') }}",
                 change: function (color) {
                     if (color !== null && color.getAlpha() !== 1) {
                         let hex = color.toHexString();
@@ -206,6 +209,7 @@
         'rand': random(),
         'enableTime': false,
         'checkIsExpired ': false,
+        'clearable': false,
     }|merge(options) %}
 
     {% set options = {
@@ -229,17 +233,25 @@
         {% endif %}
     {% endif %}
 
-    <div class="input-group flex-grow-1 flatpickr" id="{{ options.id }}">
+    <div class="btn-group flex-grow-1 flatpickr" id="{{ options.id }}">
         {{ _self.input(name, value, options|merge({
             'type': 'text',
             'id': options.id ~ '_input',
             'additional_attributes': {'data-input': ''},
-            'input_addclass': options.input_addclass ~ final_expiration_class
+            'input_addclass': options.input_addclass ~ final_expiration_class,
+            'clearable': false
         })) }}
 
         {% if not options.readonly %}
             {% set calendar_icon = options.enableTime ? 'ti ti-calendar-time' : 'ti ti-calendar' %}
-            <i class="input-group-text {{ calendar_icon }}" data-toggle role="button"></i>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-toggle>
+                <i class="{{ calendar_icon }}"></i>
+            </button>
+            {# maybeempty has no distinct purpose, but it was here first #}
+            {% if options.clearable or options.maybeempty %}
+                <i class="input-group-text fas fa-times-circle pointer" data-clear
+                    title="{{ __('Clear') }}"></i>
+            {% endif %}
         {% endif %}
     </div>
 

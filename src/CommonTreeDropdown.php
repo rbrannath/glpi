@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -69,7 +69,7 @@ abstract class CommonTreeDropdown extends CommonDropdown
             $this->addStandardTab('Log', $ong, $options);
         }
 
-        if (DropdownTranslation::canBeTranslated($this)) {
+        if ($this->maybeTranslated()) {
             $this->addStandardTab('DropdownTranslation', $ong, $options);
         }
 
@@ -82,7 +82,7 @@ abstract class CommonTreeDropdown extends CommonDropdown
 
         if (
             !$withtemplate
-            && ($item->getType() == $this->getType())
+            && ($item instanceof static)
         ) {
             $nb = 0;
             if ($_SESSION['glpishow_count_on_tabs']) {
@@ -400,7 +400,7 @@ abstract class CommonTreeDropdown extends CommonDropdown
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
 
         $ID           = $this->getID();

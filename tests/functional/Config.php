@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -95,7 +95,6 @@ class Config extends DbTestCase
             'Config$12'     => "<span><i class='ti ti-wallet me-2'></i>Management</span>",
             'DisplayPreference$1' => "<span><i class='ti ti-columns-3 me-2'></i>Search result display</span>",
             'GLPINetwork$1' => "<span><i class='ti ti-headset me-2'></i>GLPI Network</span>",
-            'Log$1'         => "<span><i class='ti ti-history me-2'></i>Historical</span>",
         ];
         $this
          ->given($this->newTestedInstance)
@@ -858,5 +857,14 @@ class Config extends DbTestCase
                 $this->string($CFG_GLPI['root_doc'])->isEqualTo($prefix);
             }
         }
+    }
+
+    public function testConfigLogNotEmpty()
+    {
+        $itemtype = 'Config';
+        $config_id = \Config::getConfigIDForContext('core');
+        $this->integer($config_id)->isGreaterThan(0);
+        $total_number = countElementsInTable("glpi_logs", ['items_id' => $config_id, 'itemtype' => $itemtype]);
+        $this->integer($total_number)->isGreaterThan(0);
     }
 }

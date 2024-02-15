@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -79,7 +79,11 @@ final class GraphQLGenerator
             $type = $type();
         }
         foreach ($type->getFields() as $field_name => $field) {
-            $type_str .= "  $field_name: {$field->getType()}\n";
+            try {
+                $type_str .= "  $field_name: {$field->getType()}\n";
+            } catch (\Throwable $e) {
+                trigger_error("Error writing field $field_name for type $type_name: {$e->getMessage()}", E_USER_WARNING);
+            }
         }
         $type_str .= "}\n";
         return $type_str;

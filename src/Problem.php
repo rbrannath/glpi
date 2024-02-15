@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -249,7 +249,7 @@ class Problem extends CommonITILObject
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
@@ -552,104 +552,128 @@ class Problem extends CommonITILObject
     }
 
 
-    public static function rawSearchOptionsToAdd()
+    public static function rawSearchOptionsToAdd(string $itemtype)
     {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
 
         $tab = [];
 
-        $tab[] = [
-            'id'                 => 'problem',
-            'name'               => __('Problems')
-        ];
+        if ($itemtype == "Ticket") {
+            $tab[] = [
+                'id'                 => 'problem',
+                'name'               => __('Problems')
+            ];
 
-        //FIXME: Fix the search options for linked ITIL objects
-        $tab[] = [
-            'id'                 => '200',
-            'table'              => 'glpi_problems_tickets',
-            'field'              => 'id',
-            'name'               => _x('quantity', 'Number of problems'),
-            'forcegroupby'       => true,
-            'usehaving'          => true,
-            'datatype'           => 'count',
-            'massiveaction'      => false,
-            'joinparams'         => [
-                'jointype'           => 'child'
-            ]
-        ];
+            //FIXME: Fix the search options for linked ITIL objects
+            $tab[] = [
+                'id'                 => '200',
+                'table'              => 'glpi_problems_tickets',
+                'field'              => 'id',
+                'name'               => _x('quantity', 'Number of problems'),
+                'forcegroupby'       => true,
+                'usehaving'          => true,
+                'datatype'           => 'count',
+                'massiveaction'      => false,
+                'joinparams'         => [
+                    'jointype'           => 'child'
+                ]
+            ];
 
-        $tab[] = [
-            'id'                 => '201',
-            'table'              => Problem::getTable(),
-            'field'              => 'name',
-            'name'               => Problem::getTypeName(1),
-            'datatype'           => 'dropdown',
-            'massiveaction'      => false,
-            'forcegroupby'       => true,
-            'joinparams'         => [
-                'beforejoin'         => [
-                    'table'              => Problem_Ticket::getTable(),
-                    'joinparams'         => [
-                        'jointype'           => 'child',
+            $tab[] = [
+                'id'                 => '201',
+                'table'              => Problem::getTable(),
+                'field'              => 'name',
+                'name'               => Problem::getTypeName(1),
+                'datatype'           => 'dropdown',
+                'massiveaction'      => false,
+                'forcegroupby'       => true,
+                'joinparams'         => [
+                    'beforejoin'         => [
+                        'table'              => Problem_Ticket::getTable(),
+                        'joinparams'         => [
+                            'jointype'           => 'child',
+                        ]
                     ]
                 ]
-            ]
-        ];
+            ];
 
-        $tab[] = [
-            'id'                  => '202',
-            'table'               => Problem::getTable(),
-            'field'               => 'status',
-            'name'                => __('Status'),
-            'datatype'            => 'specific',
-            'searchtype'          => 'equals',
-            'searchequalsonfield' => true,
-            'massiveaction'       => false,
-            'forcegroupby'        => true,
-            'joinparams'          => [
-                'beforejoin'          => [
-                    'table'               => Problem_Ticket::getTable(),
-                    'joinparams'          => [
-                        'jointype'            => 'child',
+            $tab[] = [
+                'id'                  => '202',
+                'table'               => Problem::getTable(),
+                'field'               => 'status',
+                'name'                => __('Status'),
+                'datatype'            => 'specific',
+                'searchtype'          => 'equals',
+                'searchequalsonfield' => true,
+                'massiveaction'       => false,
+                'forcegroupby'        => true,
+                'joinparams'          => [
+                    'beforejoin'          => [
+                        'table'               => Problem_Ticket::getTable(),
+                        'joinparams'          => [
+                            'jointype'            => 'child',
+                        ]
                     ]
                 ]
-            ]
-        ];
+            ];
 
-        $tab[] = [
-            'id'                 => '203',
-            'table'              => Problem::getTable(),
-            'field'              => 'solvedate',
-            'name'               => __('Resolution date'),
-            'datatype'           => 'datetime',
-            'massiveaction'      => false,
-            'forcegroupby'       => true,
-            'joinparams'         => [
-                'beforejoin'         => [
-                    'table'              => Problem_Ticket::getTable(),
-                    'joinparams'         => [
-                        'jointype'           => 'child',
+            $tab[] = [
+                'id'                 => '203',
+                'table'              => Problem::getTable(),
+                'field'              => 'solvedate',
+                'name'               => __('Resolution date'),
+                'datatype'           => 'datetime',
+                'massiveaction'      => false,
+                'forcegroupby'       => true,
+                'joinparams'         => [
+                    'beforejoin'         => [
+                        'table'              => Problem_Ticket::getTable(),
+                        'joinparams'         => [
+                            'jointype'           => 'child',
+                        ]
                     ]
                 ]
-            ]
-        ];
+            ];
 
-        $tab[] = [
-            'id'                 => '204',
-            'table'              => Problem::getTable(),
-            'field'              => 'date',
-            'name'               => __('Opening date'),
-            'datatype'           => 'datetime',
-            'massiveaction'      => false,
-            'forcegroupby'       => true,
-            'joinparams'         => [
-                'beforejoin'         => [
-                    'table'              => Problem_Ticket::getTable(),
-                    'joinparams'         => [
-                        'jointype'           => 'child',
+            $tab[] = [
+                'id'                 => '204',
+                'table'              => Problem::getTable(),
+                'field'              => 'date',
+                'name'               => __('Opening date'),
+                'datatype'           => 'datetime',
+                'massiveaction'      => false,
+                'forcegroupby'       => true,
+                'joinparams'         => [
+                    'beforejoin'         => [
+                        'table'              => Problem_Ticket::getTable(),
+                        'joinparams'         => [
+                            'jointype'           => 'child',
+                        ]
                     ]
                 ]
-            ]
-        ];
+            ];
+        } elseif (in_array($itemtype, $CFG_GLPI["ticket_types"])) {
+            $tab[] = [
+                'id'            => 140,
+                'table'         => self::getTable(),
+                'field'         => "id",
+                'datatype'      => "count",
+                'name'          => _x('quantity', 'Number of problems'),
+                'forcegroupby'  => true,
+                'usehaving'     => true,
+                'massiveaction' => false,
+                'joinparams'    => [
+                    'beforejoin' => [
+                        'table' => self::getItemLinkClass()::getTable(),
+                        'joinparams' => [
+                            'jointype' => 'itemtype_item'
+                        ]
+                    ],
+                    'condition' => getEntitiesRestrictRequest('AND', 'NEWTABLE')
+                ],
+            ];
+        }
 
         return $tab;
     }
@@ -1304,7 +1328,7 @@ class Problem extends CommonITILObject
      * Will also display problems of linked items
      *
      * @param CommonDBTM $item
-     * @param boolean    $withtemplate
+     * @param integer    $withtemplate
      *
      * @return void
      **/
@@ -1552,6 +1576,7 @@ class Problem extends CommonITILObject
             'entities_id'                => $_SESSION['glpiactive_entity'],
             'itilcategories_id'          => 0,
             'actiontime'                 => 0,
+            'date'                      => 'NULL',
             '_add_validation'            => 0,
             '_validation_targets'        => [],
             '_tasktemplates_id'          => [],

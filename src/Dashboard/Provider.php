@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -44,6 +44,7 @@ use CommonTreeDropdown;
 use CommonDevice;
 use Config;
 use DBConnection;
+use Glpi\Debug\Profiler;
 use Glpi\Search\Input\QueryBuilder;
 use Glpi\Search\SearchOption;
 use Glpi\Dashboard\Filters\{
@@ -95,7 +96,9 @@ class Provider
 
         $i_table = $item::getTable();
 
-        $where = [];
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
+        $where = $item::getSystemSQLCriteria();
+
         if (isset($item->fields['is_deleted'])) {
             $where['is_deleted'] = 0;
         }
@@ -135,6 +138,7 @@ class Provider
             self::getFiltersCriteria($i_table, $params['apply_filters']),
             $item instanceof Ticket ? Ticket::getCriteriaFromProfile() : []
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DB->request($criteria);
 
         $result   = $iterator->current();
@@ -252,6 +256,7 @@ class Provider
         ];
 
         $table = Ticket::getTable();
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $query_criteria = [
             'SELECT'    => [
                 'COUNT DISTINCT' => "$table.id AS cpt",
@@ -327,7 +332,8 @@ class Provider
                         'field'      => 55,
                         'searchtype' => 'equals',
                         'value'      => CommonITILValidation::WAITING,
-                    ]
+                    ],
+                    $notold
                 ];
 
                 if ($params['validation_check_user']) {
@@ -340,6 +346,7 @@ class Provider
                 }
 
                 $where = [
+                    'NOT' => ['glpi_tickets.status' => [...Ticket::getSolvedStatusArray(), ...Ticket::getClosedStatusArray()]],
                     'glpi_ticketvalidations.status' => CommonITILValidation::WAITING,
                 ];
 
@@ -438,6 +445,7 @@ class Provider
             'reset'    => 'reset'
         ]);
 
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator   = $DBread->request($query_criteria);
         $result     = $iterator->current();
         $nb_tickets = $result['cpt'];
@@ -467,6 +475,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $query_criteria  = [];
 
         $table = Ticket::getTable();
@@ -555,7 +564,9 @@ class Provider
         $onTime = [];
         $names = [];
         $data = [];
-       // Get data and sort by is_late status
+
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
+        // Get data and sort by is_late status
         $iterator   = $DBread->request($query_criteria);
         foreach ($iterator as $row) {
             switch ($row['sla_state']) {
@@ -633,6 +644,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $query_criteria  = [];
 
         $table = Ticket::getTable();
@@ -699,7 +711,9 @@ class Provider
         $onTime = [];
         $names = [];
         $data = [];
-       // Get data and sort by is_late status
+
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
+        // Get data and sort by is_late status
         $iterator   = $DBread->request($query_criteria);
         foreach ($iterator as $row) {
             switch ($row['sla_state']) {
@@ -817,7 +831,9 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
-        $where = [];
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
+        $where = $item->getSystemSQLCriteria();
+
         if ($item->maybeDeleted()) {
             $where["$c_table.is_deleted"] = 0;
         }
@@ -860,6 +876,7 @@ class Provider
             self::getFiltersCriteria($c_table, $params['apply_filters']),
             $item instanceof Ticket ? Ticket::getCriteriaFromProfile() : []
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DB->request($criteria);
 
         $search_criteria = self::getSearchFiltersCriteria($fk_table, $params['apply_filters'])['criteria'] ?? [];
@@ -918,6 +935,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $i_table           = $item::getTable();
         $criteria = array_merge_recursive(
             [
@@ -927,6 +945,7 @@ class Provider
             self::getFiltersCriteria($i_table, $params['apply_filters']),
             $item instanceof CommonDBVisible ? $item::getVisibilityCriteria() : []
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
 
         $iterator = $DB->request($criteria);
 
@@ -978,6 +997,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $t_table = Ticket::getTable();
         $criteria = array_merge_recursive(
             [
@@ -995,6 +1015,7 @@ class Provider
             Ticket::getCriteriaFromProfile(),
             self::getFiltersCriteria($t_table, $params['apply_filters'])
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DB->request($criteria);
 
         $s_criteria = [
@@ -1241,6 +1262,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $statuses = Ticket::getAllStatusArray();
         $t_table  = Ticket::getTable();
 
@@ -1319,6 +1341,7 @@ class Provider
             'GROUP'    => ['period']
         ];
 
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DB->request($criteria);
 
         $s_params = [
@@ -1410,6 +1433,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $t_table  = Ticket::getTable();
         $li_table = Ticket_User::getTable();
         $ug_table = User::getTable();
@@ -1497,6 +1521,7 @@ class Provider
             Ticket::getCriteriaFromProfile(),
             self::getFiltersCriteria($t_table, $params['apply_filters'])
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DBread->request($criteria);
 
         $s_params = [
@@ -1550,6 +1575,7 @@ class Provider
         ];
         $params = array_merge($default_params, $params);
 
+        Profiler::getInstance()->start(__METHOD__ . ' build SQL criteria');
         $t_table  = Ticket::getTable();
         $criteria = array_merge_recursive(
             [
@@ -1570,6 +1596,7 @@ class Provider
             Ticket::getCriteriaFromProfile(),
             self::getFiltersCriteria($t_table, $params['apply_filters'])
         );
+        Profiler::getInstance()->stop(__METHOD__ . ' build SQL criteria');
         $iterator = $DBread->request($criteria);
 
         $data = [
@@ -1714,6 +1741,7 @@ class Provider
     final public static function getSearchFiltersCriteria(string $table = "", array $apply_filters = [], bool $default_criteria_on_empty = false)
     {
         $s_criteria = [];
+        Profiler::getInstance()->start(__METHOD__);
         $filters = Filter::getRegisteredFilterClasses();
 
         foreach ($filters as $filter) {
@@ -1729,6 +1757,7 @@ class Provider
             $s_criteria = QueryBuilder::getDefaultCriteria($itemtype);
         }
 
+        Profiler::getInstance()->stop(__METHOD__);
         return ['criteria' => $s_criteria];
     }
 

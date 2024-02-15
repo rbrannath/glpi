@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -79,7 +79,7 @@ class ReminderTranslation extends CommonDBChild
     {
 
         if (
-            self::canBeTranslated($item)
+            $item instanceof Reminder
             && Session::getCurrentInterface() != "helpdesk"
         ) {
             $nb = 0;
@@ -104,10 +104,7 @@ class ReminderTranslation extends CommonDBChild
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
 
-        if (
-            $item->getType() == "Reminder"
-            && self::canBeTranslated($item)
-        ) {
+        if ($item instanceof Reminder) {
             self::showTranslations($item);
         }
         return true;
@@ -296,14 +293,15 @@ class ReminderTranslation extends CommonDBChild
     /**
      * Is reminder translation functionality active
      *
+     * @deprecated 10.1.0
+     *
      * @return boolean
      **/
     public static function isReminderTranslationActive()
     {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
+        Toolbox::deprecated("Reminders translations are now always active");
 
-        return $CFG_GLPI['translate_reminders'];
+        return true;
     }
 
 
@@ -315,12 +313,14 @@ class ReminderTranslation extends CommonDBChild
      * @param item the item to check
      *
      * @return true if item can be translated, false otherwise
+     *
+     * @deprecated 10.1.0
      **/
     public static function canBeTranslated(CommonGLPI $item)
     {
+        Toolbox::deprecated();
 
-        return (self::isReminderTranslationActive()
-              && $item instanceof Reminder);
+        return ($item instanceof Reminder);
     }
 
 

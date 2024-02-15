@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -66,7 +66,7 @@
                   <i class="fa-2x {{ icon }}"></i>
                </div>
             {% endif %}
-            {{ label }}
+             <span class="ms-2">{{ label }}</span>
             {% if helper is not empty %}
                <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
                      data-bs-content="{{ helper|e('html_attr') }}">?</span>
@@ -143,7 +143,10 @@
                 {{ value == 1 ? 'checked' : '' }}
                 {{ options.readonly ? 'readonly' : '' }}
                 {{ options.required ? 'required' : '' }}
-                {{ options.disabled ? 'disabled' : '' }} />
+                {{ options.disabled ? 'disabled' : '' }}
+                {% for attr, value in options.additional_attributes %}
+                    {{ attr }}="{{ value }}"
+                {% endfor %} />
          {% if options.label2 %}
             <span class="form-check-label">{{ options.label2 }}</span>
          {% endif %}
@@ -575,6 +578,25 @@
    {{ _self.field(name, field, label, options|merge({'id': 'dropdown_' ~ name ~ options.rand})) }}
 {% endmacro %}
 
+{% macro dropdownWebIcons(name, value, label = '', options = {}) %}
+    {% set options = {
+        rand: random(),
+    }|merge(options|merge({
+        noselect2: true,
+    })) %}
+    {# Trim 'ti ' prefix if it exists in the value #}
+    {% set value = value|replace({'ti ': ''}) %}
+
+    {{ _self.dropdownArrayField(name, value, {(value): value}, label, options) }}
+    <script type="module">
+        import('{{ js_path('js/modules/Form/WebIconSelector.js') }}').then((m) => {
+            const dropdown_id = '{{ ('dropdown_' ~ name ~ options.rand)|replace({'[': '_', ']': '_'}) }}';
+            const selector = new m.default(document.getElementById(dropdown_id), ['ti']);
+            selector.init();
+        });
+    </script>
+{% endmacro %}
+
 {% macro dropdownHoursField(name, value, label = '', options = {}) %}
     {% set options = {
         'rand': random(),
@@ -678,7 +700,7 @@
    {% endif %}
 
    {% set value %}
-      <span class="{{ wrapper_class }}">{{ value|raw }}</span>
+      <span class="{{ options.wrapper_class }}">{{ value|raw }}</span>
    {% endset %}
    {{ _self.field(name, value, label, options) }}
 {% endmacro %}

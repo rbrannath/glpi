@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -395,6 +395,7 @@ class DB extends \GLPITestCase
 
         // Tables that don't have an itemtype on purpose
         $excluded_tables = [
+            'glpi_assets_assets', 'glpi_assets_assetmodels', 'glpi_assets_assettypes',
             'glpi_appliancerelations', 'glpi_oauth_access_tokens', 'glpi_oauth_auth_codes',
             'glpi_oauth_refresh_tokens', 'glpi_stencils',
         ];

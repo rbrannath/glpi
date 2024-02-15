@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -40,18 +40,17 @@
 {% set in_navheader = in_navheader|default(false) %}
 
 {% set entity_name = entity_name|default('') %}
-{% if entity_id is not defined and item.isEntityAssign() %}
-   {% if item.getType() == 'Entity' and item.fields['id'] == 0 %}
-      {% set entity_id = null %}
-   {% else %}
-      {% set entity_id = params['entities_id'] ?? item.getEntityID() ?? session('glpiactive_entity') %}
-   {% endif %}
-
-   {% if is_multi_entities_mode() %}
-      {% set entity_name = get_item_name('Entity', item.getEntityID()) %}
-   {% endif %}
-{% elseif entity_id is not defined %}
-   {% set entity_id = 0 %}
+{% if entity_id is not defined %}
+    {% if item.getType() == 'Entity' %}
+        {% set entity_id = item.fields['id'] == 0 ? null : (params['entities_id'] ?? item.fields['entities_id'] ?? session('glpiactive_entity')) %}
+    {% elseif item.isEntityAssign() %}
+        {% set entity_id = params['entities_id'] ?? item.getEntityID() ?? session('glpiactive_entity') %}
+    {% else %}
+        {% set entity_id = 0 %}
+    {% endif %}
+    {% if is_multi_entities_mode() %}
+        {% set entity_name = entity_id is not null ? get_item_name('Entity', entity_id) : null %}
+    {% endif %}
 {% endif %}
 
 {% set template_name = item.fields['template_name'] %}
@@ -109,7 +108,7 @@
       {% endif %}
       {% if in_navheader and item.isField('is_deleted') and item.fields['is_deleted'] %}
       {% set title = item.isField('date_mod') ? __('Item has been deleted on %s')|format(item.fields['date_mod']) : __('Deleted') %}
-      <span class="mx-1 bg-danger status rounded-1" title="{{ title }}" data-bs-toggle="tooltip">
+      <span class="mx-1 status rounded-1" title="{{ title }}" data-bs-toggle="tooltip">
          <i class="ti ti-trash"></i>
          {{ __('Deleted') }}
       </span>

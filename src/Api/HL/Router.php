@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -137,7 +137,7 @@ EOT;
                 'api_version' => '1',
                 'version'    => '1.0.0',
                 'description' => str_replace(PHP_EOL, ' ', $low_level_api_description),
-                'endpoint'   => $CFG_GLPI['url_base_api'],
+                'endpoint'   => $CFG_GLPI['url_base'] . '/api.php/v1',
             ],
             [
                 'api_version' => $current_version_major,

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -99,6 +99,20 @@ $RELATION = [
 
     'glpi_appliancetypes' => [
         'glpi_appliances' => 'appliancetypes_id'
+    ],
+
+    'glpi_assets_assetdefinitions' => [
+        '_glpi_assets_assets' => 'assets_assetdefinitions_id',
+        '_glpi_assets_assetmodels' => 'assets_assetdefinitions_id',
+        '_glpi_assets_assettypes' => 'assets_assetdefinitions_id',
+    ],
+
+    'glpi_assets_assetmodels' => [
+        'glpi_assets_assets' => 'assets_assetmodels_id',
+    ],
+
+    'glpi_assets_assettypes' => [
+        'glpi_assets_assets' => 'assets_assettypes_id',
     ],
 
     'glpi_databaseinstancetypes' => [
@@ -230,9 +244,7 @@ $RELATION = [
     ],
 
     'glpi_computers' => [
-        '_glpi_computerantiviruses'       => 'computers_id',
         '_glpi_computers_items'           => 'computers_id',
-        '_glpi_computervirtualmachines'   => 'computers_id',
         'glpi_networknames'               => [['items_id', 'itemtype']], // FIXME Find a list that can be used to declare this polymorphic relation
     ],
 
@@ -382,6 +394,10 @@ $RELATION = [
         'glpi_deviceharddrives' => 'deviceharddrivemodels_id',
     ],
 
+    'glpi_deviceharddrivetypes' => [
+        'glpi_deviceharddrives' => 'deviceharddrivetypes_id',
+    ],
+
     'glpi_deviceharddrives' => [
         'glpi_items_deviceharddrives' => 'deviceharddrives_id',
     ],
@@ -506,6 +522,7 @@ $RELATION = [
         'glpi_apiclients'                  => 'entities_id',
         'glpi_appliances'                  => 'entities_id',
         'glpi_appliancetypes'              => 'entities_id',
+        'glpi_assets_assets'               => 'entities_id',
         'glpi_budgets'                     => 'entities_id',
         'glpi_businesscriticities'         => 'entities_id',
         'glpi_cables'                      => 'entities_id',
@@ -523,7 +540,7 @@ $RELATION = [
         'glpi_clustertypes'                => 'entities_id',
         'glpi_computers'                   => 'entities_id',
         '_glpi_items_softwareversions'     => 'entities_id',
-        '_glpi_computervirtualmachines'    => 'entities_id',
+        '_glpi_itemvirtualmachines'        => 'entities_id',
         'glpi_consumableitems'             => 'entities_id',
         '_glpi_consumables'                => 'entities_id',
         'glpi_contacts'                    => 'entities_id',
@@ -685,6 +702,10 @@ $RELATION = [
             'groups_id_tech',
             'groups_id',
         ],
+        'glpi_assets_assets'         => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_cartridgeitems'        => 'groups_id_tech',
         'glpi_certificates'          => [
             'groups_id_tech',
@@ -737,7 +758,10 @@ $RELATION = [
         ],
         'glpi_problemtasks'           => 'groups_id_tech',
         'glpi_projects'               => 'groups_id',
-        'glpi_racks'                  => 'groups_id_tech',
+        'glpi_racks'                  => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_softwarelicenses'       => [
             'groups_id_tech',
             'groups_id',
@@ -858,6 +882,7 @@ $RELATION = [
 
     'glpi_locations' => [
         'glpi_appliances'                => 'locations_id',
+        'glpi_assets_assets'             => 'locations_id',
         'glpi_budgets'                   => 'locations_id',
         'glpi_cartridgeitems'            => 'locations_id',
         'glpi_certificates'              => 'locations_id',
@@ -913,9 +938,10 @@ $RELATION = [
 
     'glpi_manufacturers' => [
         'glpi_appliances'          => 'manufacturers_id',
+        'glpi_assets_assets'       => 'manufacturers_id',
         'glpi_cartridgeitems'      => 'manufacturers_id',
         'glpi_certificates'        => 'manufacturers_id',
-        'glpi_computerantiviruses' => 'manufacturers_id',
+        'glpi_itemantiviruses'    => 'manufacturers_id',
         'glpi_computers'           => 'manufacturers_id',
         'glpi_consumableitems'     => 'manufacturers_id',
         'glpi_databaseinstances'   => 'manufacturers_id',
@@ -1074,6 +1100,8 @@ $RELATION = [
     'glpi_pendingreasons' => [
         '_glpi_pendingreasons_items' => 'pendingreasons_id',
         'glpi_itilreminders' => 'pendingreasons_id',
+        'glpi_itilfollowuptemplates' => 'pendingreasons_id',
+        'glpi_tasktemplates' => 'pendingreasons_id',
     ],
 
     'glpi_pdumodels' => [
@@ -1349,6 +1377,7 @@ $RELATION = [
 
     'glpi_states' => [
         'glpi_appliances'                => 'states_id',
+        'glpi_assets_assets'             => 'states_id',
         'glpi_cables'                    => 'states_id',
         'glpi_certificates'              => 'states_id',
         'glpi_clusters'                  => 'states_id',
@@ -1474,6 +1503,10 @@ $RELATION = [
             'users_id_tech',
             'users_id',
         ],
+        'glpi_assets_assets'            => [
+            'users_id_tech',
+            'users_id',
+        ],
         'glpi_cables'                   => 'users_id_tech',
         'glpi_cartridgeitems'           => 'users_id_tech',
         'glpi_certificates'             => [
@@ -1572,7 +1605,10 @@ $RELATION = [
         'glpi_projects'                 => 'users_id',
         'glpi_projecttasks'             => 'users_id',
         'glpi_projecttasktemplates'     => 'users_id',
-        'glpi_racks'                    => 'users_id_tech',
+        'glpi_racks'                    => [
+            'users_id_tech',
+            'users_id',
+        ],
         '_glpi_reminders'               => 'users_id',
         '_glpi_reminders_users'         => 'users_id',
         '_glpi_remindertranslations'    => 'users_id',
@@ -1622,15 +1658,15 @@ $RELATION = [
     ],
 
     'glpi_virtualmachinestates' => [
-        'glpi_computervirtualmachines' => 'virtualmachinestates_id',
+        'glpi_itemvirtualmachines' => 'virtualmachinestates_id',
     ],
 
     'glpi_virtualmachinesystems' => [
-        'glpi_computervirtualmachines' => 'virtualmachinesystems_id',
+        'glpi_itemvirtualmachines' => 'virtualmachinesystems_id',
     ],
 
     'glpi_virtualmachinetypes' => [
-        'glpi_computervirtualmachines' => 'virtualmachinetypes_id',
+        'glpi_itemvirtualmachines' => 'virtualmachinetypes_id',
     ],
 
     'glpi_vlans' => [
@@ -1699,6 +1735,8 @@ $polymorphic_types_mapping = [
     Item_SoftwareLicense::class    => $CFG_GLPI['software_types'],
     Item_SoftwareVersion::class    => $CFG_GLPI['software_types'],
     Item_Ticket::class             => $CFG_GLPI['ticket_types'],
+    ItemAntivirus::class           => $CFG_GLPI['itemantivirus_types'],
+    ItemVirtualMachine::class      => $CFG_GLPI['itemvirtualmachines_types'],
     KnowbaseItem_Item::class       => $CFG_GLPI['kb_types'],
     NetworkPort::class             => $CFG_GLPI['networkport_types'],
     ReservationItem::class         => $CFG_GLPI['reservation_types'],

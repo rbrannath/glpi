@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -238,7 +238,7 @@ class DomainRecord extends CommonDBChild
     {
         $ong = [];
         $this->addDefaultFormTab($ong);
-        $this->addStandardTab('Ticket', $ong, $options);
+        $this->addStandardTab('Item_Ticket', $ong, $options);
         $this->addStandardTab('Item_Problem', $ong, $options);
         $this->addStandardTab('Document_Item', $ong, $options);
         $this->addStandardTab('ManualLink', $ong, $options);
@@ -254,7 +254,7 @@ class DomainRecord extends CommonDBChild
      * @param array   $input Input values
      * @param boolean $add   True when we're adding a record
      *
-     * @return aray|false
+     * @return array|false
      */
     private function prepareInput($input, $add = false)
     {

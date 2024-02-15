@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -136,6 +136,14 @@
                `<img src="{{ path('/front/palette_preview.php') }}?key=${theme.id}" /> ${theme.text}`
            );
        }
+       $('select[name="palette"]').on('change', function(e) {
+           // Hotswap theme on selection so the user can see the result without saving
+           const palettes_isdark = {{ palettes_isdark|default({})|json_encode|raw }};
+           $('html').attr({
+               'data-glpi-theme': e.target.value,
+               'data-glpi-theme-dark': (palettes_isdark[e.target.value] ?? false) ? "1" : "0"
+           });
+       });
    </script>
 
    {{ fields.dropdownArrayField('page_layout', config['page_layout'], {
@@ -177,6 +185,8 @@
       (constant('CommonITILObject::TIMELINE_ORDER_NATURAL')): __('Natural order (old items on top, recent on bottom)'),
       (constant('CommonITILObject::TIMELINE_ORDER_REVERSE')): __('Reverse order (old items on bottom, recent on top)')
    }, __('Timeline order'), field_options) }}
+
+   {{ fields.dropdownYesNo('show_search_form', config['show_search_form'], __('Show search form above results'), field_options) }}
 
    {% if get_current_interface() == 'central' %}
       {{ fields.smallTitle(__('Assistance'), 'ti ti-headset') }}
@@ -358,5 +368,5 @@
       'top-right': __('Top right'),
       'bottom-left': __('Bottom left'),
       'bottom-right': __('Bottom right'),
-   }, __('Notifcation location'), field_options) }}
+   }, __('Notification location'), field_options) }}
 {% endblock %}

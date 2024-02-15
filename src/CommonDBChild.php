@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -551,7 +551,7 @@ abstract class CommonDBChild extends CommonDBConnexity
      *
      * @return void
      **/
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
 
         if (
@@ -792,7 +792,7 @@ abstract class CommonDBChild extends CommonDBConnexity
      * @param string  $field_name  the name of the HTML field inside Item's form
      * @param integer $id          id of the child
      *
-     * @return void
+     * @return string|void
      **/
     public function showChildForItemForm($canedit, $field_name, $id, bool $display = true)
     {
@@ -833,7 +833,7 @@ abstract class CommonDBChild extends CommonDBConnexity
      * @param boolean      $display     true display or false to return the button HTML code
      *
      *
-     * @return void|string the button HTML code if $display is true, void otherwise
+     * @return void|false|string the button HTML code if $display is true, void otherwise
      **/
     public static function showAddChildButtonForItemForm(
         CommonDBTM $item,

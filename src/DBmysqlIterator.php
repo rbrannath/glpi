@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -138,7 +138,7 @@ class DBmysqlIterator implements SeekableIterator, Countable
 
         $is_legacy = false;
 
-        if (is_string($table) && strpos($table, " ")) {
+        if (is_string($table) && strpos($table, " ") !== false) {
             $names = preg_split('/\s+AS\s+/i', $table);
             if (isset($names[1]) && strpos($names[1], ' ') || !isset($names[1]) || strpos($names[0], ' ')) {
                 $is_legacy = true;
@@ -147,7 +147,7 @@ class DBmysqlIterator implements SeekableIterator, Countable
 
         if ($is_legacy) {
             Toolbox::deprecated(
-                'Direct query usage is strongly discouraged!.',
+                'Direct query usage is strongly discouraged!',
                 false
             );
             $this->sql = $table;
@@ -786,7 +786,16 @@ class DBmysqlIterator implements SeekableIterator, Countable
      */
     public function valid(): bool
     {
-        return $this->res instanceof \mysqli_result && $this->position < $this->count;
+        return !$this->isFailed() && $this->position < $this->count;
+    }
+
+    /**
+     * Check if the current result is not a {@link \mysqli_result}, indicating a failure.
+     * @return bool
+     */
+    public function isFailed(): bool
+    {
+        return !($this->res instanceof \mysqli_result);
     }
 
     /**

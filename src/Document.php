@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -43,6 +43,7 @@ use Glpi\Http\Response;
 class Document extends CommonDBTM
 {
     use Glpi\Features\TreeBrowse;
+    use Glpi\Features\ParentStatus;
 
    // From CommonDBTM
     public $dohistory                   = true;
@@ -348,6 +349,8 @@ class Document extends CommonDBTM
                 $main_item = new $this->input["itemtype"]();
                 $main_item->getFromDB($this->input["items_id"]);
                 NotificationEvent::raiseEvent('add_document', $main_item);
+
+                $this->updateParentStatus($main_item, $this->input);
             }
 
             Event::log(
@@ -1384,7 +1387,7 @@ class Document extends CommonDBTM
      * @param &$input    array of datas need for add/update (will be completed)
      * @param $FILEDESC        FILE descriptor
      *
-     * @return true on success
+     * @return boolean
      **/
     public static function uploadDocument(array &$input, $FILEDESC)
     {
@@ -1735,7 +1738,7 @@ class Document extends CommonDBTM
     public static function getMassiveActionsForItemtype(
         array &$actions,
         $itemtype,
-        $is_deleted = 0,
+        $is_deleted = false,
         CommonDBTM $checkitem = null
     ) {
         $action_prefix = 'Document_Item' . MassiveAction::CLASS_ACTION_SEPARATOR;

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -50,6 +50,7 @@ use Config;
 use Contract;
 use Document;
 use Dropdown;
+use Glpi\Api\HL\Router;
 use Glpi\DBAL\QueryExpression;
 use Glpi\Search\Provider\SQLProvider;
 use Glpi\Search\SearchOption;
@@ -139,9 +140,6 @@ abstract class API
     /**
      * Constructor
      *
-     * @var array $CFG_GLPI
-     * @var DBmysql $DB
-     *
      * @return void
      */
     public function initApi()
@@ -159,7 +157,9 @@ abstract class API
         }
 
        // construct api url
-        self::$api_url = trim($CFG_GLPI['url_base_api'], "/");
+        $api_version_info = array_filter(Router::getAPIVersions(), static fn ($info) => (int) $info['api_version'] === 1);
+        $api_version_info = reset($api_version_info);
+        self::$api_url = trim($api_version_info['endpoint'], "/");
 
        // Don't display error in result
         ini_set('display_errors', 'Off');
@@ -1112,7 +1112,7 @@ abstract class API
         if (preg_match("/^[0-9]+-[0-9]+\$/", $params['range'])) {
             $range = explode("-", $params['range']);
             $params['start']      = $range[0];
-            $params['list_limit'] = $range[1] - $range[0] + 1;
+            $params['list_limit'] = (int)$range[1] - (int)$range[0] + 1;
             $params['range']      = $range;
         } else {
             $this->returnError("range must be in format : [start-end] with integers");
@@ -1572,9 +1572,6 @@ abstract class API
      */
     protected function searchItems($itemtype, $params = [])
     {
-        /** @var array $DEBUG_SQL */
-        global $DEBUG_SQL;
-
         $itemtype = $this->handleDepreciation($itemtype);
 
        // check rights
@@ -1661,7 +1658,7 @@ abstract class API
             if (preg_match("/^[0-9]+-[0-9]+\$/", $params['range'])) {
                 $range = explode("-", $params['range']);
                 $params['start']      = $range[0];
-                $params['list_limit'] = $range[1] - $range[0] + 1;
+                $params['list_limit'] = (int)$range[1] - (int)$range[0] + 1;
                 $params['range']      = $range;
             } else {
                 $this->returnError("range must be in format : [start-end] with integers");
@@ -1673,16 +1670,13 @@ abstract class API
        // force reset
         $params['reset'] = 'reset';
 
-       // force logging sql queries
-        $_SESSION['glpi_use_mode'] = Session::DEBUG_MODE;
-
        // call Core Search method
         $rawdata = Search::getDatas($itemtype, $params, $params['forcedisplay']);
 
        // probably a sql error
         if (!isset($rawdata['data']) || count($rawdata['data']) === 0) {
             $this->returnError(
-                "Unexpected SQL Error : " . array_splice($DEBUG_SQL['errors'], -2)[0],
+                'An internal error occured while trying to fetch the data.',
                 500,
                 "ERROR_SQL",
                 false
@@ -2352,9 +2346,6 @@ abstract class API
      */
     private function getGlpiLastMessage()
     {
-        /** @var array $DEBUG_SQL */
-        global $DEBUG_SQL;
-
         $all_messages             = [];
 
         $messages_after_redirect  = [];
@@ -2373,14 +2364,6 @@ abstract class API
             foreach ($messages as $message) {
                 $all_messages[] = Toolbox::stripTags($message);
             }
-        }
-
-       // get sql errors
-        if (
-            count($all_messages) <= 0
-            && ($DEBUG_SQL['errors'] ?? null) !== null
-        ) {
-            $all_messages = $DEBUG_SQL['errors'];
         }
 
         if (!end($all_messages)) {
@@ -2515,7 +2498,7 @@ abstract class API
 
                 if (
                     !empty($value)
-                    || $key == 'entities_id' && $value >= 0
+                    || $key == 'entities_id' && !is_array($value) && $value >= 0
                 ) {
                     $tablename = getTableNameForForeignKeyField($key);
                     $itemtype = getItemTypeForTable($tablename);

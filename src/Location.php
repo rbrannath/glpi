@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -35,12 +35,14 @@
 
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QueryUnion;
+use Glpi\Features\Clonable;
 use Glpi\Socket;
 
 /// Location class
 class Location extends CommonTreeDropdown
 {
     use MapGeolocation;
+    use Clonable;
 
    // From CommonDBTM
     public $dohistory          = true;
@@ -501,7 +503,7 @@ class Location extends CommonTreeDropdown
                 'FROM'   => $table,
                 'WHERE'  => [
                     "$table.locations_id"   => $locations_id,
-                ]
+                ] + $item->getSystemSQLCriteria()
             ];
             if ($item->maybeDeleted()) {
                 $itemtype_criteria['WHERE']['is_deleted'] = 0;
@@ -608,5 +610,10 @@ class Location extends CommonTreeDropdown
             $input['altitude'] = $parent->fields['altitude'];
         }
         return $input;
+    }
+
+    public function getCloneRelations(): array
+    {
+        return [];
     }
 }

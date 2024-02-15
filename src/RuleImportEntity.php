@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @copyright 2010-2022 by the FusionInventory Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
@@ -265,12 +265,12 @@ class RuleImportEntity extends Rule
                 'type' => 'yesno'
             ],
             'groups_id_tech' => [
-                'name' => __('Group in charge of the hardware'),
+                'name' => __('Group in charge'),
                 'type' => 'dropdown',
                 'table' => Group::getTable()
             ],
             'users_id_tech' => [
-                'name' => __('Technician in charge of the hardware'),
+                'name' => __('Technician in charge'),
                 'type' => 'dropdown_users'
             ]
         ];

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -35,6 +35,7 @@
 
 namespace Glpi\Dashboard;
 
+use Glpi\Debug\Profiler;
 use Glpi\Plugin\Hooks;
 use Glpi\RichText\RichText;
 use Glpi\Toolbox\MarkdownRenderer;
@@ -71,6 +72,7 @@ class Widget
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
+        Profiler::getInstance()->start(__METHOD__);
         $types = [
             'pie' => [
                 'label'      => __("Pie"),
@@ -293,6 +295,7 @@ class Widget
             $types = array_merge($types, $more_types);
         }
 
+        Profiler::getInstance()->stop(__METHOD__);
         return $types;
     }
 

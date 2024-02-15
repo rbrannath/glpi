@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -34,8 +34,10 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\AssetDefinitionManager;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QueryFunction;
+use Glpi\Features\DCBreadcrumb;
 use Glpi\Plugin\Hooks;
 use Glpi\SocketModel;
 
@@ -83,7 +85,7 @@ class Dropdown
      *    - readonly             : boolean / return self::getDropdownValue if true (default false)
      *    - parent_id_field      : field used to compute parent id (to filter available values inside the dropdown tree)
      *
-     * @return boolean : false if error and random id if OK
+     * @return string|false|integer
      *
      * @since 9.5.0 Usage of string in condition option is removed
      **/
@@ -367,7 +369,8 @@ class Dropdown
             }
 
             if ($params['display_dc_position']) {
-                if ($rack = $item->isRackPart($itemtype, $params['value'], true)) {
+                /** @var DCBreadcrumb $item */
+                if ($rack = $item->getParentRack()) {
                     $dc_icon = "<span id='" . $breadcrumb_id . "' title='" . __s('Display on datacenter') . "'>";
                     $dc_icon .= "&nbsp;<a class='fas fa-crosshairs' href='" . $rack->getLinkURL() . "'></a>";
                     $dc_icon .= "</span>";
@@ -484,13 +487,13 @@ class Dropdown
         /** @var \DBmysql $DB */
         global $DB;
 
-        $item = getItemForItemtype(getItemTypeForTable($table));
+        $itemtype = getItemTypeForTable($table);
 
-        if (!is_object($item)) {
+        if (!is_a($itemtype, CommonDBTM::class, true)) {
             return $default;
         }
 
-        if ($item instanceof CommonTreeDropdown) {
+        if (is_a($itemtype, CommonTreeDropdown::class, true)) {
             return getTreeValueCompleteName($table, $id, $withcomment, $translate, $tooltip, $default);
         }
 
@@ -562,7 +565,7 @@ class Dropdown
                 if ($translate && !empty($data['transname'])) {
                     $name = $data['transname'];
                 } else {
-                    $name = $data[$item->getNameField()];
+                    $name = $data[$itemtype::getNameField()];
                 }
                 if (isset($data["comment"])) {
                     if ($translate && !empty($data['transcomment'])) {
@@ -1155,7 +1158,7 @@ JAVASCRIPT;
                     'PassiveDCEquipmentType' => null,
                     'ClusterType' => null,
                     'DatabaseInstanceType' => null
-                ],
+                ] + array_fill_keys(AssetDefinitionManager::getInstance()->getAssetTypesClassesNames(), null),
 
                 _n('Model', 'Models', Session::getPluralNumber()) => [
                     'ComputerModel' => null,
@@ -1185,7 +1188,7 @@ JAVASCRIPT;
                     'EnclosureModel' => null,
                     'PDUModel' => null,
                     'PassiveDCEquipmentModel' => null,
-                ],
+                ] + array_fill_keys(AssetDefinitionManager::getInstance()->getAssetModelsClassesNames(), null),
 
                 _n('Virtual machine', 'Virtual machines', Session::getPluralNumber()) => [
                     'VirtualMachineType' => null,
@@ -1915,6 +1918,8 @@ JAVASCRIPT;
      *    - inhours         : only show timestamp in hours not in days
      *    - display         : boolean / display or return string
      *    - width           : string / display width of the item
+     *    - allow_max_change: boolean / allow to change max value according to max($params['value'], $params['max']) (default true).
+     *                        If false and the value is greater than the max, the value will be adjusted based on the step and then added to the dropdown as an extra option.
      **/
     public static function showTimeStamp($myname, $options = [])
     {
@@ -1934,7 +1939,9 @@ JAVASCRIPT;
         $params['display_emptychoice'] = true;
         $params['width']               = '';
         $params['class']               = 'form-select';
+        $params['allow_max_change']    = true;
         $params['readonly']            = false;
+        $params['disabled']            = false;
 
         if (is_array($options) && count($options)) {
             foreach ($options as $key => $val) {
@@ -1949,7 +1956,9 @@ JAVASCRIPT;
             $params['min'] = $params['step'];
         }
 
-        $params['max'] = max($params['value'], $params['max']);
+        if ($params['allow_max_change']) {
+            $params['max'] = max($params['value'], $params['max']);
+        }
 
        // Floor with MINUTE_TIMESTAMP for rounded purpose
         if (empty($params['value'])) {
@@ -1963,6 +1972,10 @@ JAVASCRIPT;
         } else if (!in_array($params['value'], $params['toadd'])) {
            // Round to a valid step except if value is already valid (defined in values to add)
             $params['value'] = floor(($params['value']) / $params['step']) * $params['step'];
+        }
+
+        if (!$params['allow_max_change'] && $params['value'] > $params['max']) {
+            $params['toadd'][] = $params['value'];
         }
 
         // Generate array keys
@@ -2039,6 +2052,7 @@ JAVASCRIPT;
             'emptylabel'          => $params['emptylabel'],
             'class'               => $params['class'],
             'readonly'            => $params['readonly'],
+            'disabled'            => $params['disabled'],
         ]);
     }
 
@@ -2188,6 +2202,10 @@ JAVASCRIPT;
             $output .= '<span class="form-control" readonly style="width: ' . $param["width"] . '">' . implode(', ', $to_display) . '</span>';
         } else {
             $output  .= "<select name='$field_name' id='$field_id'";
+
+            if ($param['width'] !== '') {
+                $output .= " style='width: " . $param['width'] . "'";
+            }
 
             if ($param['tooltip']) {
                 $output .= ' title="' . Html::entities_deep($param['tooltip']) . '"';
@@ -2498,7 +2516,7 @@ JAVASCRIPT;
      * @param string  $comment
      * @param boolean $add              if true, add it if not found. if false, just check if exists
      *
-     * @return integer : dropdown id.
+     * @return false|integer : dropdown id.
      **/
     public static function importExternal(
         $itemtype,
@@ -2706,7 +2724,7 @@ JAVASCRIPT;
             $post['emptylabel'] = Dropdown::EMPTY_VALUE;
         }
 
-        $where = [];
+        $where = $item->getSystemSQLCriteria();
 
         if ($item->maybeDeleted()) {
             $where["$table.is_deleted"] = 0;
@@ -2748,7 +2766,7 @@ JAVASCRIPT;
                 $where = array_merge($where, $post['condition']['WHERE']);
             } else {
                 foreach ($post['condition'] as $key => $value) {
-                    if (strpos($key, '.') === false) {
+                    if (!is_numeric($key) && !str_contains($key, '.')) {
                         // Ensure condition contains table name to prevent ambiguity with fields from `glpi_entities` table
                         $where["$table.$key"] = $value;
                     } else {
@@ -3329,6 +3347,24 @@ JAVASCRIPT;
                     }
                     break;
 
+                case Ticket::class:
+                    $criteria = [
+                        'SELECT' => array_merge(["$table.*"], $addselect),
+                        'FROM'   => $table,
+                    ];
+                    if (count($ljoin)) {
+                        $criteria['LEFT JOIN'] = $ljoin;
+                    }
+                    if (!Session::haveRight(Ticket::$rightname, Ticket::READALL)) {
+                        $unused_ref = [];
+                        $joins_str = Search::addDefaultJoin(Ticket::class, Ticket::getTable(), $unused_ref);
+                        if (!empty($joins_str)) {
+                            $criteria['LEFT JOIN'] = [new QueryExpression($joins_str)];
+                        }
+                        $where[] = new QueryExpression(Search::addDefaultWhere(Ticket::class));
+                    }
+                    break;
+
                 case Project::getType():
                     $visibility = Project::getVisibilityCriteria();
                     if (count($visibility['LEFT JOIN'])) {
@@ -3733,7 +3769,7 @@ JAVASCRIPT;
             return;
         }
 
-        $where = [];
+        $where = [$post['itemtype']::getSystemSQLCriteria()];
         if (isset($post['used']) && !empty($post['used'])) {
             $where['NOT'] = ['id' => $post['used']];
         }

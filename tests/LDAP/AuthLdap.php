@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -40,6 +40,8 @@ use GLPIKey;
 use Group;
 use Group_User;
 use Profile_User;
+use RuleBuilder;
+use RuleRight;
 use UserTitle;
 
 /* Test for inc/authldap.class.php */
@@ -258,7 +260,6 @@ class AuthLDAP extends DbTestCase
         $tabs     = $ldap->defineTabs();
         $expected = [
             'AuthLDAP$main' => "<span><i class='far fa-address-book me-2'></i>LDAP directory</span>",
-            'Log$1'         => "<span><i class='ti ti-history me-2'></i>Historical</span>"
         ];
         $this->array($tabs)->isIdenticalTo($expected);
     }
@@ -1338,6 +1339,7 @@ class AuthLDAP extends DbTestCase
         unset($dup['id']);
         unset($dup['date_creation']);
         unset($dup['date_mod']);
+        unset($dup['user_dn_hash']);
         $aid = $dup['auths_id'];
         $dup['auths_id'] = $aid + 1;
 
@@ -2367,6 +2369,59 @@ class AuthLDAP extends DbTestCase
         $this->array($gus)->hasSize(1);
     }
 
+
+    /**
+     * Test if ruleright '_groups_id' criteria is working
+     *
+     * @return void
+     */
+    public function testRuleRightGroupCriteria()
+    {
+
+        // create manual group
+        $group = $this->createItem(Group::class, [
+            'name'         => "test",
+            'entities_id'  => 0,
+            'is_recursive' => 1,
+        ]);
+        $group_id = $group->getID();
+
+        // create RuleRight
+        $builder = new RuleBuilder('Test _groups_id criteria', RuleRight::class);
+        $builder->addCriteria('_groups_id', \Rule::PATTERN_IS, $group_id);
+        $builder->addAction('assign', 'profiles_id', 4); // Super admin
+        $builder->addAction('assign', 'entities_id', 1);
+        $builder->setEntity(0);
+        $this->createRule($builder);
+
+        // login the user to force a real synchronisation (and creation into DB)
+        $this->login('brazil7', 'password', false);
+        $users_id = \User::getIdByName('brazil7');
+
+        // Add group to user
+        $this->createItem(Group_User::class, [
+            'groups_id' => $group_id,
+            'users_id'  => $users_id,
+        ]);
+
+        // Check that the user is not attached to the profile at creation
+        $rights = (new Profile_User())->find([
+            'users_id' => $users_id,
+            'profiles_id' => 4,
+        ]);
+        $this->array($rights)->hasSize(0);
+
+        // Log in again to trigger rule
+        $this->login('brazil7', 'password', false);
+
+        // Check that the correct profile was set
+        $rights = (new Profile_User())->find([
+            'users_id' => $users_id,
+            'profiles_id' => 4,
+        ]);
+
+        $this->array($rights)->hasSize(1);
+    }
     /**
      * @extensions ldap
      */

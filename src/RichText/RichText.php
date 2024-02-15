@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -263,7 +263,7 @@ final class RichText
             'images_gallery' => false,
             'user_mentions'  => true,
             'images_lazy'    => true,
-            'text_maxsize'   => 4000,
+            'text_maxsize'   => GLPI_TEXT_MAXSIZE,
         ];
         $p = array_replace($p, $params);
 
@@ -535,7 +535,7 @@ JAVASCRIPT;
             ])
             ->allowRelativeLinks()
             ->allowRelativeMedias()
-            ->withMaxInputLength(pow(2, 24)) // 2^24 corresponds to MySQL MEDIUMTEXT max length
+            ->withMaxInputLength(-1)
         ;
 
         // Block some elements (tag is removed but contents is preserved)

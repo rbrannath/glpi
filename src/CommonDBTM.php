@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -263,7 +263,7 @@ class CommonDBTM extends CommonGLPI
             throw new \InvalidArgumentException('Argument $field cannot be empty.');
         }
 
-        $tablename = self::getTable($classname);
+        $tablename = static::getTable($classname);
         if (empty($tablename)) {
             throw new \LogicException('Invalid table name.');
         }
@@ -773,11 +773,11 @@ class CommonDBTM extends CommonGLPI
      * Mark deleted or purge an item in the database
      *
      * @param boolean $force force the purge of the item (not used if the table do not have a deleted field)
-     *               (default 0)
+     *               (default false)
      *
      * @return boolean true if succeed else false
      **/
-    public function deleteFromDB($force = 0)
+    public function deleteFromDB($force = false)
     {
         /** @var \DBmysql $DB */
         global $DB;
@@ -1003,7 +1003,6 @@ class CommonDBTM extends CommonGLPI
         }
     }
 
-
     /**
      * Clean translations associated to a dropdown
      *
@@ -1015,7 +1014,7 @@ class CommonDBTM extends CommonGLPI
     {
 
        //Do not try to clean is dropdown translation is globally off
-        if (DropdownTranslation::isDropdownTranslationActive()) {
+        if ($this instanceof CommonDropdown && $this->maybeTranslated()) {
             $translation = new DropdownTranslation();
             $translation->deleteByCriteria(['itemtype' => get_class($this),
                 'items_id' => $this->getID()
@@ -1240,7 +1239,7 @@ class CommonDBTM extends CommonGLPI
      *   - unicity_message : do not display message if item it a duplicate (default is yes)
      * @param boolean $history do history log ? (true by default)
      *
-     * @return integer the new ID of the added item (or false if fail)
+     * @return false|integer the new ID of the added item (or false if fail)
      **/
     public function add(array $input, $options = [], $history = true)
     {
@@ -1539,11 +1538,11 @@ class CommonDBTM extends CommonGLPI
 
 
     /**
-     * Prepare input datas for adding the item
+     * Prepare input data for adding the item. If false, add is cancelled.
      *
      * @param array $input datas used to add the item
      *
-     * @return array the modified $input array
+     * @return false|array the modified $input array
      **/
     public function prepareInputForAdd($input)
     {
@@ -1567,12 +1566,12 @@ class CommonDBTM extends CommonGLPI
      * Update some elements of an item in the database.
      *
      * @param array   $input   the _POST vars returned by the item form when press update
-     * @param boolean $history do history log ? (default 1)
+     * @param boolean $history do history log ? (default true)
      * @param array   $options with the insert options
      *
      * @return boolean true on success
      **/
-    public function update(array $input, $history = 1, $options = [])
+    public function update(array $input, $history = true, $options = [])
     {
         /**
          * @var \DBmysql $DB
@@ -1641,6 +1640,7 @@ class CommonDBTM extends CommonGLPI
                         // Compare item
                         $ischanged = true;
                         $searchopt = $this->getSearchOptionByField('field', $key, $this->getTable());
+
                         if (isset($searchopt['datatype'])) {
                             switch ($searchopt['datatype']) {
                                 case 'string':
@@ -1979,11 +1979,11 @@ class CommonDBTM extends CommonGLPI
 
 
     /**
-     * Prepare input datas for updating the item
+     * Prepare input data for updating the item. If false, update is cancelled.
      *
      * @param array $input data used to update the item
      *
-     * @return array the modified $input array
+     * @return false|array the modified $input array
      **/
     public function prepareInputForUpdate($input)
     {
@@ -1994,11 +1994,11 @@ class CommonDBTM extends CommonGLPI
     /**
      * Actions done after the UPDATE of the item in the database
      *
-     * @param boolean $history store changes history ? (default 1)
+     * @param boolean $history store changes history ? (default true)
      *
      * @return void
      **/
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         if (count($this->updates) > 0) {
             UserMention::handleUserMentions($this);
@@ -2041,12 +2041,12 @@ class CommonDBTM extends CommonGLPI
      * Delete an item in the database.
      *
      * @param array   $input   the _POST vars returned by the item form when press delete
-     * @param boolean $force   force deletion (default 0)
-     * @param boolean $history do history log ? (default 1)
+     * @param boolean $force   force deletion (default false)
+     * @param boolean $history do history log ? (default true)
      *
      * @return boolean true on success
      **/
-    public function delete(array $input, $force = 0, $history = 1)
+    public function delete(array $input, $force = false, $history = true)
     {
         /** @var \DBmysql $DB */
         global $DB;
@@ -2275,11 +2275,11 @@ class CommonDBTM extends CommonGLPI
      * Restore an item put in the trashbin in the database.
      *
      * @param array   $input   the _POST vars returned by the item form when press restore
-     * @param boolean $history do history log ? (default 1)
+     * @param boolean $history do history log ? (default true)
      *
      * @return boolean true on success
      **/
-    public function restore(array $input, $history = 1)
+    public function restore(array $input, $history = true)
     {
 
         if (!$this->getFromDB($input[static::getIndexName()])) {
@@ -2541,8 +2541,9 @@ class CommonDBTM extends CommonGLPI
     {
         /**
          * @var array $CFG_GLPI
+         * @var \DBmysql $DB
          */
-        global $CFG_GLPI;
+        global $CFG_GLPI, $DB;
 
         $ID  = $this->fields['id'];
         if (
@@ -2572,15 +2573,12 @@ class CommonDBTM extends CommonGLPI
         if (isset($RELATION[$this->getTable()])) {
             foreach ($RELATION[$this->getTable()] as $tablename => $fields) {
                 if ($tablename[0] != '_') {
-                    $itemtype = getItemTypeForTable($tablename);
-                    $item     = new $itemtype();
-
                     $or_criteria = [];
                     foreach ($fields as $field) {
                         // 1->N Relation
                         if (is_array($field)) {
                             // Relation based on 'itemtype'/'items_id' (polymorphic relationship)
-                            if ($item instanceof IPAddress && in_array('mainitemtype', $field) && in_array('mainitems_id', $field)) {
+                            if ($tablename === IPAddress::getTable() && in_array('mainitemtype', $field) && in_array('mainitems_id', $field)) {
                                 // glpi_ipaddresses relationship that does not respect naming conventions
                                 $itemtype_field = 'mainitemtype';
                                 $items_id_field = 'mainitems_id';
@@ -2607,7 +2605,7 @@ class CommonDBTM extends CommonGLPI
 
                     $item_criteria = ['OR' => $or_criteria];
 
-                    if ($item->isEntityAssign()) {
+                    if ($DB->fieldExists($tablename, 'entities_id')) {
                         // 1->N Relation
                         if (
                             countElementsInTable(
@@ -2624,14 +2622,11 @@ class CommonDBTM extends CommonGLPI
                                 ($othertable != $this->getTable())
                                 && isset($rel[$tablename])
                             ) {
-                                $otheritemtype = getItemTypeForTable($othertable);
-                                $otheritem     = new $otheritemtype();
-
-                                if ($otheritem->isEntityAssign()) {
+                                if ($DB->fieldExists($othertable, 'entities_id')) {
                                     foreach ($rel[$tablename] as $otherfield) {
                                         if (is_array($otherfield)) {
                                             // Relation based on 'itemtype'/'items_id' (polymorphic relationship)
-                                            if ($item instanceof IPAddress && in_array('mainitemtype', $otherfield) && in_array('mainitems_id', $otherfield)) {
+                                            if ($tablename === IPAddress::getTable() && in_array('mainitemtype', $otherfield) && in_array('mainitems_id', $otherfield)) {
                                                 // glpi_ipaddresses relationship that does not respect naming conventions
                                                 $otheritemtype_field = 'mainitemtype';
                                                 $otheritems_id_field = 'mainitems_id';
@@ -3546,7 +3541,7 @@ class CommonDBTM extends CommonGLPI
         if ($this->isField('users_id_tech')) {
             $tmp = getUserName($this->getField('users_id_tech'));
             if ((strlen($tmp) != 0) && ($tmp != '&nbsp;')) {
-                $toadd[] = ['name'  => __('Technician in charge of the hardware'),
+                $toadd[] = ['name'  => __('Technician in charge'),
                     'value' => $tmp
                 ];
             }
@@ -3982,7 +3977,7 @@ class CommonDBTM extends CommonGLPI
      *
      * @param array      $actions    array of the actions to update
      * @param string     $itemtype   the type of the item for which we want the actions
-     * @param boolean    $is_deleted (default 0)
+     * @param boolean    $is_deleted (default false)
      * @param CommonDBTM $checkitem  (default NULL)
      *
      * @return void (update is set inside $actions)
@@ -3990,7 +3985,7 @@ class CommonDBTM extends CommonGLPI
     public static function getMassiveActionsForItemtype(
         array &$actions,
         $itemtype,
-        $is_deleted = 0,
+        $is_deleted = false,
         CommonDBTM $checkitem = null
     ) {
     }
@@ -4158,7 +4153,7 @@ class CommonDBTM extends CommonGLPI
      *    - used : array / Already used items ID: not to display in dropdown (default empty)
      *    - hide_if_no_elements  : boolean / hide dropdown if there is no elements (default false)
      *
-     * @return string|void display the dropdown
+     * @return string|false|integer
      **/
     public static function dropdown($options = [])
     {
@@ -4664,12 +4659,12 @@ class CommonDBTM extends CommonGLPI
      * Clean all infos which match some criteria
      *
      * @param array   $crit    array of criteria (ex array('is_active'=>'1'))
-     * @param boolean $force   force purge not on put in trashbin (default 0)
+     * @param boolean $force   force purge not on put in trashbin (default false)
      * @param boolean $history do history log ? (true by default)
      *
      * @return boolean
      **/
-    public function deleteByCriteria($crit = [], $force = 0, $history = 1)
+    public function deleteByCriteria($crit = [], $force = false, $history = true)
     {
         /** @var \DBmysql $DB */
         global $DB;
@@ -4730,6 +4725,7 @@ class CommonDBTM extends CommonGLPI
             case '_virtual_datacenter_position':
                 $static = new static();
                 if (method_exists($static, 'renderDcBreadcrumb')) {
+                    //FIXME phpstan-ignore-next-line
                     return $static::renderDcBreadcrumb($values['id']);
                 }
         }
@@ -4946,9 +4942,9 @@ class CommonDBTM extends CommonGLPI
             }
            // Get specific display if available
             $itemtype = getItemTypeForTable($searchoptions['table']);
-            if ($item = getItemForItemtype($itemtype)) {
+            if (is_a($itemtype, CommonDBTM::class, true)) {
                 $options['searchopt'] = $searchoptions;
-                $specific = $item->getSpecificValueToDisplay($field, $values, $options);
+                $specific = $itemtype::getSpecificValueToDisplay($field, $values, $options);
                 if (!empty($specific)) {
                     return $specific;
                 }
@@ -4992,7 +4988,7 @@ class CommonDBTM extends CommonGLPI
      *    - comments : boolean / is the comments displayed near the value (default false)
      *    - any others options passed to specific display method
      *
-     * @return string the string to display
+     * @return false|string the string to display
      **/
     public function getValueToSelect($field_id_or_search_options, $name = '', $values = '', $options = [])
     {
@@ -5176,7 +5172,7 @@ class CommonDBTM extends CommonGLPI
                     if (!isset($options['entity'])) {
                         $options['entity'] = $_SESSION['glpiactiveentities'];
                     }
-                    $itemtype = getItemTypeForTable($searchoptions['table']);
+                    $itemtype = $searchoptions['itemtype'] ?? getItemTypeForTable($searchoptions['table']);
 
                     return $itemtype::dropdown($options);
 
@@ -5243,11 +5239,11 @@ class CommonDBTM extends CommonGLPI
     /**
      * @param string  $itemtype Item type
      * @param string  $target   Target
-     * @param boolean $add      (default 0)
+     * @param boolean $add      (default false)
      *
      * @return false|void
      */
-    public static function listTemplates($itemtype, $target, $add = 0)
+    public static function listTemplates($itemtype, $target, $add = false)
     {
         /** @var \DBmysql $DB */
         global $DB;
@@ -5467,12 +5463,9 @@ class CommonDBTM extends CommonGLPI
      * @param bool          $safe_url   indicates whether URL should be sanitized or not
      *
      * @return array of link contents (may have several when item have several IP / MAC cases)
-     *
-     * @FIXME Uncomment $safe_url parameter declaration in GLPI 10.1.
      */
-    public static function generateLinkContents($link, CommonDBTM $item/*, bool $safe_url = true*/)
+    public static function generateLinkContents($link, CommonDBTM $item, bool $safe_url = true)
     {
-        $safe_url = func_num_args() === 3 ? func_get_arg(2) : true;
         return Link::generateLinkContents($link, $item, $safe_url);
     }
 
@@ -5962,9 +5955,9 @@ class CommonDBTM extends CommonGLPI
     /**
      * Retrieve an item from the database
      *
-     * @param integer $ID ID of the item to get
+     * @param int|null $id ID of the item to get
      *
-     * @return static|boolean false on failure
+     * @return static|false
      */
     public static function getById(?int $id)
     {
@@ -5984,8 +5977,9 @@ class CommonDBTM extends CommonGLPI
     /**
      * Correct entity id if needed when cloning a template
      *
-     * @param array  $data
-     * @param string $parent_field
+     * @param array   $data
+     * @param integer $parent_id
+     * @param string  $parent_itemtype
      *
      * @return array
      */
@@ -6596,8 +6590,8 @@ class CommonDBTM extends CommonGLPI
     /**
      * Display a header for the "central" interface
      *
-     * @param null|string  $title
-     * @param array|string $menus
+     * @param null|string $title
+     * @param array|null  $menus
      *
      * @return void
      */
@@ -6625,8 +6619,8 @@ class CommonDBTM extends CommonGLPI
     /**
      * Display a header for the "helpdesk" interface
      *
-     * @param null|string  $title
-     * @param array|string $menus
+     * @param null|string $title
+     * @param array|null  $menus
      *
      * @return void
      */
@@ -6711,5 +6705,20 @@ class CommonDBTM extends CommonGLPI
                 break;
         }
         return $reference_event;
+    }
+
+    /**
+     * Return system SQL criteria to apply when fetching table values of current itemtype.
+     * These criteria will be applied when fetching a list of items identified by their itemtype/table,
+     * for instance, when fetching available dropdown values, or a list of linked items.
+     * These criteria will be added in the `WHERE` conditions.
+     *
+     * @param string|null $tablename    Table name to use for field in SQL query, can be used to prevent ambiguous field naming.
+     *
+     * @return array
+     */
+    public static function getSystemSQLCriteria(?string $tablename = null): array
+    {
+        return [];
     }
 }

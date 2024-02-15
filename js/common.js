@@ -5,7 +5,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -668,30 +668,32 @@ var stopEvent = function(event) {
     event.stopPropagation();
 };
 
-/**
- * Back to top implementation
- */
-if ($('#backtotop').length) {
-    var scrollTrigger = 100, // px
-        backToTop = function () {
-            var scrollTop = $(window).scrollTop();
-            if (scrollTop > scrollTrigger) {
-                $('#backtotop').addClass('d-md-block');
-            } else {
-                $('#backtotop').removeClass('d-md-block');
-            }
-        };
-    backToTop();
-    $(window).on('scroll', function () {
+$(() => {
+    /**
+     * Back to top implementation
+     */
+    if ($('#backtotop').length) {
+        var scrollTrigger = 100, // px
+            backToTop = function () {
+                var scrollTop = $(window).scrollTop();
+                if (scrollTop > scrollTrigger) {
+                    $('#backtotop').addClass('d-md-block');
+                } else {
+                    $('#backtotop').removeClass('d-md-block');
+                }
+            };
         backToTop();
-    });
-    $('#backtotop').on('click', function (e) {
-        e.preventDefault();
-        $('html,body').animate({
-            scrollTop: 0
-        }, 700);
-    });
-}
+        $(window).on('scroll', function () {
+            backToTop();
+        });
+        $('#backtotop').on('click', function (e) {
+            e.preventDefault();
+            $('html,body').animate({
+                scrollTop: 0
+            }, 700);
+        });
+    }
+});
 
 /**
  * Returns element height, including margins
@@ -1156,23 +1158,34 @@ function onTinyMCEChange(e) {
 }
 
 function relativeDate(str) {
+    var today = new Date(),
+        strdate = new Date(str);
+    today.setHours(0, 0, 0, 0);
+    strdate.setHours(0, 0, 0, 0);
+
     var s = ( +new Date() - Date.parse(str) ) / 1e3,
         m = s / 60,
         h = m / 60,
-        d = h / 24,
-        y = d / 365.242199,
+        d = ( today - strdate ) / 864e5,
+        w = d / 7,
+        mo = d / 30.44,
+        y = d / 365.24,
         tmp;
 
     return (tmp = Math.round(s)) === 1 ? __('just now')
-        : m < 1.01 ? '%s seconds ago'.replace('%s', tmp)
+        : m < 1.01 ? __('%s seconds ago').replace('%s', tmp)
             : (tmp = Math.round(m)) === 1 ? __('a minute ago')
-                : h < 1.01 ? '%s minutes ago'.replace('%s', tmp)
+                : h < 1.01 ? __('%s minutes ago').replace('%s', tmp)
                     : (tmp = Math.round(h)) === 1 ? __('an hour ago')
-                        : d < 1.01 ? '%s hours ago'.replace('%s', tmp)
+                        : d < 1.01 ? __('%s hours ago').replace('%s', tmp)
                             : (tmp = Math.round(d)) === 1 ? __('yesterday')
-                                : y < 1.01 ? '%s days ago'.replace('%s', tmp)
-                                    : (tmp = Math.round(y)) === 1 ? __('a year ago')
-                                        : '%s years ago'.replace('%s', tmp);
+                                : w < 1.01 ? __('%s days ago').replace('%s', tmp)
+                                    : (tmp = Math.floor(w)) === 1 ? __('a week ago')
+                                        : mo < 1.01 ? __('%s weeks ago').replace('%s', tmp)
+                                            : (tmp = Math.floor(mo)) === 1 ? __('a month ago')
+                                                : y < 1 ? __('%s months ago').replace('%s', tmp)
+                                                    : (tmp = Math.floor(y)) === 1 ? __('a year ago')
+                                                        : __('%s years ago').replace('%s', tmp);
 }
 
 /**
@@ -1435,8 +1448,28 @@ function blockFormSubmit(form, e) {
     form.attr('data-submitted', 'true');
 }
 
+window.validateFormWithBootstrap = function (event) {
+    const form = $(event.target).closest('form');
+    const valid = form[0].checkValidity();
+
+    if (form.hasClass('needs-validation')) {
+        if (!valid) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        form.addClass('was-validated');
+    }
+
+    return valid;
+};
+
 $(() => {
     $(document.body).on('submit', 'form[data-submit-once]', (e) => {
+        if (!window.validateFormWithBootstrap(e)) {
+            return false;
+        }
+
         const form = $(e.target).closest('form');
         if (form.attr('data-submitted') === 'true') {
             e.preventDefault();

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -46,12 +46,24 @@ class Client implements ClientEntityInterface
 
     public function __construct()
     {
-        $this->redirectUri = ['/api.php/oauth2/redirection', '/api.php/swagger-oauth-redirect'];
+        $this->setRedirectUri([]);
         $this->isConfidential = true;
     }
 
     public function setName(string $name)
     {
         $this->name = $name;
+    }
+
+    /**
+     * @param array $redirectUri
+     */
+    public function setRedirectUri(array $redirectUri): void
+    {
+        $global_allowed_redirect_uri = [
+            '/api.php/oauth2/redirection', // No effect. Maybe don't need it.
+            '/api.php/swagger-oauth-redirect', // Used for Swagger UI
+        ];
+        $this->redirectUri = array_merge($global_allowed_redirect_uri, $redirectUri);
     }
 }

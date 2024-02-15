@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -105,7 +105,7 @@ class UpdateCommand extends AbstractCommand implements ConfigurationCommandInter
             '--skip-db-checks',
             's',
             InputOption::VALUE_NONE,
-            __('Do not check database schema integrity before performing the update')
+            __('Do not check database schema integrity before and after performing the update')
         );
 
         $this->addOption(
@@ -221,7 +221,18 @@ class UpdateCommand extends AbstractCommand implements ConfigurationCommandInter
 
         $this->handTelemetryActivation($input, $output);
 
-        if (!$update->isUpdatedSchemaConsistent()) {
+        if ($this->input->getOption('skip-db-checks')) {
+            $this->output->writeln(
+                [
+                    '<comment>' . __('The database schema integrity check has been skipped.') . '</comment>',
+                    '<comment>' . sprintf(
+                        __('It is recommended to run the "%s" command to validate that the database schema is consistent with the current GLPI version.'),
+                        'php bin/console database:check_schema_integrity'
+                    ) . '</comment>'
+                ],
+                OutputInterface::VERBOSITY_QUIET
+            );
+        } elseif (!$update->isUpdatedSchemaConsistent()) {
             // Exit with an error if database schema is not consistent.
             // Keep this code at end of command to ensure that the whole migration is still executed.
             // Many old GLPI instances will likely have differences, and people will have to fix them manually.

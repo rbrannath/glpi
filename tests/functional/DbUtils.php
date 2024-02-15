@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -147,6 +147,7 @@ class DbUtils extends DbTestCase
         require_once __DIR__ . '/../fixtures/pluginfoobar.php';
         require_once __DIR__ . '/../fixtures/pluginfooservice.php';
         require_once __DIR__ . '/../fixtures/pluginfoo_search_item_filter.php';
+        require_once __DIR__ . '/../fixtures/pluginfoo_item_filter.php';
         require_once __DIR__ . '/../fixtures/pluginfoo_search_a_b_c_d_e_f_g_bar.php';
         require_once __DIR__ . '/../fixtures/test_a_b.php';
 
@@ -163,6 +164,7 @@ class DbUtils extends DbTestCase
             ['glpi_plugin_foo_bazs', 'PluginFooBaz', false], // class not exists
             ['glpi_plugin_foo_services', 'PluginFooService', false], // not a CommonGLPI should not be valid
             ['glpi_plugin_foo_searches_items_filters', 'GlpiPlugin\Foo\Search\Item_Filter', true], // Multi-level namespace + CommonDBRelation
+            ['glpi_plugin_foo_items_filters', 'GlpiPlugin\Foo\Item_Filter', true], // Single level namespace + CommonDBRelation
             ['glpi_anothers_tests', 'Glpi\Another_Test', true], // Single level namespace + CommonDBRelation
             ['glpi_tests_as_bs', 'Glpi\Test\A_B', true], // Multi-level namespace + CommonDBRelation
             ['glpi_plugin_foo_as_bs_cs_ds_es_fs_gs_bars', 'GlpiPlugin\Foo\A\B\C\D\E\F\G\Bar', true], // Long namespace
@@ -852,21 +854,14 @@ class DbUtils extends DbTestCase
             $this->array($GLPI_CACHE->get($ckey_new_id2))->isIdenticalTo($expected);
         }
 
-       //test on multiple entities
+        // test on multiple entities
+        // getAncestorsOf was already called on $new_id and $new_id2 separately, so cache is already populated since we don't cache ancestors of multiple entities together anymore.
+        // Ex: getAncestorsOf('glpi_entities', [$new_id, $new_id2]) will populate ancestors_cache_glpi_entities_$new_id and ancestors_cache_glpi_entities_$new_id2
+        // but not ancestors_cache_glpi_entities_ . md5(implode('|', [$new_id, $new_id2]))
+        // We will ignore the $cache and $hit parameters here and just ensure the combined result is correct.
         $expected = [0 => 0, $ent0 => $ent0, $ent1 => $ent1, $ent2 => $ent2];
-        $ckey_new_all = 'ancestors_cache_glpi_entities_' . md5($new_id . '|' . $new_id2);
-        if ($cache === true && $hit === false) {
-            $this->boolean($GLPI_CACHE->has($ckey_new_all))->isFalse();
-        } else if ($cache === true && $hit === true) {
-            $this->array($GLPI_CACHE->get($ckey_new_all))->isIdenticalTo($expected);
-        }
-
         $ancestors = getAncestorsOf('glpi_entities', [$new_id, $new_id2]);
         $this->array($ancestors)->isIdenticalTo($expected);
-
-        if ($cache === true && $hit === false) {
-            $this->array($GLPI_CACHE->get($ckey_new_all))->isIdenticalTo($expected);
-        }
     }
 
     public function testGetAncestorsOf()
@@ -1466,6 +1461,10 @@ class DbUtils extends DbTestCase
                 'itemtype' => 'glpiplugin\\foo\\models\\foo\\bar_item',
                 'expected' => 'GlpiPlugin\\Foo\\Models\\Foo\\Bar_Item',
             ],
+            [
+                'itemtype' => 'glpiplugin\\foo\\relation_item',
+                'expected' => 'GlpiPlugin\\Foo\\Relation_Item',
+            ],
          // Good case (should not be altered)
             [
                 'itemtype' => 'MyClass',
@@ -1524,6 +1523,7 @@ class DbUtils extends DbTestCase
                                 ],
                             ],
                             'NamespacedBar.php' => '',
+                            'Relation_Item.php' => '',
                             'PluginFooBarItem.php' => '',
                         ],
                     ],

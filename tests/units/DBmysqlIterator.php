@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -42,6 +42,7 @@ use Psr\Log\LogLevel;
 
 class DBmysqlIterator extends DbTestCase
 {
+    /** @var \DBmysqlIterator */
     private $it;
 
     public function beforeTestMethod($method)
@@ -56,7 +57,7 @@ class DBmysqlIterator extends DbTestCase
         $this->when($this->it->execute($req))
             ->error()
             ->withType(E_USER_DEPRECATED)
-            ->withMessage('Direct query usage is strongly discouraged!.')
+            ->withMessage('Direct query usage is strongly discouraged!')
             ->exists();
         $this->string($this->it->getSql())->isIdenticalTo($req);
 
@@ -64,11 +65,40 @@ class DBmysqlIterator extends DbTestCase
         $this->when($this->it->execute($req))
             ->error()
             ->withType(E_USER_DEPRECATED)
-            ->withMessage('Direct query usage is strongly discouraged!.')
+            ->withMessage('Direct query usage is strongly discouraged!')
             ->exists();
         $this->string($this->it->getSql())->isIdenticalTo($req);
     }
 
+    protected function legacyQueryProvider(): iterable
+    {
+        yield [
+            'input'  => 'SELECT * FROM glpi_computers',
+            'output' => 'SELECT * FROM glpi_computers',
+        ];
+
+        yield [
+            'input'  => <<<SQL
+                SELECT * FROM glpi_computers
+SQL
+            ,
+            'output' => ' SELECT * FROM glpi_computers',
+        ];
+    }
+
+    /**
+     * @dataProvider legacyQueryProvider
+     */
+    public function testBuildQueryLegacy(string $input, string $output): void
+    {
+        $this->when($this->it->buildQuery($input))
+            ->error()
+            ->withType(E_USER_DEPRECATED)
+            ->withMessage('Direct query usage is strongly discouraged!')
+            ->exists();
+
+        $this->string($this->it->getSql())->isIdenticalTo($output);
+    }
 
     public function testSqlError()
     {
@@ -1512,5 +1542,14 @@ class DBmysqlIterator extends DbTestCase
         $iterator = $db->request(['FROM' => 'glpi_mocks']);
 
         $this->array($iterator->current())->isEqualTo($result);
+    }
+
+    public function testRawFKeyCondition()
+    {
+        $this->string(
+            $this->it->analyseCrit([
+                'ON' => new \Glpi\DBAL\QueryExpression("glpi_tickets.id=(CASE WHEN glpi_tickets_tickets.tickets_id_1=103 THEN glpi_tickets_tickets.tickets_id_2 ELSE glpi_tickets_tickets.tickets_id_1 END)")
+            ])
+        )->isEqualTo("glpi_tickets.id=(CASE WHEN glpi_tickets_tickets.tickets_id_1=103 THEN glpi_tickets_tickets.tickets_id_2 ELSE glpi_tickets_tickets.tickets_id_1 END)");
     }
 }

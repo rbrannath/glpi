@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @copyright 2010-2022 by the FusionInventory Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
@@ -69,6 +69,8 @@ class Agent extends CommonDBTM
    //static $rightname = 'inventory';
 
     private static $found_address = false;
+
+    public $history_blacklist = ['last_contact'];
 
     public static function getTypeName($nb = 0)
     {
@@ -704,17 +706,8 @@ class Agent extends CommonDBTM
                 'connect_timeout' => self::TIMEOUT,
             ];
 
-            // add proxy string if configured in glpi
-            if (!empty($CFG_GLPI["proxy_name"])) {
-                $proxy_creds      = !empty($CFG_GLPI["proxy_user"])
-                ? $CFG_GLPI["proxy_user"] . ":" . (new GLPIKey())->decrypt($CFG_GLPI["proxy_passwd"]) . "@"
-                : "";
-                $proxy_string     = "http://{$proxy_creds}" . $CFG_GLPI['proxy_name'] . ":" . $CFG_GLPI['proxy_port'];
-                $options['proxy'] = $proxy_string;
-            }
-
             // init guzzle client with base options
-            $httpClient = new Guzzle_Client($options);
+            $httpClient = Toolbox::getGuzzleClient($options);
             try {
                 $response = $httpClient->request('GET', $endpoint, []);
                 self::$found_address = $address;

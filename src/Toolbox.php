@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -40,6 +40,7 @@ use Glpi\Event;
 use Glpi\Http\Response;
 use Glpi\Mail\Protocol\ProtocolInterface;
 use Glpi\Rules\RulesManager;
+use GuzzleHttp\Client;
 use Laminas\Mail\Storage\AbstractStorage;
 use Mexitek\PHPColors\Color;
 use Psr\Log\LoggerInterface;
@@ -65,7 +66,7 @@ class Toolbox
         if (!$max) {
             $max = ini_get('suhosin.post.max_vars');  // Security limit from Suhosin
         }
-        return $max;
+        return (int)$max;
     }
 
 
@@ -305,7 +306,7 @@ class Toolbox
         $tps = microtime(true);
 
         if ($logger === null) {
-            /** @var \Psr\Log\LoggerInterface $PHPLOGGER */
+            /** @var \Monolog\Logger $PHPLOGGER */
             global $PHPLOGGER;
             $logger = $PHPLOGGER;
         }
@@ -317,7 +318,7 @@ class Toolbox
             error_log($e);
         }
 
-        /** @var \Psr\Log\LoggerInterface $SQLLOGGER */
+        /** @var \Monolog\Logger $SQLLOGGER */
         global $SQLLOGGER;
         if (isCommandLine() && $level >= LogLevel::WARNING && $logger !== $SQLLOGGER) {
            // Do not output related messages to $SQLLOGGER as they are redundant with
@@ -489,28 +490,21 @@ class Toolbox
      * Switch error mode for GLPI
      *
      * @param integer|null $mode       From Session::*_MODE
-     * @param boolean|null $debug_sql
-     * @param boolean|null $debug_vars
+     * @param boolean|null $removed_param No longer used (Used to be $debug_sql)
+     * @param boolean|null $removed_param_2 No longer used (Used to be $debug_vars)
      * @param boolean|null $log_in_files
      *
      * @return void
      *
      * @since 0.84
      **/
-    public static function setDebugMode($mode = null, $debug_sql = null, $debug_vars = null, $log_in_files = null)
+    public static function setDebugMode($mode = null, $removed_param = null, $removed_param_2 = null, $log_in_files = null)
     {
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
         if (isset($mode)) {
             $_SESSION['glpi_use_mode'] = $mode;
-        }
-        //FIXME Deprecate the debug_sql and debug_vars parameters in GLPI 10.1.0
-        if (isset($debug_sql)) {
-            $CFG_GLPI['debug_sql'] = $debug_sql;
-        }
-        if (isset($debug_vars)) {
-            $CFG_GLPI['debug_vars'] = $debug_vars;
         }
         if (isset($log_in_files)) {
             $CFG_GLPI['use_log_in_files'] = $log_in_files;
@@ -759,7 +753,7 @@ class Toolbox
 
        // no K M or G
         if (isset($matches[1])) {
-            $mem = $matches[1];
+            $mem = (int)$matches[1];
             if (isset($matches[2])) {
                 switch ($matches[2]) {
                     case "G":
@@ -1030,7 +1024,6 @@ class Toolbox
                 return __('You have the latest available version');
             }
         }
-        return 1;
     }
 
 
@@ -1277,6 +1270,29 @@ class Toolbox
         $curl_error = null;
         $content = self::callCurl($url, [], $msgerr, $curl_error, true);
         return $content;
+    }
+
+    /**
+     * Get a new Guzzle client with proxy if configured and the specified other options.
+     * @param array $extra_options Extra options to pass to the Guzzle client constructor
+     * @return Client Guzzle client
+     * @throws SodiumException
+     */
+    public static function getGuzzleClient(array $extra_options): Client
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        $options = $extra_options;
+        // add proxy string if configured in glpi
+        if (!empty($CFG_GLPI["proxy_name"])) {
+            $proxy_creds      = !empty($CFG_GLPI["proxy_user"])
+                ? $CFG_GLPI["proxy_user"] . ":" . (new \GLPIKey())->decrypt($CFG_GLPI["proxy_passwd"]) . "@"
+                : "";
+            $proxy_string     = "http://{$proxy_creds}" . $CFG_GLPI['proxy_name'] . ":" . $CFG_GLPI['proxy_port'];
+            $options['proxy'] = $proxy_string;
+        }
+        return new Client($options);
     }
 
     /**
@@ -1751,7 +1767,7 @@ class Toolbox
     public static function showMailServerConfig($value)
     {
         if (!Config::canUpdate()) {
-            return false;
+            return '';
         }
 
         $tab = Toolbox::parseMailServerConnectString($value);
@@ -2055,13 +2071,13 @@ class Toolbox
     /**
      * Create the GLPI default schema
      *
-     * @param string  $lang Language to install
-     * @param DBmysql $db   Database instance to use, will fallback to a new instance of DB if null
+     * @param string   $lang     Language to install
+     * @param ?DBmysql $database Database instance to use, will fallback to a new instance of DB if null
      *
      * @return void
      *
      * @since 9.1
-     * @since 9.4.7 Added $db parameter
+     * @since 9.4.7 Added $database parameter
      **/
     public static function createSchema($lang = 'en_GB', DBmysql $database = null)
     {
@@ -2074,7 +2090,8 @@ class Toolbox
             $database = new DB();
         }
 
-       // Set global $DB as it is used in "Config::setConfigurationValues()" just after schema creation
+        // Set global $DB as it is used in "Config::setConfigurationValues()" just after schema creation
+        /** @var \DBmysql $DB */
         $DB = $database;
 
         if (!$DB->runFile(sprintf('%s/install/mysql/glpi-empty.sql', GLPI_ROOT))) {
@@ -2208,7 +2225,7 @@ class Toolbox
      *
      * @param string $value  encoded value
      *
-     * @return string  decoded array
+     * @return array  decoded array
      *
      * @since 0.83.91
      **/
@@ -2432,7 +2449,6 @@ class Toolbox
                                 $new_image,
                                 $content_text
                             );
-                            $content_text = $content_text;
                         }
 
                         // If the tag is from another ticket : link document to ticket
@@ -2518,7 +2534,7 @@ class Toolbox
      * **Fast** JSON detection of a given var
      * From https://stackoverflow.com/a/45241792
      *
-     * @param mixed the var to test
+     * @param mixed $json the var to test
      *
      * @return bool
      */
@@ -2811,7 +2827,7 @@ class Toolbox
      * Get picture URL.
      *
      * @param string $path
-     * @param bool  bool get full path
+     * @param bool   $full get full path
      *
      * @return null|string
      *
@@ -3124,8 +3140,8 @@ HTML;
     /**
      * Get available tabs for a given item
      *
-     * @param string   $itemtype Type of the item
-     * @param int|string|null $itemtype Id the item, optional
+     * @param string          $itemtype Type of the item
+     * @param int|string|null $id       Id the item, optional
      *
      * @return array
      */
@@ -3254,7 +3270,7 @@ HTML;
         ];
         if (count($matches) >= 3 && isset($supported_sizes[strtolower($matches[2])])) {
             // Known format
-            $size = $matches[1];
+            $size = (int)$matches[1];
             $size *= pow(1024, $supported_sizes[strtolower($matches[2])]);
         }
         return $size;

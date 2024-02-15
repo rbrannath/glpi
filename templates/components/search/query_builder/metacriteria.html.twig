@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -33,11 +33,12 @@
 
 {% import 'components/form/fields_macros.html.twig' as fields %}
 
+{% set normalized_itemtype = itemtype|replace({'\\': ''}) %}
 <div class="list-group-item border-0 metacriteria p-2" id="{{ row_id }}">
    <div class="row g-1">
       <div class="col-auto">
          <button class="btn btn-sm btn-icon btn-ghost-secondary remove-search-criteria" type="button" data-rowid="{{ row_id }}">
-            <i class="ti ti-square-minus" alt="-" title="{{ __('Delete a global rule') }}"></i>
+            <i class="ti ti-square-rounded-minus" alt="-" title="{{ __('Delete a global rule') }}"></i>
          </button>
       </div>
       <div class="col-auto">
@@ -66,8 +67,9 @@
          }) }}
       </div>
       <input type="hidden" name="criteria{{ prefix ~ "[" ~ num ~ "][meta]" }}" value="true">
-      {% set field_id = "dropdown_criteria" ~ prefix ~ "[" ~ num ~ "][itemtype]" ~ rand %}
-      {% set spanid = "show_" ~ itemtype ~ "_" ~ prefix ~ num ~ "_" ~ rand %}
+      {% set clean_id_prefix = call('Html::cleanId', [prefix]) %}
+      {% set field_id = "dropdown_criteria" ~ clean_id_prefix ~ "[" ~ num ~ "][itemtype]" ~ rand %}
+      {% set span_id = "show_" ~ normalized_itemtype ~ "_" ~ clean_id_prefix ~ num ~ "_" ~ rand %}
       {% set params = {
          action: 'display_criteria',
          itemtype: '__VALUE__',
@@ -81,11 +83,11 @@
       } %}
       {% do call('Ajax::updateItemOnSelectEvent', [
          field_id,
-         spanid,
+         span_id,
          config('root_doc') ~ "/ajax/search.php",
          params
       ]) %}
-      <div class="col-auto" id="{{ spanid }}">
+      <div class="col-auto" id="{{ span_id }}">
          <div class="row">
             {% if metacriteria['itemtype'] is defined and metacriteria['itemtype'] is not empty %}
                {% set params = params|merge({itemtype: metacriteria['itemtype']}) %}

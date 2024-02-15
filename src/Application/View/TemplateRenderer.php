@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -188,5 +188,26 @@ class TemplateRenderer
         } finally {
             Profiler::getInstance()->stop($template);
         }
+    }
+
+    /**
+     * Renders a template from a string.
+     *
+     * @param string $template
+     * @param array  $variables
+     *
+     * @return string
+     */
+    public function renderFromStringTemplate(string $template, array $variables = []): string
+    {
+        try {
+            Profiler::getInstance()->start($template, Profiler::CATEGORY_TWIG);
+            return $this->environment->createTemplate($template)->render($variables);
+        } catch (\Twig\Error\Error $e) {
+            ErrorHandler::getInstance()->handleTwigError($e);
+        } finally {
+            Profiler::getInstance()->stop($template);
+        }
+        return '';
     }
 }

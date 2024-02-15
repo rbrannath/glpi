@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -103,7 +103,7 @@ class Monitor extends CommonDBTM
         $this->addStandardTab('Contract_Item', $ong, $options);
         $this->addStandardTab('Document_Item', $ong, $options);
         $this->addStandardTab('KnowbaseItem_Item', $ong, $options);
-        $this->addStandardTab('Ticket', $ong, $options);
+        $this->addStandardTab('Item_Ticket', $ong, $options);
         $this->addStandardTab('Item_Problem', $ong, $options);
         $this->addStandardTab('Change_Item', $ong, $options);
         $this->addStandardTab('ManualLink', $ong, $options);
@@ -409,7 +409,7 @@ class Monitor extends CommonDBTM
             'table'              => 'glpi_users',
             'field'              => 'name',
             'linkfield'          => 'users_id_tech',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown',
             'right'              => 'own_ticket'
         ];
@@ -419,7 +419,7 @@ class Monitor extends CommonDBTM
             'table'              => 'glpi_groups',
             'field'              => 'completename',
             'linkfield'          => 'groups_id_tech',
-            'name'               => __('Group in charge of the hardware'),
+            'name'               => __('Group in charge'),
             'condition'          => ['is_assign' => 1],
             'datatype'           => 'dropdown'
         ];
@@ -458,6 +458,10 @@ class Monitor extends CommonDBTM
         $tab = array_merge($tab, Datacenter::rawSearchOptionsToAdd(get_class($this)));
 
         $tab = array_merge($tab, Rack::rawSearchOptionsToAdd(get_class($this)));
+
+        $tab = array_merge($tab, MonitorModel::rawSearchOptionsToAdd());
+
+        $tab = array_merge($tab, DCRoom::rawSearchOptionsToAdd());
 
         return $tab;
     }

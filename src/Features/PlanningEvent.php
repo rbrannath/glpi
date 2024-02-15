@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -258,7 +258,7 @@ trait PlanningEvent
     }
 
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         if (
             !isset($this->input['_no_check_plan'])
@@ -657,7 +657,7 @@ trait PlanningEvent
      *                    default '')
      * @param $complete   complete display (more details) (default 0)
      *
-     * @return Nothing (display function)
+     * @return void (display function)
      **/
     public static function displayPlanningItem(array $val, $who, $type = "", $complete = 0)
     {
@@ -875,7 +875,7 @@ trait PlanningEvent
     {
         $itemtype = $this->getType();
         if ($item = getItemForItemtype($itemtype)) {
-            $objectitemtype = (method_exists($item, 'getItilObjectItemType') ? $item->getItilObjectItemType() : $itemtype);
+            $objectitemtype = (method_exists($item, 'getItilObjectItemType') ? $item::getItilObjectItemType() : $itemtype);
 
            //TRANS: %1$s is a type, %2$$ is a date, %3$s is a date
             $out  = sprintf(

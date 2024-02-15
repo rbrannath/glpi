@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -63,7 +63,7 @@ Installation mode: {{ constant('GLPI_INSTALL_MODE') }}
 Current language: {{ language }}
 {% endset %}
 
-{% set setup_init_keys = ['max_execution_time', 'memory_limit', 'post_max_size', 'safe_mode', 'session.save_handler', 'upload_max_filesize'] %}
+{% set setup_init_keys = ['max_execution_time', 'memory_limit', 'post_max_size', 'safe_mode', 'session.save_handler', 'upload_max_filesize', 'disable_functions'] %}
 {% set server_info %}
 Operating system: {{ call('php_uname') }}
 

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -37,6 +37,9 @@ use Glpi\Application\View\TemplateRenderer;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QueryFunction;
 use Glpi\Http\Response;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\RequestOptions;
 
 class QueuedWebhook extends CommonDBChild
 {
@@ -162,15 +165,9 @@ class QueuedWebhook extends CommonDBChild
             return false;
         }
 
-        $options['timeout'] = 5;
-        if (!empty($CFG_GLPI["proxy_name"])) {
-            $proxy_creds = '';
-            if (!empty($CFG_GLPI['proxy_user'])) {
-                $proxy_creds = $CFG_GLPI['proxy_user'] . ":" . (new \GLPIKey())->decrypt($CFG_GLPI['proxy_passwd']) . "@";
-            }
-            $proxy_string     = "http://{$proxy_creds}" . $CFG_GLPI['proxy_name'] . ":" . $CFG_GLPI['proxy_port'];
-            $options['proxy'] = $proxy_string;
-        }
+        $guzzle_options = [
+            'timeout' => 5
+        ];
 
         $webhook = new Webhook();
         if (!$webhook->getFromDB($queued_webhook->fields['webhooks_id'])) {
@@ -189,10 +186,10 @@ class QueuedWebhook extends CommonDBChild
         $bearer_token = null;
         if ($webhook->fields['use_oauth']) {
             // Send OAuth Client Credentials
-            $client = new \GuzzleHttp\Client($options);
+            $client = Toolbox::getGuzzleClient($guzzle_options);
             try {
                 $response = $client->request('POST', $webhook->fields['oauth_url'], [
-                    \GuzzleHttp\RequestOptions::FORM_PARAMS => [
+                    RequestOptions::FORM_PARAMS => [
                         'grant_type' => 'client_credentials',
                         'client_id' => $webhook->fields['clientid'],
                         'client_secret' => $webhook->fields['clientsecret'],
@@ -203,7 +200,7 @@ class QueuedWebhook extends CommonDBChild
                 if (isset($response['access_token'])) {
                     $bearer_token = $response['access_token'];
                 }
-            } catch (\GuzzleHttp\Exception\GuzzleException $e) {
+            } catch (GuzzleException $e) {
                 Toolbox::logInFile(
                     "webhook",
                     "OAuth authentication error for webhook {$webhook->fields['name']} ({$webhook->getID()}): " . $e->getMessage()
@@ -211,7 +208,7 @@ class QueuedWebhook extends CommonDBChild
             }
         }
 
-        $client = new \GuzzleHttp\Client($options);
+        $client = Toolbox::getGuzzleClient($guzzle_options);
         $headers = json_decode($queued_webhook->fields['headers'], true);
         // Remove headers with empty values
         $headers = array_filter($headers, static function ($value) {
@@ -223,15 +220,19 @@ class QueuedWebhook extends CommonDBChild
 
         try {
             $response = $client->request($queued_webhook->fields['http_method'], $queued_webhook->fields['url'], [
-                \GuzzleHttp\RequestOptions::HEADERS => $headers,
-                \GuzzleHttp\RequestOptions::BODY => $queued_webhook->fields['body'],
+                RequestOptions::HEADERS => $headers,
+                RequestOptions::BODY => $queued_webhook->fields['body'],
             ]);
-        } catch (\GuzzleHttp\Exception\GuzzleException $e) {
+        } catch (GuzzleException $e) {
             Toolbox::logInFile(
                 "webhook",
                 "Error sending webhook {$webhook->fields['name']} ({$webhook->getID()}): " . $e->getMessage()
             );
-            $response = $e->getResponse();
+            if ($e instanceof RequestException) {
+                $response = $e->getResponse();
+            } else {
+                $response = null;
+            }
         }
         $input = [
             'id' => $ID,

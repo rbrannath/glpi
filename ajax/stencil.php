@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -51,5 +51,14 @@ if (isset($_POST['id'])) {
     if (isset($_POST['update'])) {
         $stencil->check($_POST['id'], UPDATE);
         $stencil->update($_POST);
+    } else if (isset($_POST['add-new-zone'])) {
+        $stencil->check($_POST['id'], UPDATE);
+        $stencil->addNewZones($_POST);
+    } else if (isset($_POST['remove-zone'])) {
+        $stencil->check($_POST['id'], UPDATE);
+        $stencil->removeZones($_POST);
+    } else if (isset($_POST['reset-zone'])) {
+        $stencil->check($_POST['id'], UPDATE);
+        $stencil->resetZones($_POST);
     }
 }

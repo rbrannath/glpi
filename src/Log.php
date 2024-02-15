@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -94,6 +94,9 @@ class Log extends CommonDBTM
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        if (!self::canView()) {
+            return '';
+        }
 
         $nb = 0;
         if ($_SESSION['glpishow_count_on_tabs']) {
@@ -300,6 +303,10 @@ class Log extends CommonDBTM
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
+        if (!self::canView()) {
+            return;
+        }
+
         $itemtype = $item->getType();
         $items_id = $item->getField('id');
 
@@ -384,7 +391,7 @@ class Log extends CommonDBTM
 
             $tmp['display_history'] = true;
             $tmp['id']              = $data["id"];
-            $tmp['date_mod']        = Html::convDateTime($data["date_mod"]);
+            $tmp['date_mod']        = $data["date_mod"];
             $tmp['user_name']       = $data["user_name"];
             $tmp['field']           = "";
             $tmp['change']          = "";

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -243,31 +243,12 @@ HTML;
             $html_docs
         );
 
-        $twig_params = [
-            'title' => __('API Getting Started'),
-            'css_files' => [],
-        ];
-        $theme = ThemeManager::getInstance()->getCurrentTheme();
-        $twig_params['css_files'][] = ['path' => $theme->getPath()];
-        $twig_params['theme'] = $theme;
+        $content = \Html::includeHeader(
+            title: __('API Getting Started'),
+            display: false,
+        );
 
-        $content = TemplateRenderer::getInstance()->render('layout/parts/head.html.twig', $twig_params);
         $content .= '<body class="documentation-page"><div id="page"><div class="documentation documentation-large">';
-        // If not logged in, inject some basic CSS in case the browser says they prefer a dark color scheme
-        if (!Session::getLoginUserID()) {
-            $content .= <<<HTML
-                <style>
-                    @media (prefers-color-scheme: dark) {
-                        body {
-                            --tblr-body-bg: #000000;
-                            --tblr-body-color: #ffffff;
-                            --tblr-code-bg: #404040;
-                            --tblr-code-color: #ffffff;
-                        }
-                    }
-                </style>
-HTML;
-        }
         $content .= $html_docs;
         $content .= '</div></div></body>';
 
@@ -420,7 +401,7 @@ HTML;
         return new JSONResponse($session);
     }
 
-    #[Route(path: '/authorize', methods: ['GET', 'POST'], security_level: Route::SECURITY_NONE, tags: ['Session'])]
+    #[Route(path: '/authorize', methods: ['GET', 'POST'], security_level: Route::SECURITY_NONE, tags: ['Session'], middlewares: [CookieAuthMiddleware::class])]
     #[Doc\Route(
         description: 'Authorize the API client using the authorization code grant type.',
     )]
@@ -430,11 +411,6 @@ HTML;
         global $CFG_GLPI;
         try {
             $auth_request = Server::getAuthorizationServer()->validateAuthorizationRequest($request);
-            // Try loading session from Cookie
-            session_destroy();
-            ini_set('session.use_cookies', 1);
-            session_name("glpi_" . md5(realpath(GLPI_ROOT)));
-            @session_start();
 
             $user_id = Session::getLoginUserID();
             if ($user_id === false) {

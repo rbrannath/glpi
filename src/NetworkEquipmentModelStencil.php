@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -64,6 +64,11 @@ class NetworkEquipmentModelStencil extends Stencil
                 'anchor_id' => 'port_number_',
             ];
         }
+    }
+
+    public function getMaxZoneNumber(): int
+    {
+        return 256;
     }
 
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)

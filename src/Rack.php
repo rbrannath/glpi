@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -75,9 +75,10 @@ class Rack extends CommonDBTM
          ->addStandardTab('Infocom', $ong, $options)
          ->addStandardTab('Contract_Item', $ong, $options)
          ->addStandardTab('Document_Item', $ong, $options)
-         ->addStandardTab('Ticket', $ong, $options)
+         ->addStandardTab('Item_Ticket', $ong, $options)
          ->addStandardTab('Item_Problem', $ong, $options)
          ->addStandardTab('Change_Item', $ong, $options)
+         ->addStandardTab('Reservation', $ong, $options)
          ->addStandardTab('Log', $ong, $options);
         return $ong;
     }
@@ -254,7 +255,7 @@ class Rack extends CommonDBTM
             'table'              => 'glpi_users',
             'field'              => 'name',
             'linkfield'          => 'users_id_tech',
-            'name'               => __('Technician in charge of the hardware'),
+            'name'               => __('Technician in charge'),
             'datatype'           => 'dropdown',
             'right'              => 'own_ticket'
         ];
@@ -264,7 +265,7 @@ class Rack extends CommonDBTM
             'table'              => 'glpi_groups',
             'field'              => 'completename',
             'linkfield'          => 'groups_id_tech',
-            'name'               => __('Group in charge of the hardware'),
+            'name'               => __('Group in charge'),
             'condition'          => ['is_assign' => 1],
             'datatype'           => 'dropdown'
         ];
@@ -285,6 +286,24 @@ class Rack extends CommonDBTM
             'table'              => 'glpi_entities',
             'field'              => 'completename',
             'name'               => Entity::getTypeName(1),
+            'datatype'           => 'dropdown'
+        ];
+
+        $tab[] = [
+            'id'                 => '70',
+            'table'              => 'glpi_users',
+            'field'              => 'name',
+            'name'               => User::getTypeName(1),
+            'datatype'           => 'dropdown',
+            'right'              => 'all'
+        ];
+
+        $tab[] = [
+            'id'                 => '71',
+            'table'              => 'glpi_groups',
+            'field'              => 'completename',
+            'name'               => Group::getTypeName(1),
+            'condition'          => ['is_itemgroup' => 1],
             'datatype'           => 'dropdown'
         ];
 
@@ -604,6 +623,7 @@ class Rack extends CommonDBTM
          var x_before_drag = 0;
          var y_before_drag = 0;
          var dirty = false;
+         var is_dragged = false;
 
          window.dcroom_grid.on('change', function(event, items) {
            if (dirty) {
@@ -631,27 +651,35 @@ class Rack extends CommonDBTM
                  }
               });
            });
-         });
-         $('.grid-stack')
-            .on('dragstart', function(event, ui) {
-               var element = $(event.target);
-               var node    = element.data('_gridstack_node');
+         })
+        .on('dragstart', function(event, ui) {
+            is_dragged = true;
+            var element = $(event.target);
+            var node    = element[0].gridstackNode;
 
-               // store position before drag
-               x_before_drag = Number(node.x);
-               y_before_drag = Number(node.y);
+            // store position before drag
+            x_before_drag = Number(node.x);
+            y_before_drag = Number(node.y);
 
-               // disable qtip
-               element.qtip('hide', true);
-            })
+            // disable qtip
+            element.qtip('hide', true);
+        })
+        .on('dragstop', function(event, ui) {
+            setTimeout(() => { // prevent unwanted click (cannot find another way)
+                is_dragged = false;
+            }, 50);
+        })
+
+
+        $('.grid-stack')
             .on('click', function(event, ui) {
-               var grid    = this;
-               var element = $(event.target);
-               var el_url  = element.find('a').attr('href');
+                var grid    = this;
+                var element = $(event.target);
+                var el_url  = element.find('a').attr('href');
 
-               if (el_url) {
-                  window.location = el_url;
-               }
+                if (el_url && !is_dragged) {
+                    window.location = el_url;
+                }
             });
 
 
@@ -732,7 +760,7 @@ JAVASCRIPT;
      *
      * @param array $input Input data
      *
-     * @return array
+     * @return false|array
      */
     private function prepareInput($input)
     {
@@ -804,9 +832,9 @@ JAVASCRIPT;
             $units = 1;
             $width = 1;
             $depth = 1;
-            if ($item->fields[strtolower($item->getType()) . 'models_id'] != 0) {
-                $model_class = $item->getType() . 'Model';
-                $modelsfield = strtolower($item->getType()) . 'models_id';
+            $model_class = $item->getType() . 'Model';
+            $modelsfield = $model_class::getForeignKeyField();
+            if ($item->fields[$modelsfield] != 0) {
                 $model = new $model_class();
                 if ($model->getFromDB($item->fields[$modelsfield])) {
                     $units = $model->fields['required_units'];

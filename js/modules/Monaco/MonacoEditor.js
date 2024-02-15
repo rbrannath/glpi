@@ -5,7 +5,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -45,13 +45,37 @@ export default class MonacoEditor {
      * @param {string} language The code language
      * @param {string} value The default value for the editor
      * @param {CompletionItemDefinition[]} completions List of completion items
+     * @param {object} options Other options for the editor
      */
-    constructor(element_id, language, value = '', completions = []) {
+    constructor(element_id, language, value = '', completions = [], options = {}) {
         const el = document.getElementById(element_id);
         const trigger_characters = {
             twig: ['{', ' '],
         };
-        window.monaco.languages.registerCompletionItemProvider(language, {
+
+        // Stupid workaround to allow multiple Monaco editors to be created for the same language but with different completions
+        // since it registers completions by langauge in a global variable rather than allowing it to be instance-specific
+        const existing_lang = window.monaco.languages.getLanguages().find((lang) => lang.id === language);
+        const new_lang_id = options['_force_default_lang'] ? language : 'glpi_' + language + '_' + Math.random().toString(36).substring(2, 15);
+
+        // Can't just specify the loader when registering the language apparently...
+        async function registerNewLangLoaderData() {
+            const loader = await existing_lang.loader();
+            window.monaco.languages.setMonarchTokensProvider(new_lang_id, loader.language);
+            window.monaco.languages.setLanguageConfiguration(new_lang_id, loader.conf);
+        }
+        if (!options['_force_default_lang']) {
+            // register new language based on existing one's tokenizer
+            window.monaco.languages.register({
+                id: new_lang_id,
+                extensions: existing_lang.extensions,
+                aliases: existing_lang.aliases,
+                mimetypes: existing_lang.mimetypes
+            });
+            registerNewLangLoaderData();
+        }
+
+        window.monaco.languages.registerCompletionItemProvider(new_lang_id, {
             triggerCharacters: trigger_characters[language] ?? [],
             provideCompletionItems: function (model, position) {
                 const word = model.getWordUntilPosition(position);
@@ -115,11 +139,107 @@ export default class MonacoEditor {
                 };
             }
         });
-        this.editor = window.monaco.editor.create(el, {
+        const dark_theme = $('html').attr('data-glpi-theme-dark') === '1';
+        delete options._force_default_lang;
+
+        this.editor = window.monaco.editor.create(el, Object.assign({
             value: value,
-            language: language,
-        });
+            language: new_lang_id,
+            theme: dark_theme ? 'vs-dark' : 'vs'
+        }, options));
+
+        if (options._single_line_editor) {
+            $(el).find('.monaco-editor').get(0).style.setProperty('--vscode-editor-background', 'transparent');
+            $(el).find('.monaco-editor').get(0).style.setProperty('font', 'inherit');
+            // force cursor to stay on the first line
+            this.editor.onDidChangeCursorPosition((e) => {
+                if (e.position.lineNumber !== 1) {
+                    this.editor.setValue(this.editor.getValue().trim());
+                    this.editor.setPosition({lineNumber: 1, column: Infinity});
+                }
+            });
+            this.editor.onDidChangeModelContent(() => {
+                // Remove all newlines but only if there are newlines (to avoid infinite loop)
+                if (this.editor.getValue().match(/\n/g)) {
+                    this.editor.setValue(this.editor.getValue().replace(/\n/g, ''));
+                }
+            });
+        }
     }
 }
 
-window.GLPI.MonacoEditor = MonacoEditor;
+window.GLPI.Monaco = {
+    createEditor: async (element_id, language, value = '', completions = [], options = {}) => {
+        return import('../../../public/lib/monaco.js').then(() => {
+            return new MonacoEditor(element_id, language, value, completions, options);
+        });
+    },
+    /**
+     * Apply syntax hightlighting styles to the given text
+     * @param {string} text The text to colorize
+     * @param {string} language The language to use for colorizing
+     * @return {Promise<string>}
+     */
+    colorizeText: async (text, language) => {
+        return import('../../../public/lib/monaco.js').then(() => {
+            return window.monaco.editor.colorize(text, language);
+        });
+    },
+    /**
+     * Apply syntax hightlighting styles to the given element
+     * @param {HTMLElement} element The element to colorize
+     * @param {string} language The language to use for colorizing
+     * @return {Promise<void>}
+     */
+    colorizeElement: async (element, language) => {
+        return import('../../../public/lib/monaco.js').then(() => {
+            return window.monaco.editor.colorizeElement(element, {
+                language: language
+            });
+        });
+    },
+    getSingleLineEditorOptions: () => {
+        const font_size = $(document.body).css('font-size').replace('px', '');
+        return {
+            _single_line_editor: true, // Used by us only. The constructor will see this and do extra stuff.
+            acceptSuggestionOnEnter: "on",
+            contextmenu: false,
+            cursorStyle: "line-thin",
+            find: {
+                addExtraSpaceOnTop: false,
+                autoFindInSelection: "never",
+                seedSearchStringFromSelection: "never"
+            },
+            fixedOverflowWidgets: true,
+            folding: false,
+            fontSize: font_size,
+            fontWeight: "normal",
+            glyphMargin: false,
+            hideCursorInOverviewRuler: true,
+            hover: {
+                delay: 100
+            },
+            lineDecorationsWidth: 0,
+            lineNumbers: "off",
+            lineNumbersMinChars: 0,
+            links: false,
+            minimap: {
+                enabled: false
+            },
+            occurrencesHighlight: "off",
+            overviewRulerBorder: false,
+            overviewRulerLanes: 0,
+            quickSuggestions: false,
+            renderLineHighlight: "none",
+            roundedSelection: false,
+            scrollBeyondLastColumn: 0,
+            scrollbar: {
+                horizontal: "hidden",
+                vertical: "hidden",
+                alwaysConsumeMouseWheel: false
+            },
+            wordBasedSuggestions: "off",
+            wordWrap: "off",
+        };
+    },
+};

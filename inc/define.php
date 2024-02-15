@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -50,7 +50,7 @@ if (!defined('GLPI_MARKETPLACE_PRERELEASES')) {
 
 define('GLPI_MIN_PHP', '8.1'); // Must also be changed in top of index.php
 define('GLPI_MAX_PHP', '8.3'); // Must also be changed in top of index.php
-define('GLPI_YEAR', '2023');
+define('GLPI_YEAR', '2024');
 
 //Define a global recipient address for email notifications
 //define('GLPI_FORCE_MAIL', 'me@localhost');
@@ -65,6 +65,9 @@ define("ALLSTANDARDRIGHT", 31);
 define("READNOTE", 32);
 define("UPDATENOTE", 64);
 define("UNLOCK", 128);
+
+// set the default app_name
+$CFG_GLPI['app_name'] = 'GLPI';
 
 // dictionnaries
 $CFG_GLPI['languages'] = [
@@ -246,7 +249,7 @@ $CFG_GLPI["infocom_types"]                = ['Cartridge', 'CartridgeItem', 'Comp
 ];
 
 $CFG_GLPI["reservation_types"]            = ['Computer', 'Monitor', 'NetworkEquipment',
-    'Peripheral', 'Phone', 'Printer', 'Software'
+    'Peripheral', 'Phone', 'Printer', 'Software', 'Rack'
 ];
 
 $CFG_GLPI["linkuser_types"]               = ['Computer', 'Monitor', 'NetworkEquipment',
@@ -346,7 +349,7 @@ $CFG_GLPI["itemdevices_itemaffinity"]     = ['Computer'];
 
 $CFG_GLPI["itemdevicememory_types"]       = ['Computer', 'NetworkEquipment', 'Peripheral', 'Printer', 'Phone'];
 
-$CFG_GLPI["itemdevicepowersupply_types"]  = ['Computer', 'NetworkEquipment', 'Enclosure', 'Phone'];
+$CFG_GLPI["itemdevicepowersupply_types"]  = ['Computer', 'NetworkEquipment', 'Peripheral', 'Enclosure', 'Phone'];
 
 $CFG_GLPI["itemdevicenetworkcard_types"]  = ['Computer', 'NetworkEquipment', 'Peripheral', 'Phone', 'Printer'];
 
@@ -445,10 +448,6 @@ $CFG_GLPI["globalsearch_types"]           = ['Computer', 'Contact', 'Contract',
 $CFG_GLPI["number_format"]  = 0;
 $CFG_GLPI["decimal_number"] = 2;
 
-// Default debug options : may be locally overriden
-$CFG_GLPI["debug_sql"] = $CFG_GLPI["debug_vars"] = $CFG_GLPI["debug_lang"] = 1;
-
-
 // User Prefs fields which override $CFG_GLPI config
 $CFG_GLPI['user_pref_field'] = ['backcreated', 'csv_delimiter', 'date_format',
     'default_requesttypes_id', 'display_count_on_home',
@@ -469,8 +468,9 @@ $CFG_GLPI['user_pref_field'] = ['backcreated', 'csv_delimiter', 'date_format',
     'use_flat_dropdowntree', 'use_flat_dropdowntree_on_search_result', 'palette', 'page_layout',
     'highcontrast_css', 'default_dashboard_central', 'default_dashboard_assets',
     'default_dashboard_helpdesk', 'default_dashboard_mini_ticket', 'default_central_tab',
-    'fold_menu', 'fold_search', 'savedsearches_pinned', 'richtext_layout', 'timeline_order',
-    'itil_layout', 'toast_location', 'timeline_action_btn_layout', 'timeline_date_format', 'is_notif_enable_default'
+    'fold_menu', 'savedsearches_pinned', 'richtext_layout', 'timeline_order',
+    'itil_layout', 'toast_location', 'timeline_action_btn_layout', 'timeline_date_format', 'is_notif_enable_default',
+    'show_search_form'
 ];
 
 $CFG_GLPI['lock_lockable_objects'] = ['Budget',  'Change', 'Contact', 'Contract', 'Document',
@@ -490,7 +490,7 @@ $CFG_GLPI['inventory_types'] = [
 ];
 
 $CFG_GLPI['inventory_lockable_objects'] = ['Computer_Item',  'Item_SoftwareLicense',
-    'Item_SoftwareVersion', 'Item_Disk', 'ComputerVirtualMachine','ComputerAntivirus',
+    'Item_SoftwareVersion', 'Item_Disk', 'ItemVirtualMachine','ItemAntivirus',
     'NetworkPort', 'NetworkName', 'IPAddress', 'Item_OperatingSystem', 'Item_DeviceBattery', 'Item_DeviceCase',
     'Item_DeviceControl', 'Item_DeviceDrive', 'Item_DeviceFirmware', 'Item_DeviceGeneric', 'Item_DeviceGraphicCard',
     'Item_DeviceHardDrive', 'Item_DeviceMemory', 'Item_DeviceMotherboard', 'Item_DeviceNetworkCard', 'Item_DevicePci',
@@ -604,7 +604,7 @@ $CFG_GLPI['javascript'] = [
         'config' => ['clipboard'],
         'webhook' => ['monaco', 'autocomplete'],
     ],
-    'admin'        => ['clipboard'],
+    'admin'        => ['clipboard', 'monaco'],
     'preference'   => ['clipboard'],
     'self-service' => array_merge(['tinymce'], $reservations_libs),
     'tickets'      => [
@@ -675,3 +675,6 @@ $CFG_GLPI["impact_asset_types"] = $CFG_GLPI["default_impact_asset_types"] + [
     User::getType()               => "pics/impact/user.png",
     Database::getType()           => "pics/impact/database.png",
 ];
+
+$CFG_GLPI['itemantivirus_types'] = ['Computer', 'Phone'];
+$CFG_GLPI['itemvirtualmachines_types'] = ['Computer'];

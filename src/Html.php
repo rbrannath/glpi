@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -37,6 +37,8 @@ use donatj\UserAgent\UserAgentParser;
 use donatj\UserAgent\Platforms;
 use Glpi\Application\ErrorHandler;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\AssetDefinition;
+use Glpi\Asset\AssetDefinitionManager;
 use Glpi\Console\Application;
 use Glpi\Plugin\Hooks;
 use Glpi\Toolbox\FrontEnd;
@@ -885,7 +887,7 @@ class Html
                 }
             }
             $inner_style = 'width: 0%; overflow: visible;';
-            $inner_class = 'progress-bar';
+            $inner_class = 'progress-bar text-dark';
             if (!$apply_custom_colors) {
                 $inner_class .= ' progress-bar-striped bg-info';
             } else {
@@ -897,7 +899,7 @@ class Html
                 }
             }
             $out = <<<HTML
-            <div class="progress" style="$outer_style" id="{$id}">
+            <div class="progress bg-primary-emphasis bg-light" style="$outer_style" id="{$id}">
                <div class="$inner_class" role="progressbar"
                      style="$inner_style"
                      aria-valuenow="0"
@@ -1052,8 +1054,11 @@ HTML;
      * @param string $item    item corresponding to the page displayed
      * @param string $option  option corresponding to the page displayed
      * @param bool   $add_id  add current item id to the title ?
+     * @param bool   $allow_insecured_iframe  allow insecured iframe (default false)
+     * @param bool   $display display the header (default true)
      *
-     * @return void
+     * @return string|void Generated HTML if `display` param is false, void otherwise.
+     * @phpstan-return $display ? void : string
      */
     public static function includeHeader(
         $title = '',
@@ -1061,7 +1066,8 @@ HTML;
         $item = 'none',
         $option = '',
         bool $add_id = true,
-        bool $allow_insecured_iframe = false
+        bool $allow_insecured_iframe = false,
+        bool $display = true
     ) {
         /**
          * @var array $CFG_GLPI
@@ -1112,7 +1118,14 @@ HTML;
         $tpl_vars['css_files'][] = ['path' => 'public/lib/photoswipe.css'];
         Html::requireJs('photoswipe');
 
-       //on demand JS
+        $is_monaco_added = false;
+        if ($_SESSION['glpi_use_mode'] === Session::DEBUG_MODE) {
+            $tpl_vars['js_modules'][] = ['path' => 'js/modules/Monaco/MonacoEditor.js'];
+            $tpl_vars['css_files'][] = ['path' => 'public/lib/monaco.css'];
+            $is_monaco_added = true;
+        }
+
+        //on demand JS.
         if ($sector != 'none' || $item != 'none' || $option != '') {
             $jslibs = [];
             if (isset($CFG_GLPI['javascript'][$sector])) {
@@ -1194,16 +1207,11 @@ HTML;
                 Html::requireJs('charts');
             }
 
-            if (in_array('codemirror', $jslibs) || $_SESSION['glpi_use_mode'] === Session::DEBUG_MODE) {
-                Html::requireJs('codemirror');
-            }
-
             if (in_array('cable', $jslibs)) {
                 Html::requireJs('cable');
             }
 
-            if (in_array('monaco', $jslibs)) {
-                Html::requireJs('monaco');
+            if (in_array('monaco', $jslibs) && !$is_monaco_added) {
                 $tpl_vars['js_modules'][] = ['path' => 'js/modules/Monaco/MonacoEditor.js'];
                 $tpl_vars['css_files'][] = ['path' => 'public/lib/monaco.css'];
             }
@@ -1270,7 +1278,13 @@ HTML;
         } else {
             $theme_path = $theme->getPath();
         }
-        $tpl_vars['css_files'][] = ['path' => $theme_path];
+        $tpl_vars['css_files'][] = ['path' => 'css/tabler.scss'];
+        $tpl_vars['css_files'][] = ['path' => 'css/glpi.scss'];
+        if ($theme->isCustomTheme()) {
+            $tpl_vars['css_files'][] = ['path' => $theme_path];
+        } else {
+            $tpl_vars['css_files'][] = ['path' => 'css/core_palettes.scss'];
+        }
 
         $tpl_vars['js_files'][] = ['path' => 'public/lib/base.js'];
         $tpl_vars['js_files'][] = ['path' => 'js/webkit_fix.js'];
@@ -1285,7 +1299,11 @@ HTML;
             $tpl_vars['glpi_request_id'] = \Glpi\Debug\Profile::getCurrent()->getID();
         }
 
-        TemplateRenderer::getInstance()->display('layout/parts/head.html.twig', $tpl_vars);
+        if ($display) {
+            TemplateRenderer::getInstance()->display('layout/parts/head.html.twig', $tpl_vars);
+        } else {
+            return TemplateRenderer::getInstance()->render('layout/parts/head.html.twig', $tpl_vars);
+        }
 
         self::glpi_flush();
     }
@@ -1308,12 +1326,16 @@ HTML;
         $menu = [
             'assets' => [
                 'title' => _n('Asset', 'Assets', Session::getPluralNumber()),
-                'types' => array_merge([
-                    'Computer', 'Monitor', 'Software',
-                    'NetworkEquipment', 'Peripheral', 'Printer',
-                    'CartridgeItem', 'ConsumableItem', 'Phone',
-                    'Rack', 'Enclosure', 'PDU', 'PassiveDCEquipment', 'Unmanaged', 'Cable'
-                ], $CFG_GLPI['devices_in_menu']),
+                'types' => array_merge(
+                    [
+                        'Computer', 'Monitor', 'Software',
+                        'NetworkEquipment', 'Peripheral', 'Printer',
+                        'CartridgeItem', 'ConsumableItem', 'Phone',
+                        'Rack', 'Enclosure', 'PDU', 'PassiveDCEquipment', 'Unmanaged', 'Cable',
+                    ],
+                    AssetDefinitionManager::getInstance()->getAssetClassesNames(),
+                    $CFG_GLPI['devices_in_menu']
+                ),
                 'icon'    => 'ti ti-package'
             ],
         ];
@@ -1372,6 +1394,7 @@ HTML;
             'config' => [
                 'title' => __('Setup'),
                 'types' => [
+                    AssetDefinition::class,
                     'CommonDropdown', 'CommonDevice', 'Notification', 'Webhook',
                     'SLM', 'Config', 'FieldUnicity', 'CronTask', 'Auth',
                     'OAuthClient', 'MailCollector', 'Link', 'Plugin',
@@ -2684,8 +2707,8 @@ HTML;
                 );
             }
             $out .= "<a title='" . __('Massive actions') . "'
-                     data-bs-toggle='tooltip' data-bs-placement='top'
-                     class='btn btn-sm btn-outline-secondary me-1' ";
+                     data-bs-toggle='tooltip' data-bs-placement='" . ($p['ontop'] ? "bottom" : "top") . "'
+                     class='btn btn-sm btn-primary me-2' ";
             if (is_array($p['confirm'] || strlen($p['confirm']))) {
                 $out .= self::addConfirmationOnAction($p['confirm'], "modal_massiveaction_window$identifier.show();");
             } else {
@@ -3822,8 +3845,19 @@ JS;
 
        // Apply all GLPI styles to editor content
         $theme = ThemeManager::getInstance()->getCurrentTheme();
-        $content_css = preg_replace('/^.*href="([^"]+)".*$/', '$1', self::scss($theme->getPath(), ['force_no_version' => true]))
-         . ',' . preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('public/lib/base.css', ['force_no_version' => true]));
+        $content_css_paths = [
+            'css/tabler.scss',
+            'css/glpi.scss',
+            'css/core_palettes.scss',
+        ];
+        if ($theme->isCustomTheme()) {
+            $content_css_paths[] = $theme->getPath();
+        }
+        $content_css = implode(',', array_map(static function ($path) {
+            return preg_replace('/^.*href="([^"]+)".*$/', '$1', self::scss($path, ['force_no_version' => true]));
+        }, $content_css_paths));
+        $content_css .= ',' . preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('public/lib/base.css', ['force_no_version' => true]));
+        $skin_url = preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('css/standalone/tinymce_empty_skin', ['force_no_version' => true]));
 
         $cache_suffix = '?v=' . FrontEnd::getVersionCacheKey(GLPI_VERSION);
         $readonlyjs   = $readonly ? 'true' : 'false';
@@ -3871,7 +3905,6 @@ JS;
         $js = <<<JS
          $(function() {
             const html_el = $('html');
-            var is_dark = html_el.attr('data-glpi-theme-dark') === "1" || html_el.css('--is-dark').trim() === 'true';
             var richtext_layout = "{$_SESSION['glpirichtext_layout']}";
 
             // init editor
@@ -3884,9 +3917,7 @@ JS;
                plugins: {$pluginsjs},
 
                // Appearance
-               skin_url: is_dark
-                  ? CFG_GLPI['root_doc']+'/public/lib/tinymce/skins/ui/oxide-dark'
-                  : CFG_GLPI['root_doc']+'/public/lib/tinymce/skins/ui/oxide',
+               skin_url: '{$skin_url}', // Doesn't matter which skin is used. We include the proper skins in the core GLPI styles.
                body_class: 'rich_text_container',
                content_css: '{$content_css}',
 
@@ -3922,6 +3953,17 @@ JS;
                browser_spellcheck: true,
                cache_suffix: '{$cache_suffix}',
 
+               init_instance_callback: (editor) => {
+                   const page_root_el = $(document.documentElement);
+                   const root_el = $(editor.dom.doc.documentElement);
+                   // Copy data-glpi-theme and data-glpi-theme-dark from page html element to editor root element
+                   const to_copy = ['data-glpi-theme', 'data-glpi-theme-dark'];
+                   for (const attr of to_copy) {
+                       if (page_root_el.attr(attr) !== undefined) {
+                           root_el.attr(attr, page_root_el.attr(attr));
+                       }
+                   }
+               },
                setup: function(editor) {
                   // "required" state handling
                   if ($('#$id').attr('required') == 'required') {
@@ -4469,15 +4511,6 @@ JAVASCRIPT
             $button[$btname] = $btname;
         }
         $fields          = array_merge($button, $fields);
-        $javascriptArray = [];
-        foreach ($fields as $name => $value) {
-           /// TODO : trouble :  urlencode not available for array / do not pass array fields...
-            if (!is_array($value)) {
-               // Javascript no gettext
-                $javascriptArray[] = "'$name': '" . urlencode($value) . "'";
-            }
-        }
-
         $link = "<a ";
 
         if (!empty($btoption)) {
@@ -4491,7 +4524,7 @@ JAVASCRIPT
                 $link .= " class='pointer' ";
             }
         }
-        $action  = " submitGetLink('$action', {" . implode(', ', $javascriptArray) . "});";
+        $action  = " submitGetLink('$action', " . htmlspecialchars(json_encode($fields)) . ");";
 
         if (is_array($confirm) || strlen($confirm)) {
             $link .= self::addConfirmationOnAction($confirm, $action);
@@ -5941,11 +5974,11 @@ HTML;
                             is_array($content)
                             && array_key_exists('checked', $content)
                         ) {
-                            $nb_cb_per_col[$col_name]['total'] ++;
-                            $nb_cb_per_row[$row_name]['total'] ++;
+                            $nb_cb_per_col[$col_name]['total']++;
+                            $nb_cb_per_row[$row_name]['total']++;
                             if ($content['checked']) {
-                                $nb_cb_per_col[$col_name]['checked'] ++;
-                                $nb_cb_per_row[$row_name]['checked'] ++;
+                                $nb_cb_per_col[$col_name]['checked']++;
+                                $nb_cb_per_row[$row_name]['checked']++;
                             }
                         }
                     }
@@ -6346,9 +6379,6 @@ HTML;
             case 'log_filters':
                 $_SESSION['glpi_js_toload'][$name][] = 'js/log_filters.js';
                 break;
-            case 'codemirror':
-                $_SESSION['glpi_js_toload'][$name][] = 'public/lib/codemirror.js';
-                break;
             case 'photoswipe':
                 $_SESSION['glpi_js_toload'][$name][] = 'public/lib/photoswipe.js';
                 break;
@@ -6357,9 +6387,6 @@ HTML;
                 break;
             case 'cable':
                 $_SESSION['glpi_js_toload'][$name][] = 'js/cable.js';
-                break;
-            case 'monaco':
-                $_SESSION['glpi_js_toload'][$name][] = 'public/lib/monaco.js';
                 break;
             case 'autocomplete':
                 $_SESSION['glpi_js_toload'][$name][] = 'public/lib/autocomplete.js';
@@ -6814,14 +6841,20 @@ HTML;
        // Enable imports of ".scss" files from "css/lib", when path starts with "~".
         $scss->addImportPath(
             function ($path) {
+                //Force bootstrap imports to be prefixed by ~
+                if (str_starts_with($path, 'bootstrap/scss')) {
+                    $path = '~' . $path;
+                }
+
                 $file_chunks = [];
-                if (!preg_match('/^~@?(?<directory>.*)\/(?<file>[^\/]+)(?:(\.scss)?)/', $path, $file_chunks)) {
+                if (!preg_match('/^~@?(?<directory>.*)\/(?<file>[^\/]+?)(?:(\.(?<extension>s?css))?)$/', $path, $file_chunks)) {
                     return null;
                 }
 
+                $extension = $file_chunks['extension'] ?? 'scss';
                 $possible_filenames = [
-                    sprintf('%s/css/lib/%s/%s.scss', GLPI_ROOT, $file_chunks['directory'], $file_chunks['file']),
-                    sprintf('%s/css/lib/%s/_%s.scss', GLPI_ROOT, $file_chunks['directory'], $file_chunks['file']),
+                    sprintf('%s/css/lib/%s/%s.%s', GLPI_ROOT, $file_chunks['directory'], $file_chunks['file'], $extension),
+                    sprintf('%s/css/lib/%s/_%s.%s', GLPI_ROOT, $file_chunks['directory'], $file_chunks['file'], $extension),
                 ];
                 foreach ($possible_filenames as $filename) {
                     if (file_exists($filename)) {

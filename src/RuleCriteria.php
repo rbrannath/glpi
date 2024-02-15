@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -33,7 +33,11 @@
  * ---------------------------------------------------------------------
  */
 
-/// Criteria Rule class
+use Glpi\Application\View\TemplateRenderer;
+
+/**
+ * Criteria Rule class
+ */
 class RuleCriteria extends CommonDBChild
 {
    // From CommonDBChild
@@ -44,9 +48,6 @@ class RuleCriteria extends CommonDBChild
 
 
 
-    /**
-     * @since 0.84
-     **/
     public function getForbiddenStandardMassiveAction()
     {
 
@@ -57,7 +58,9 @@ class RuleCriteria extends CommonDBChild
 
 
     /**
-     * @param $rule_type (default 'Rule)
+     * @param string $rule_type (default 'Rule)
+     *
+     * @return void
      **/
     public function __construct($rule_type = 'Rule')
     {
@@ -65,11 +68,6 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /**
-     * @since 0.84.3
-     *
-     * @see CommonDBTM::post_getFromDB()
-     */
     public function post_getFromDB()
     {
 
@@ -86,9 +84,9 @@ class RuleCriteria extends CommonDBChild
     /**
      * Get title used in rule
      *
-     * @param $nb  integer  for singular or plural (default 0)
+     * @param integer $nb for singular or plural (default 0)
      *
-     * @return Title of the rule
+     * @return string Title of the rule
      **/
     public static function getTypeName($nb = 0)
     {
@@ -111,11 +109,6 @@ class RuleCriteria extends CommonDBChild
         return '';
     }
 
-    /**
-     * @since 0.84
-     *
-     * @see CommonDBChild::post_addItem()
-     **/
     public function post_addItem()
     {
 
@@ -131,11 +124,6 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /**
-     * @since 0.84
-     *
-     * @see CommonDBTM::post_purgeItem()
-     **/
     public function post_purgeItem()
     {
 
@@ -151,9 +139,6 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /**
-     * @since 0.84
-     **/
     public function prepareInputForAdd($input)
     {
 
@@ -202,13 +187,6 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /**
-     * @since 0.84
-     *
-     * @param $field
-     * @param $values
-     * @param $options   array
-     **/
     public static function getSpecificValueToDisplay($field, $values, array $options = [])
     {
 
@@ -268,14 +246,6 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /**
-     * @since 0.84
-     *
-     * @param $field
-     * @param $name               (default '')
-     * @param $values             (default '')
-     * @param $options      array
-     **/
     public static function getSpecificValueToSelect($field, $name = '', $values = '', array $options = [])
     {
         if (!is_array($values)) {
@@ -343,11 +313,11 @@ class RuleCriteria extends CommonDBChild
 
 
     /**
-     * Get all criterias for a given rule
+     * Get all criteria for a given rule
      *
-     * @param $rules_id the rule ID
+     * @param integer $rules_id the rule ID
      *
-     * @return an array of RuleCriteria objects
+     * @return array of RuleCriteria objects
      **/
     public function getRuleCriterias($rules_id)
     {
@@ -371,12 +341,12 @@ class RuleCriteria extends CommonDBChild
     /**
      * Try to match a defined rule
      *
-     * @param &$criterion         RuleCriteria object
-     * @param $field              the field to match
-     * @param &$criterias_results
-     * @param &$regex_result
+     * @param RuleCriteria &$criterion         RuleCriteria object
+     * @param ?string      $field              the field to match
+     * @param array        &$criterias_results
+     * @param array        &$regex_result
      *
-     * @return true if the field match the rule, false if it doesn't match
+     * @return boolean
      **/
     public static function match(RuleCriteria &$criterion, $field, &$criterias_results, &$regex_result)
     {
@@ -486,7 +456,7 @@ class RuleCriteria extends CommonDBChild
                 if (empty($pattern)) {
                     return false;
                 }
-                $value = mb_stripos($field ?? '', $pattern, 0, 'UTF-8');
+                $value = mb_stripos($field, $pattern, 0, 'UTF-8');
                 if ($value === false) {
                     $criterias_results[$criteria] = $pattern_raw;
                     return true;
@@ -545,7 +515,7 @@ class RuleCriteria extends CommonDBChild
 
                 if (is_array($field)) {
                     foreach ($field as $ip) {
-                        if (isset($ip) && $ip != '') {
+                        if ($ip != '') {
                             $ip = ip2long($ip);
                             if (($ip & $mask) == $subnet) {
                                 return ($condition == Rule::PATTERN_CIDR) ? true : false;
@@ -553,7 +523,7 @@ class RuleCriteria extends CommonDBChild
                         }
                     }
                 } else {
-                    if (isset($field) && $field != '') {
+                    if ($field != '') {
                         $ip = ip2long($field);
                         if (
                             $condition == Rule::PATTERN_CIDR && ($ip & $mask) == $subnet
@@ -598,11 +568,11 @@ class RuleCriteria extends CommonDBChild
     /**
      * Return the condition label by giving his ID
      *
-     * @param int $ID        condition's ID
-     * @param string $itemtype  itemtype
-     * @param string $criterion (default '')
+     * @param integer $ID        condition's ID
+     * @param string  $itemtype  itemtype
+     * @param string  $criterion (default '')
      *
-     * @return condition's label
+     * @return string condition's label
      **/
     public static function getConditionByID($ID, $itemtype, $criterion = '')
     {
@@ -616,8 +586,8 @@ class RuleCriteria extends CommonDBChild
 
 
     /**
-     * @param $itemtype  itemtype
-     * @param $criterion (default '')
+     * @param string $itemtype  itemtype
+     * @param string $criterion (default '')
      *
      * @return array of criteria
      **/
@@ -676,10 +646,10 @@ class RuleCriteria extends CommonDBChild
 
 
     /**
-     * Display a dropdown with all the criterias
+     * Display a dropdown with all the criteria
      *
-     * @param $itemtype
-     * @param $params    array
+     * @param string $itemtype
+     * @param array  $params
      **/
     public static function dropdownConditions($itemtype, $params = [])
     {
@@ -706,83 +676,39 @@ class RuleCriteria extends CommonDBChild
     }
 
 
-    /** form for rule criteria
+    /**
+     * Show the form to add or update a criterion
      *
+     * @param integer $ID ID of the criteria
+     * @param array $options Extra options
+     * @phpstan-param array{parent: Rule} $options
+     *
+     * @return boolean
      * @since 0.85
-     *
-     * @param $ID      integer  Id of the criteria
-     * @param $options array    of possible options:
-     *     - rule Object : the rule
-     **/
+     */
     public function showForm($ID, array $options = [])
     {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-       // Yllen: you always have parent for criteria
+        // Yllen: you always have parent for criteria
         $rule = $options['parent'];
 
         if ($ID > 0) {
             $this->check($ID, READ);
         } else {
-           // Create item
+            // Create item
             $options[static::$items_id] = $rule->getField('id');
 
-           //force itemtype of parent
+            //force itemtype of parent
             static::$itemtype = get_class($rule);
 
             $this->check(-1, CREATE, $options);
         }
-        $this->showFormHeader($options);
 
-        echo "<tr class='tab_bg_1'>";
-        echo "<td class='center'>" . _n('Criterion', 'Criteria', 1) . "</td><td colspan='3'>";
-        echo "<input type='hidden' name='" . $rule->getRuleIdField() . "' value='" .
-             $this->fields[$rule->getRuleIdField()] . "'>";
-
-        $rand   = $rule->dropdownCriteria(['value' => $this->fields['criteria']]);
-        $params = ['criteria' => '__VALUE__',
-            'rand'     => $rand,
-            'sub_type' => $rule->getType()
-        ];
-
-        Ajax::updateItemOnSelectEvent(
-            "dropdown_criteria$rand",
-            "criteria_span",
-            $CFG_GLPI["root_doc"] . "/ajax/rulecriteria.php",
-            $params
-        );
-
-        if (isset($this->fields['criteria']) && !empty($this->fields['criteria'])) {
-            $params['criteria']  = $this->fields['criteria'];
-            $params['condition'] = $this->fields['condition'];
-            $params['pattern']   = $this->fields['pattern'];
-            echo "<script type='text/javascript' >\n";
-            echo "$(function() {";
-            Ajax::updateItemJsCode(
-                "criteria_span",
-                $CFG_GLPI["root_doc"] . "/ajax/rulecriteria.php",
-                $params
-            );
-            echo '});</script>';
-        }
-
-        if ($rule->specific_parameters) {
-            $itemtype = get_class($rule) . 'Parameter';
-            echo "<span title=\"" . __s('Add a criterion') . "\" class='fa fa-plus pointer' " .
-                  " data-bs-toggle='modal' data-bs-target='#addcriterion$rand'>" .
-                  "<span class='sr-only'>" . __s('Add a criterion') . "</span></span>";
-            Ajax::createIframeModalWindow(
-                'addcriterion' . $rand,
-                $itemtype::getFormURL(),
-                ['reloadonclose' => true]
-            );
-        }
-
-        echo "</td></tr>";
-        echo "<tr><td colspan='4'><span id='criteria_span'>\n";
-        echo "</span></td></tr>\n";
-        $this->showFormButtons($options);
+        TemplateRenderer::getInstance()->display('pages/admin/rules/criteria.html.twig', [
+            'rule' => $rule,
+            'rules_id_field' => static::$items_id,
+            'item' => $this,
+            'rand' => mt_rand()
+        ]);
 
         return true;
     }

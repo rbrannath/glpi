@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -84,22 +84,27 @@ class Stat extends CommonGLPI
 
         switch ($type) {
             case "technicien":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedTechBetween($date1, $date2);
                 break;
 
             case "technicien_followup":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedTechTaskBetween($date1, $date2);
                 break;
 
             case "suppliers_id_assign":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedSupplierBetween($date1, $date2);
                 break;
 
             case "user":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedAuthorBetween($date1, $date2);
                 break;
 
             case "users_id_recipient":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedRecipientBetween($date1, $date2);
                 break;
 
@@ -206,38 +211,47 @@ class Stat extends CommonGLPI
                 break;
 
             case "group":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedGroupBetween($date1, $date2);
                 break;
 
             case "groups_id_assign":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedAssignGroupBetween($date1, $date2);
                 break;
 
             case "priority":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedPriorityBetween($date1, $date2);
                 break;
 
             case "urgency":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedUrgencyBetween($date1, $date2);
                 break;
 
             case "impact":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedImpactBetween($date1, $date2);
                 break;
 
             case "requesttypes_id":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedRequestTypeBetween($date1, $date2);
                 break;
 
             case "solutiontypes_id":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedSolutionTypeBetween($date1, $date2);
                 break;
 
             case "usertitles_id":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedUserTitleOrTypeBetween($date1, $date2, true);
                 break;
 
             case "usercategories_id":
+                /** @var CommonITILObject $item */
                 $val = $item->getUsedUserTitleOrTypeBetween($date1, $date2, false);
                 break;
 
@@ -469,11 +483,18 @@ class Stat extends CommonGLPI
                     && strstr($type, '_tree')
                     && $value2
                 ) {
-                   // HTML display
-                    $link = $_SERVER['PHP_SELF'] .
-                       "?date1=$date1&amp;date2=$date2&amp;itemtype=$itemtype&amp;type=$type" .
-                       "&amp;value2=0";
-                    $link = "<a href='$link'>" . __('Back') . "</a>";
+                    // HTML display
+                    $url = $_SERVER['PHP_SELF'] . '?' . Toolbox::append_params(
+                        [
+                            'date1'    => $date1,
+                            'date2'    => $date2,
+                            'itemtype' => $itemtype,
+                            'type'     => $type,
+                            'value2'   => 0,
+                        ],
+                        '&amp;'
+                    );
+                    $link = "<a href='$url'>" . __('Back') . "</a>";
                     echo Search::showHeaderItem($output_type, $link, $header_num);
                 } else {
                     echo Search::showHeaderItem($output_type, "&nbsp;", $header_num);
@@ -621,11 +642,18 @@ class Stat extends CommonGLPI
                     && strstr($type, '_tree')
                     && ($value[$i]['id'] != $value2)
                 ) {
-                   // HTML display
-                    $link = $_SERVER['PHP_SELF'] .
-                       "?date1=$date1&amp;date2=$date2&amp;itemtype=$itemtype&amp;type=$type" .
-                       "&amp;value2=" . $value[$i]['id'];
-                    $link = "<a href='$link'>" . $value[$i]['link'] . "</a>";
+                    // HTML display
+                    $url = $_SERVER['PHP_SELF'] . '?' . Toolbox::append_params(
+                        [
+                            'date1'    => $date1,
+                            'date2'    => $date2,
+                            'itemtype' => $itemtype,
+                            'type'     => $type,
+                            'value2'  => $value[$i]['id'],
+                        ],
+                        '&amp;'
+                    );
+                    $link = "<a href='$url'>" . $value[$i]['link'] . "</a>";
                     echo Search::showItem($output_type, $link, $item_num, $row_num);
                 } else {
                     echo Search::showItem($output_type, $value[$i]['link'], $item_num, $row_num);
@@ -634,9 +662,17 @@ class Stat extends CommonGLPI
                 if ($output_type == Search::HTML_OUTPUT) { // HTML display
                     $link = "";
                     if ($value[$i]['id'] > 0) {
-                        $link = "<a href='stat.graph.php?id=" . $value[$i]['id'] .
-                            "&amp;date1=$date1&amp;date2=$date2&amp;itemtype=$itemtype&amp;type=$type" .
-                            (!empty($value2) ? "&amp;champ=$value2" : "") . "'>" .
+                        $url = 'stat.graph.php?' . Toolbox::append_params(
+                            [
+                                'date1'    => $date1,
+                                'date2'    => $date2,
+                                'itemtype' => $itemtype,
+                                'type'     => $type,
+                                'champ'    => $value2,
+                            ],
+                            '&amp;'
+                        );
+                        $link = "<a href='$url'>" .
                           "<img src='" . $CFG_GLPI["root_doc"] . "/pics/stats_item.png' alt=''>" .
                           "</a>";
                     }
@@ -949,6 +985,7 @@ class Stat extends CommonGLPI
         if (!$item = getItemForItemtype($itemtype)) {
             return;
         }
+        /** @var CommonITILObject $item */
         $table          = $item->getTable();
         $fkfield        = $item->getForeignKeyField();
 
@@ -1558,10 +1595,10 @@ class Stat extends CommonGLPI
     }
 
     /**
-     * @param $target
-     * @param $date1
-     * @param $date2
-     * @param $start
+     * @param string $target
+     * @param string $date1
+     * @param string $date2
+     * @param int $start
      **/
     public static function showItems($target, $date1, $date2, $start)
     {
@@ -1624,8 +1661,15 @@ class Stat extends CommonGLPI
                     $start,
                     $numrows,
                     $target,
-                    "date1=" . $date1 . "&amp;date2=" . $date2 .
-                                 "&amp;type=hardwares&amp;start=$start",
+                    Toolbox::append_params(
+                        [
+                            'date1'     => $date1,
+                            'date2'     => $date2,
+                            'type'      => 'hardwares',
+                            'start'     => $start,
+                        ],
+                        '&amp;'
+                    ),
                     'Stat'
                 );
                 echo "<div class='center'>";

@@ -26,6 +26,8 @@ The present file will list all changes made to the project; according to the
 - Log viewer for logs in `files/_log` directory.
 - Custom palette/theme support (uses `files/_themes` directory by default).
 - Two-Factor Authentication (2FA) support via Time-based One-time Password (TOTP).
+- `Deny login` authorization rule action to deny login for a user, but not prevent the import/existence of the user in GLPI.
+- Directly capture screenshots or screen recordings from the "Add a document" form in tickets.
 
 ### Changed
 - ITIL Objects can now be linked to any other ITIL Objects similar to the previous Ticket/Ticket links.
@@ -48,6 +50,12 @@ The present file will list all changes made to the project; according to the
 - Public reminders in central view now include public reminders regardless of who created them.
 - Project description field is now a rich text field.
 - Entity, profile, debug mode flag, and language are restored after ending impersonation.
+- Volumes now show `Used percentage` instead of `Free percentage`.
+- Budget "Main" tab now shows negative values for "Total remaining in the budget" in parentheses instead of with a negative sign to align with typical accounting practices.
+- Followups and Tasks no longer visible without the "See public" or "See private" rights even if the user has permission to be assigned the parent ITIL Object.
+- Followups, Tasks and Solutions now check the `canView()` method of the parent ITIL Object rather than just the "See my/See author" right of the parent item.
+  This means they now take into account "See all", "See group", etc. rights for the global permission check.
+  Permission checks at the item-level have not been changed.
 
 ### Deprecated
 - Survey URL tags `TICKETCATEGORY_ID` and `TICKETCATEGORY_NAME` are deprecated and replaced by `ITILCATEGORY_ID` and `ITILCATEGORY_NAME` respectively.
@@ -59,17 +67,17 @@ The present file will list all changes made to the project; according to the
 - Manage tab for Knowledgebase (Unpublished is now a toggle in the browse tab).
 - The database "master" property in the status checker (/status.php and glpi:system:status), replaced by "main".
 - The database "slaves" property in the status checker (/status.php and glpi:system:status), replaced by "replicas".
+- API URL is no longer customizable within GLPI. Use alias/rewrite rules in your web server configuration instead if needed.
 
 ### API changes
 
 #### Added
-
 - `phpCAS` library is now bundled in GLPI, to prevent version compatibility issues.
 - `Glpi\DBAL\QueryFunction` class with multiple static methods for building SQL query function strings in an abstract way.
 
 #### Changes
 - `chartist` library has been replaced by `echarts`.
-- `codemirror` library has been upgraded to version 6.x.
+- `codemirror` library has been replaced by `monaco-editor`.
 - `htmLawed` library has been replaced by `symfony/html-sanitizer`.
 - `monolog/monolog` has been upgraded to version 3.3.
 - `photoswipe` library has been upgraded to version 5.x.
@@ -83,6 +91,7 @@ The present file will list all changes made to the project; according to the
   The previous recipient option still exists if needed. This replacement will only happen once during the upgrade.
 - `GLPIMailer` mailer class does not extends anymore `PHPMailer\PHPMailer\PHPMailer`.
   We added a compatibility layer to handle main usages found in plugins, but we cannot ensure compatibility with all properties and methods that were inherited from `PHPMailer\PHPMailer\PHPMailer`.
+- `CommonGLPI::$othertabs` static property has been made private.
 - `CommonGLPI::createTabEntry()` signature changed.
 - All types of rules are now sortable and ordered by ranking.
 - Plugins console commands must now use the normalized prefix `plugins:XXX` where `XXX` is the plugin key.
@@ -106,6 +115,12 @@ The present file will list all changes made to the project; according to the
 - `Document::send()` signature changed. The `$context` parameter has been removed.
 - `title` property of Kanban items must be text only. HTML no longer supported.
 - `kanban:filter` JS event now includes the columns in the event data. Filtering must set the `_filtered_out` property of cards to hide them instead of changing the elements in the DOM.
+- `CommonITILActor::getActors()` signature changed. The `$items_id` parameter must strictly be an integer.
+- The `date_mod` property for historical entries returned by `Log::getHistoryData` is no longer formatted based on the user's preferences.
+- `Rule::dropdownRulesMatch()` has been made protected.
+- `ITILTemplateField::showForITILTemplate()` method is no longer abstract.
+- `CommonITILTask::getItilObjectItemType` is now static.
+- The `Item_Ticket$1` tab should be used in replacement of the `Ticket$1` tab to display tickets associated with an item.
 
 #### Deprecated
 - Usage of `GLPI_USE_CSRF_CHECK` constant.
@@ -125,12 +140,16 @@ The present file will list all changes made to the project; according to the
 - `CommonITILObject::isValidator()`
 - `CommonITILValidation::alreadyExists()`
 - `CommonITILValidation::getTicketStatusNumber()`
+- `ComputerAntivirus` has been deprecated and replaced by `ItemAntivirus`
+- `ComputerVirtualMachine` has been deprecated and replaced by `ItemVirtualMachine`
 - `Config::validatePassword()`
 - `Consumable::showAddForm()`
 - `Consumable::showForConsumableItem()`
 - `DBmysql::truncate()`
 - `DBmysql::truncateOrDie()`
 - `Document::getImage()`
+- `DropdownTranslation::canBeTranslated()`
+- `DropdownTranslation::isDropdownTranslationActive()`
 - `Glpi\Application\View\Extension::getVerbatimValue()`
 - `Glpi\Event::showList()`
 - `Glpi\Features\DCBreadcrumb::getDcBreadcrumb()`
@@ -160,6 +179,10 @@ The present file will list all changes made to the project; according to the
 - `Knowbase::showBrowseView()`
 - `Knowbase::showManageView()`
 - `KnowbaseItem::showManageForm()`
+- `KnowbaseItemTranslation::canBeTranslated()`
+- `KnowbaseItemTranslation::isKbTranslationActive()`
+- `ReminderTranslation::canBeTranslated()`
+- `ReminderTranslation::isReminderTranslationActive()`
 - `Ticket` `link_to_problem` massive action is deprecated. Use `CommonITILObject_CommonITILObject` `add` massive action instead.
 - `Ticket_Ticket` `add` massive action is deprecated. Use `CommonITILObject_CommonITILObject` `add` massive action instead.
 - `Ticket_Ticket::checkParentSon()`
@@ -170,6 +193,8 @@ The present file will list all changes made to the project; according to the
 - `Toolbox::seems_utf8()`
 - `Toolbox::stripslashes_deep()`
 - `Search::getOptions()` no longer returns a reference
+- `js/Forms/FaIconSelector.js` and therefore `window.GLPI.Forms.FaIconSelector` has been deprecated and replaced by `js/modules/Form/WebIconSelector.js`
+- `Timer` class.
 
 #### Removed
 - Usage of `csrf_compliant` plugins hook.
@@ -182,12 +207,17 @@ The present file will list all changes made to the project; according to the
 - `CommonDBTM::$deduplicate_queued_notifications` property.
 - `CommonDropdown::displayHeader()`
 - `CommonTreeDropdown::sanitizeSeparatorInCompletename()`
+- `CommonTreeDropdown::unsanitizeSeparatorInCompletename()`
+- `ComputerAntivirus::showForComputer()`
+- `ComputerVirtualMachine::showForComputer()`
 - `Config::getCurrentDBVersion()`
 - `DbUtils::regenerateTreeCompleteName()`
 - `GLPI::getLogLevel()`
 - `Glpi\Api\API::returnSanitizedContent()`
 - `Glpi\Dashboard\Widget::getCssGradientPalette()`
 - `Glpi\Inventory\Conf::importFile()`
+- `Glpi\Socket::executeAddMulti()`
+- `Glpi\Socket::showNetworkPortForm()`
 - `Glpi\System\Requirement\DataDirectoriesProtectedPath` class.
 - `Glpi\System\Requirement\ProtectedWebAccess` class.
 - `Glpi\System\Requirement\SafeDocumentRoot` class.
@@ -201,9 +231,12 @@ The present file will list all changes made to the project; according to the
 - `RSSFeed::showDiscoveredFeeds()`
 - `Rule::$can_sort` property.
 - `Rule::$orderby` property.
+- `Rule::showMinimalActionForm()`
 - `RuleCollection::showTestResults()`
 - `RuleImportComputer` class.
 - `RuleImportComputerCollection` class.
+- `RuleMatchedLog::showFormAgent()`.
+- `RuleMatchedLog::showItemForm()`.
 - `Search::computeTitle()`
 - `Search::csv_clean()`
 - `Search::findCriteriaInSession()`
@@ -234,9 +267,55 @@ The present file will list all changes made to the project; according to the
 - `Config::showLibrariesInformation()`
 - `DisplayPreference::showFormGlobal` `target` parameter.
 - `DisplayPreference::showFormPerso` `target_id` parameter.
+- `$DEBUG_SQL, `$SQL_TOTAL_REQUEST`, `$TIMER_DEBUG` and `$TIMER` global variables.
+- `$CFG_GLPI['debug_sql']` and `$CFG_GLPI['debug_vars']` configuration options.
 
 
-## [10.0.11] unreleased
+## [10.0.13] unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### API changes
+
+#### Added
+
+#### Changes
+
+#### Deprecated
+
+#### Removed
+
+
+## [10.0.12] 2024-02-01
+
+### Added
+
+### Changed
+- Permissions for historical data and system logs (Administration > Logs) are now managed by "Historical (READ)" and "System Logs (READ)" respectively.
+
+### Deprecated
+
+### Removed
+
+### API changes
+
+#### Added
+
+#### Changes
+
+#### Deprecated
+- `Entity::cleanEntitySelectorCache()` no longer has any effect as the entity selector is no longer cached as a unique entry
+
+#### Removed
+
+
+## [10.0.11] 2023-12-13
 
 ### Added
 
@@ -330,7 +409,6 @@ The present file will list all changes made to the project; according to the
 - `$TIMER_DEBUG` global variable.
 - `$DEBUG_SQL` global variable.
 - `$SQL_TOTAL_REQUEST` global variable.
-- `$DEBUG_SQL` global variable.
 - `$CFG_GLPI['debug_sql']` configuration option.
 - `$CFG_GLPI['debug_vars']` configuration option.
 

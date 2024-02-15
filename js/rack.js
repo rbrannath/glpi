@@ -5,7 +5,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -155,7 +155,7 @@ var initRack = function() {
                     var is_half_rack = j_item.hasClass('half_rack');
                     var new_pos      = grid_rack_units
                                   - j_item.attr('gs-y')
-                                  - j_item.attr('gs-h')
+                                  - (j_item.attr('gs-h') ?? 1)
                                   + 1;
 
                     $.post(grid_item_ajax_url, {

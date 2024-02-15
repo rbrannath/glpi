@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -79,11 +79,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
 
     public function getName($options = [])
     {
-        if (KnowbaseItemTranslation::canBeTranslated($this)) {
-            return KnowbaseItemTranslation::getTranslatedValue($this);
-        }
-
-        return parent::getName();
+        return KnowbaseItemTranslation::getTranslatedValue($this);
     }
 
 
@@ -710,7 +706,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         // Special case for KB Admins
         if (Session::haveRight(self::$rightname, self::KNOWBASEADMIN)) {
             // See all articles
-            return [1];
+            return [new QueryExpression('1')];
         }
 
         // Prepare criteria, which will use an OR statement (the user can read
@@ -860,7 +856,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         return $input;
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
         // Handle rich-text images and uploaded documents
         $this->input = $this->addFiles(
@@ -1165,9 +1161,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
      *
      * @param $options      array of options
      *
-     * @return void|string
-     *    void if option display=true
-     *    string if option display=false (HTML code)
+     * @return boolean|string
      **/
     public function showFull($options = [])
     {
@@ -1219,11 +1213,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         $out .= "</th></tr>";
 
         $out .= "<tr><td class='left' colspan='4'><h2>" . __('Subject') . "</h2>";
-        if (KnowbaseItemTranslation::canBeTranslated($this)) {
-            $out .= KnowbaseItemTranslation::getTranslatedValue($this, 'name');
-        } else {
-            $out .= $this->fields["name"];
-        }
+        $out .= KnowbaseItemTranslation::getTranslatedValue($this, 'name');
 
         $out .= "</td></tr>";
         $out .= "<tr><td class='left' colspan='4'><h2>" . __('Content') . "</h2>\n";
@@ -1573,10 +1563,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
             }
         }
 
-        if (
-            KnowbaseItemTranslation::isKbTranslationActive()
-            && (countElementsInTable('glpi_knowbaseitemtranslations') > 0)
-        ) {
+        if (countElementsInTable('glpi_knowbaseitemtranslations') > 0) {
             $criteria['LEFT JOIN']['glpi_knowbaseitemtranslations'] = [
                 'ON'  => [
                     'glpi_knowbaseitems'             => 'id',
@@ -1623,10 +1610,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
                     $search_wilcard = self::computeBooleanFullTextSearch($search);
 
                     $addscore = [];
-                    if (
-                        KnowbaseItemTranslation::isKbTranslationActive()
-                        && (countElementsInTable('glpi_knowbaseitemtranslations') > 0)
-                    ) {
+                    if (countElementsInTable('glpi_knowbaseitemtranslations') > 0) {
                         $addscore = [
                             'glpi_knowbaseitemtranslations.name',
                             'glpi_knowbaseitemtranslations.answer'
@@ -1713,10 +1697,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
                             ["glpi_knowbaseitems.name"     => ['LIKE', Search::makeTextSearchValue($contains)]],
                             ["glpi_knowbaseitems.answer"   => ['LIKE', Search::makeTextSearchValue($contains)]]
                         ];
-                        if (
-                            KnowbaseItemTranslation::isKbTranslationActive()
-                            && (countElementsInTable('glpi_knowbaseitemtranslations') > 0)
-                        ) {
+                        if (countElementsInTable('glpi_knowbaseitemtranslations') > 0) {
                             $ors[] = ["glpi_knowbaseitemtranslations.name"   => ['LIKE', Search::makeTextSearchValue($contains)]];
                             $ors[] = ["glpi_knowbaseitemtranslations.answer" => ['LIKE', Search::makeTextSearchValue($contains)]];
                         }
@@ -2094,7 +2075,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
                     && isset($options['item_items_id'])
                     && ($output_type == Search::HTML_OUTPUT)
                 ) {
-                    $forcetab = $options['item_itemtype'] . '$1';
+                    $forcetab = $options['item_itemtype'] . '$main';
                     $item_itemtype = $options['item_itemtype'];
                     $content = "<a href='" . $item_itemtype::getFormURLWithID($options['item_items_id']) .
                               "&amp;load_kb_sol=" . $data['id'] .
@@ -2149,7 +2130,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         $faq = !Session::haveRight(self::$rightname, READ);
 
         $criteria = [
-            'SELECT'    => ['glpi_knowbaseitems.*'],
+            'SELECT'    => ['glpi_knowbaseitems' => ['id', 'name', 'is_faq']],
             'DISTINCT'  => true,
             'FROM'      => self::getTable(),
             'WHERE'     => [],
@@ -2157,10 +2138,10 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         ];
 
         if ($type == "recent") {
-            $criteria['ORDERBY'] = 'date_creation DESC';
+            $criteria['ORDERBY'] = self::getTable() . '.date_creation DESC';
             $title   = __('Recent entries');
         } else if ($type == 'lastupdate') {
-            $criteria['ORDERBY'] = 'date_mod DESC';
+            $criteria['ORDERBY'] = self::getTable() . '.date_mod DESC';
             $title   = __('Last updated entries');
         } else {
             $criteria['ORDERBY'] = 'view DESC';
@@ -2212,10 +2193,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
             $criteria['WHERE']['glpi_knowbaseitems.is_faq'] = 1;
         }
 
-        if (
-            KnowbaseItemTranslation::isKbTranslationActive()
-            && (countElementsInTable('glpi_knowbaseitemtranslations') > 0)
-        ) {
+        if (countElementsInTable('glpi_knowbaseitemtranslations') > 0) {
             $criteria['LEFT JOIN']['glpi_knowbaseitemtranslations'] = [
                 'ON'  => [
                     'glpi_knowbaseitems'             => 'id',
@@ -2515,11 +2493,7 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
      */
     public function getAnswer()
     {
-        if (KnowbaseItemTranslation::canBeTranslated($this)) {
-            $answer = KnowbaseItemTranslation::getTranslatedValue($this, 'answer');
-        } else {
-            $answer = $this->fields["answer"];
-        }
+        $answer = KnowbaseItemTranslation::getTranslatedValue($this, 'answer');
         $answer = RichText::getEnhancedHtml($answer, [
             'text_maxsize' => 0 // Show all text without read more button
         ]);

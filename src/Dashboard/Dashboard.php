@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -35,6 +35,7 @@
 
 namespace Glpi\Dashboard;
 
+use Glpi\Debug\Profiler;
 use Ramsey\Uuid\Uuid;
 use Session;
 
@@ -74,6 +75,7 @@ class Dashboard extends \CommonDBTM
      */
     public function load(bool $force = false)
     {
+        Profiler::getInstance()->start(__METHOD__);
         $loaded = true;
         if (
             $force
@@ -94,6 +96,7 @@ class Dashboard extends \CommonDBTM
             }
         }
 
+        Profiler::getInstance()->stop(__METHOD__);
         return $this->fields['id'] ?? false;
     }
 
@@ -144,15 +147,18 @@ class Dashboard extends \CommonDBTM
      */
     public function canViewCurrent(): bool
     {
+        Profiler::getInstance()->start(__METHOD__);
         $this->load();
 
         if ($this->fields['users_id'] === Session::getLoginUserID()) {
             // User is always allowed to view its own dashboards.
+            Profiler::getInstance()->stop(__METHOD__);
             return true;
         }
 
         // check global (admin) right
         if (self::canView() && !$this->isPrivate()) {
+            Profiler::getInstance()->stop(__METHOD__);
             return true;
         }
 
@@ -160,7 +166,9 @@ class Dashboard extends \CommonDBTM
         $this->load();
 
         $rights = self::convertRights($this->rights ?? []);
-        return self::checkRights($rights);
+        $result = self::checkRights($rights);
+        Profiler::getInstance()->stop(__METHOD__);
+        return $result;
     }
 
     /**

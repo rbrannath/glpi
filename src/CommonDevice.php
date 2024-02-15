@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -76,15 +76,15 @@ abstract class CommonDevice extends CommonDropdown
 
 
     /**
-     * Get the assiociated item_device associated with this device
-     * This method can be override, for instance by the plugin
+     * Get the associated item_device associated with this device
+     * This method can be overridden, for instance by the plugin
      *
      * @since 0.85
      * @since 9.3 added the $devicetype parameter
      *
      * @param string $devicetype class name of device type, defaults to called class name
      *
-     * @return array of the types of CommonDevice available
+     * @return string
      **/
     public static function getItem_DeviceType($devicetype = null)
     {
@@ -428,9 +428,13 @@ abstract class CommonDevice extends CommonDropdown
         }
 
         if (static::canView()) {
-            $content = $this->getLink();
+            $content = $this->getLink([
+                'icon' => $this->getIcon()
+            ]);
         } else {
-            $content = $this->getName();
+            $content = $this->getName([
+                'icon' => $this->getIcon()
+            ]);
         }
 
         if ($options['canedit']) {
@@ -628,7 +632,7 @@ abstract class CommonDevice extends CommonDropdown
      * @since 0.85
      * @see CommonDBTM::post_updateItem()
      **/
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
 
         $this->post_workOnItem();

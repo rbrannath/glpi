@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -891,7 +891,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
         }
     }
 
-    public function post_updateItem($history = 1)
+    public function post_updateItem($history = true)
     {
 
         if (
@@ -1903,18 +1903,26 @@ abstract class CommonDBRelation extends CommonDBConnexity
      * @since 9.3.1
      *
      * @param CommonDBTM $item Item instance
+     * @param integer    $start Start index
+     * @param integer    $limit Limit of results. If 0, no limit.
+     * @param array      $order The order for the results where the first element is the column name that will be sorted and the second element is the direction of the sorting (ASC or DESC)
      *
      * @return DBmysqlIterator
      */
-    public static function getListForItem(CommonDBTM $item)
+    public static function getListForItem(CommonDBTM $item, int $start = 0, int $limit = 0, array $order = [])
     {
         /** @var \DBmysql $DB */
         global $DB;
 
         $params = static::getListForItemParams($item);
-        $iterator = $DB->request($params);
-
-        return $iterator;
+        $params['START'] = $start;
+        if ($limit > 0) {
+            $params['LIMIT'] = $limit;
+        }
+        if (!empty($order)) {
+            $params['ORDER'] = $order;
+        }
+        return $DB->request($params);
     }
 
     /**
@@ -2043,7 +2051,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
                     'glpi_entities'   => 'id'
                 ]
             ];
-            $params['WHERE'] += getEntitiesRestrictCriteria($item->getTable(), '', '', 'auto');
+            $params['WHERE'] += getEntitiesRestrictCriteria($item->getTable(), '', '', $item->maybeRecursive());
             $params['ORDER'] = ['glpi_entities.completename', $params['ORDER']];
         }
 

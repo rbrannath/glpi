@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -180,7 +180,7 @@ class KnowbaseItem_Revision extends DbTestCase
 
         $_SESSION['glpishow_count_on_tabs'] = 1;
         $name = $kb_rev->getTabNameForItem($kb1);
-        $this->string($name)->isIdenticalTo("<span><i class='ti ti-history me-2'></i>Revision</span> <span class='badge'>1</span>");
+        $this->string($name)->isIdenticalTo("<span><i class='ti ti-history me-2'></i>Revision</span> <span class='badge glpi-badge'>1</span>");
 
         $this->boolean(
             $kb1->update(
@@ -192,7 +192,7 @@ class KnowbaseItem_Revision extends DbTestCase
         )->isTrue();
 
         $name = $kb_rev->getTabNameForItem($kb1);
-        $this->string($name)->isIdenticalTo("<span><i class='ti ti-history me-2'></i>Revisions</span> <span class='badge'>2</span>");
+        $this->string($name)->isIdenticalTo("<span><i class='ti ti-history me-2'></i>Revisions</span> <span class='badge glpi-badge'>2</span>");
 
         $_SESSION['glpishow_count_on_tabs'] = 0;
         $name = $kb_rev->getTabNameForItem($kb1);

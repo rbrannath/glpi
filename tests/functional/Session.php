@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -666,5 +666,66 @@ class Session extends \DbTestCase
         // Set language to French to ensure we always get names back as en_GB regardless of the user's language
         \Session::loadLanguage('fr_FR');
         $this->string(\Session::getRightNameForError($module, $right))->isEqualTo($expected);
+    }
+
+    /**
+     * Test the reloadCurrentProfile method.
+     * This test creates a new profile, assigns it to a user,
+     * and checks if the profile is correctly reloaded.
+     *
+     * @return void
+     */
+    public function testReloadCurrentProfile(): void
+    {
+        global $DB;
+
+        // Login as a user
+        $user = $this->login()->user;
+
+        // Create a new profile with name 'testReloadCurrentProfile' and interface 'central'
+        $profile = $this->createItem(
+            'Profile',
+            [
+                'name' => 'testReloadCurrentProfile',
+                'interface' => 'central',
+            ]
+        );
+
+        // Create a new Profile_User item with the created profile and user
+        $this->createItem(
+            'Profile_User',
+            [
+                'profiles_id' => $profile->getID(),
+                'users_id' => $user->getID(),
+                'entities_id' => \Session::getActiveEntity(),
+            ]
+        );
+
+        // Login again to refresh the user data
+        $user = $this->login()->user;
+
+        // Assign the new profile to the user
+        \Session::changeProfile($profile->getID());
+
+        // Update or insert a new profilerights item with the created profile and 'ticket' rights
+        $DB->updateOrInsert(
+            'glpi_profilerights',
+            [
+                'rights'       => \Ticket::READALL
+            ],
+            [
+                'profiles_id'  => $profile->getID(),
+                'name'         => 'ticket'
+            ],
+        );
+
+        // Assert that the current profile does not have 'ticket' rights set to \Ticket::READALL
+        $this->variable($_SESSION['glpiactiveprofile']['ticket'])->isNotEqualTo(\Ticket::READALL);
+
+        // Reload the current profile
+        \Session::reloadCurrentProfile();
+
+        // Assert that the current profile now has 'ticket' rights set to \Ticket::READALL
+        $this->variable($_SESSION['glpiactiveprofile']['ticket'])->isEqualTo(\Ticket::READALL);
     }
 }

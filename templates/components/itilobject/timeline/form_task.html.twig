@@ -5,7 +5,7 @@
  #
  # http://glpi-project.org
  #
- # @copyright 2015-2023 Teclib' and contributors.
+ # @copyright 2015-2024 Teclib' and contributors.
  # @copyright 2003-2014 by the INDEPNET Development Team.
  # @licence   https://www.gnu.org/licenses/gpl-3.0.html
  #
@@ -208,6 +208,31 @@
                if (data.groups_id_tech !== undefined) {
                    // Set group
                    $("#dropdown_groups_id_tech{{ rand }}").trigger('setValue', data.groups_id_tech);
+               }
+
+               // set predefined pending reason
+               $("#enable-pending-reasons-{{ rand }}")
+                  .prop("checked", data.pendingreasons_id > 0);
+               if (data.pendingreasons_id > 0) {
+                  $("#pending-reasons-setup-{{ rand }}")
+                     .collapse('show');
+
+                  //need to create new DOM option, because SELECT is remotely-sourced (AJAX)
+                  //see : https://select2.org/programmatic-control/add-select-clear-items#preselecting-options-in-an-remotely-sourced-ajax-select2
+                  var newOption = new Option(data.pendingreasons_name, data.pendingreasons_id, true, true);
+                  $("#dropdown_pendingreasons_id{{ rand }}")
+                     .append(newOption)
+                     .trigger('change');
+               } else if (
+                  $("#dropdown_pendingreasons_id{{ rand }}").val() > 0
+                     && $("#pending-reasons-setup-{{ rand }}").hasClass('show')
+               ) {
+                  $("#pending-reasons-setup-{{ rand }}")
+                     .collapse('hide');
+
+                  $("#dropdown_pendingreasons_id{{ rand }}")
+                     .val(0)
+                     .trigger('change');
                }
             });
          }

@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -68,6 +68,21 @@ class AdministrationController extends \HLAPITestCase
         // Test a basic RSQL filter
         $request = new Request('GET', '/Administration/User');
         $request->setParameter('filter', 'username==' . TU_USER);
+        $this->api->call($request, function ($call) {
+            /** @var \HLAPICallAsserter $call */
+            $call->response
+                ->isOK()
+                ->jsonContent(function ($content) {
+                    $this->array($content)->hasSize(1);
+                    $user = $content[0];
+                    $this->integer($user['id'])->isGreaterThan(0);
+                    $this->string($user['username'])->isEqualTo(TU_USER);
+                    $this->array($user['emails'])->size->isGreaterThanOrEqualTo(1);
+                });
+        });
+
+        $request = new Request('GET', '/Administration/User');
+        $request->setParameter('filter', 'emails.email=like=*glpi.com');
         $this->api->call($request, function ($call) {
             /** @var \HLAPICallAsserter $call */
             $call->response
@@ -301,6 +316,17 @@ class AdministrationController extends \HLAPITestCase
             /** @var \HLAPICallAsserter $call */
             $call->response
                 ->isOK()
+                ->jsonContent(function ($content) {
+                    $this->string($content['username'])->isEqualTo(TU_USER);
+                });
+        });
+
+        // filters shouldn't affect /me
+        $request = new Request('GET', '/Administration/User/me');
+        $request->setParameter('filter', 'username==' . TU_USER . '_other');
+        $this->api->call($request, function ($call) {
+            /** @var \HLAPICallAsserter $call */
+            $call->response->isOK()
                 ->jsonContent(function ($content) {
                     $this->string($content['username'])->isEqualTo(TU_USER);
                 });

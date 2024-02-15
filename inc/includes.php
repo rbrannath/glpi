@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2023 Teclib' and contributors.
+ * @copyright 2015-2024 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -33,6 +33,7 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Asset\AssetDefinitionManager;
 use Glpi\Http\Firewall;
 
 /**
@@ -47,9 +48,6 @@ if (!defined('GLPI_ROOT')) {
 
 include_once GLPI_ROOT . '/inc/based_config.php';
 
-// Init Timer to compute time of display
-$TIMER_DEBUG = new Timer();
-$TIMER_DEBUG->start();
 \Glpi\Debug\Profiler::getInstance()->start('php_request');
 
 
@@ -76,12 +74,6 @@ if (
 ) {
     // Start the debug profile
     $profile = \Glpi\Debug\Profile::getCurrent();
-    $SQL_TOTAL_REQUEST    = 0;
-    $DEBUG_SQL = [
-        'queries' => [],
-        'errors'  => [],
-        'times'   => [],
-    ];
 }
 
 // Mark if Header is loaded or not :
@@ -91,6 +83,9 @@ if (isset($AJAX_INCLUDE)) {
     $HEADER_LOADED = true;
 }
 
+// Assets classes autoload
+AssetDefinitionManager::getInstance()->registerAssetsAutoload();
+
 /* On startup, register all plugins configured for use. */
 if (!isset($PLUGINS_INCLUDED)) {
    // PLugin already included
@@ -99,6 +94,10 @@ if (!isset($PLUGINS_INCLUDED)) {
     $plugin = new Plugin();
     $plugin->init(true, $PLUGINS_EXCLUDED);
 }
+
+// Assets classes bootstraping.
+// Must be done after plugins initialization, to allow plugin to register new capacities.
+AssetDefinitionManager::getInstance()->boostrapAssets();
 
 if (!isset($_SESSION["MESSAGE_AFTER_REDIRECT"])) {
     $_SESSION["MESSAGE_AFTER_REDIRECT"] = [];
