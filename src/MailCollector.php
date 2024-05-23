@@ -108,13 +108,13 @@ class MailCollector extends CommonDBTM
     }
 
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return static::canUpdate();
     }
 
 
-    public static function canPurge()
+    public static function canPurge(): bool
     {
         return static::canUpdate();
     }
@@ -137,6 +137,14 @@ class MailCollector extends CommonDBTM
         return false;
     }
 
+    public static function getAdditionalMenuLinks()
+    {
+        $links = [];
+        if (countElementsInTable(self::getTable()) > 0) {
+            $links["<i class='ti ti-list'></i>" . __s('Not imported emails')] = "/front/notimportedemail.php";
+        }
+        return $links;
+    }
 
     public function post_getEmpty()
     {
@@ -452,10 +460,10 @@ class MailCollector extends CommonDBTM
                     foreach ($rejected as $id => $data) {
                         if ($action == 1) {
                             Session::addMessageAfterRedirect(
-                                sprintf(
+                                htmlspecialchars(sprintf(
                                     __('Email %s not found. Impossible import.'),
                                     strtr($id, $clean)
-                                ),
+                                )),
                                 false,
                                 ERROR
                             );
@@ -495,7 +503,7 @@ class MailCollector extends CommonDBTM
             } catch (\Throwable $e) {
                 ErrorHandler::getInstance()->handleException($e);
                 Session::addMessageAfterRedirect(
-                    __('An error occurred trying to connect to collector.') . "<br/>" . $e->getMessage(),
+                    __s('An error occurred trying to connect to collector.') . "<br/>" . htmlspecialchars($e->getMessage()),
                     false,
                     ERROR
                 );
@@ -782,14 +790,14 @@ class MailCollector extends CommonDBTM
                     $blacklisted
                 );
                 if ($display) {
-                     Session::addMessageAfterRedirect($msg, false, ($error ? ERROR : INFO));
+                     Session::addMessageAfterRedirect(htmlspecialchars($msg), false, ($error ? ERROR : INFO));
                 } else {
                     return $msg;
                 }
             } else {
                 $msg = __('Could not connect to mailgate server');
                 if ($display) {
-                    Session::addMessageAfterRedirect($msg, false, ERROR);
+                    Session::addMessageAfterRedirect(htmlspecialchars($msg), false, ERROR);
                     GLPINetwork::addErrorMessageAfterRedirect();
                 } else {
                     return $msg;
@@ -799,7 +807,7 @@ class MailCollector extends CommonDBTM
            //TRANS: %s is the ID of the mailgate
             $msg = sprintf(__('Could not find mailgate %d'), $mailgateID);
             if ($display) {
-                Session::addMessageAfterRedirect($msg, false, ERROR);
+                Session::addMessageAfterRedirect(htmlspecialchars($msg), false, ERROR);
                 GLPINetwork::addErrorMessageAfterRedirect();
             } else {
                 return $msg;
@@ -1129,7 +1137,8 @@ class MailCollector extends CommonDBTM
        // Wrap content for blacklisted items
         $cleaned_count = 0;
         $itemstoclean = [];
-        foreach ($DB->request('glpi_blacklistedmailcontents') as $data) {
+        $blacklisted_contents = $DB->request(['FROM' => 'glpi_blacklistedmailcontents']);
+        foreach ($blacklisted_contents as $data) {
             $toclean = trim($data['content']);
             if (!empty($toclean)) {
                 $itemstoclean[] = str_replace(["\r\n", "\n", "\r"], $br_marker, $toclean);
@@ -1815,7 +1824,8 @@ class MailCollector extends CommonDBTM
             $content .= sprintf('(%s)', $mailer::buildDsn(false));
         }
 
-        foreach ($DB->request('glpi_mailcollectors') as $mc) {
+        $collectors = $DB->request(['FROM' => 'glpi_mailcollectors']);
+        foreach ($collectors as $mc) {
             $content .= "\nName: '" . $mc['name'] . "'";
             $content .= "\n\tActive: " . ($mc['is_active'] ? "Yes" : "No");
 
@@ -1854,26 +1864,38 @@ class MailCollector extends CommonDBTM
         $mmail->send();
     }
 
-
-    public function title()
+    /**
+     * @return void
+     * @used-by templates/components/search/controls.html.twig
+     */
+    public static function showSearchStatusArea()
     {
-        $errors  = getAllDataFromTable($this->getTable(), ['errors' => ['>', 0]]);
+        $errors  = getAllDataFromTable(self::getTable(), ['errors' => ['>', 0]]);
         $collector = new self();
         $servers = [];
         if (count($errors)) {
             foreach ($errors as $data) {
                 $collector->getFromDB($data['id']);
                 $servers[] = [
-                    'link' => $collector->getLinkURL(),
-                    'name' => $collector->getName(['complete' => true])
+                    'link' => htmlspecialchars($collector->getLinkURL()),
+                    'name' => htmlspecialchars($collector->getName(['complete' => true]))
                 ];
             }
         }
-        TemplateRenderer::getInstance()->display('pages/setup/mailcollector/results_title.html.twig', [
-            'servers' => $servers,
-            'errors' => $errors,
-            'has_collector' => countElementsInTable(self::getTable()) > 0
-        ]);
+
+        if (count($servers)) {
+            $server_links = implode(' ', array_map(
+                static fn ($v) => '<a class="btn btn-sm btn-ghost-danger align-baseline" href="' . $v['link'] . '">' . $v['name'] . '</a>',
+                $servers
+            ));
+            // language=twig
+            echo TemplateRenderer::getInstance()->renderFromStringTemplate(<<<TWIG
+                <span class="alert alert-danger p-1 ps-2">
+                    <i class="ti ti-alert-triangle me-2"></i>
+                    <span>{{ receivers_error_msg|raw }}</span>
+                </span>
+TWIG, ['receivers_error_msg' => sprintf(__s('Receivers in error: %s'), $server_links)]);
+        }
     }
 
 

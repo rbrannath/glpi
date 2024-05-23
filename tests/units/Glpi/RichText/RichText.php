@@ -35,6 +35,9 @@
 
 namespace tests\units\Glpi\RichText;
 
+use Glpi\Form\Tag\AnswerTagProvider;
+use Glpi\Form\Tag\Tag;
+
 /**
  * Test class for src/Glpi/RichText/richtext.class.php
  */
@@ -370,6 +373,38 @@ HTML,
                 ];
             }
         }
+
+        yield 'User mention tag must be preserved' => [
+            'content' => <<<HTML
+<p>
+  Hi <span contenteditable="false" data-user-mention="true" data-user-id="2">@glpi</span>&nbsp;
+  ...
+</p>
+HTML,
+            'encode_output_entities' => false,
+            'expected_result' => <<<HTML
+<p>
+  Hi <span contenteditable="false" data-user-mention="true" data-user-id="2">&#64;glpi</span> 
+  ...
+</p>
+HTML,
+        ];
+        yield 'Do not remove content editable on span' => [
+            'content' => '<span contenteditable="true">Editable content</span>',
+            'encode_output_entities' => false,
+            'expected_result' => '<span contenteditable="true">Editable content</span>',
+        ];
+
+        $tag = new Tag(
+            label: __("My label"),
+            value: 5, // Fake id
+            provider: AnswerTagProvider::class
+        );
+        yield 'Html content of form tags should not be modified' => [
+            'content' => $tag->html,
+            'encode_output_entities' => false,
+            'expected_result' => $tag->html,
+        ];
     }
 
     /**

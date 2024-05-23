@@ -165,6 +165,11 @@ class TestUpdatedDataCommand extends Command
             foreach ($row_iterator as $row_data) {
                 $criteria = [];
 
+                // Ignore e2e_tests user
+                if ($table_name === 'glpi_users' && $row_data['name'] === 'e2e_tests') {
+                    continue;
+                }
+
                 foreach ($row_data as $key => $value) {
                     if (in_array($key, $excluded_fields)) {
                         continue; // Ignore fields that would be subject to legitimate changes
@@ -233,6 +238,10 @@ class TestUpdatedDataCommand extends Command
             'glpi_rules',
             'glpi_rulecriterias',
             'glpi_ruleactions',
+
+            // Dashbords may have placeholders which are only present on new installs
+            'glpi_dashboards_dashboards',
+            'glpi_dashboards_items'
         ];
     }
 

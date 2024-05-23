@@ -1605,19 +1605,22 @@ class User extends \DbTestCase
                 ]
             ])
         ]);
-        $this->array($users)->hasSize(3);
-        $this->array(array_column($users, 'name'))->isEqualTo(['glpi', TU_USER, "jsmith123"]);
+        $this->array($users)->hasSize(4);
+        $this->array(array_column($users, 'name'))->containsValues(['glpi', TU_USER, "jsmith123", 'e2e_tests']);
 
         $glpi = getItemByTypeName('User', 'glpi');
         $tu_user = getItemByTypeName('User', TU_USER);
         $jsmith123 = getItemByTypeName('User', 'jsmith123');
+        $e2e_tests = getItemByTypeName('User', 'e2e_tests');
 
-        // Delete 2 users
+        // Delete other users
         $this->login('glpi', 'glpi');
         $this->boolean($tu_user->canDeleteItem())->isTrue();
         $this->boolean($tu_user->delete(['id' => $tu_user->getID()]))->isTrue();
         $this->boolean($jsmith123->canDeleteItem())->isTrue();
         $this->boolean($jsmith123->delete(['id' => $jsmith123->getID()]))->isTrue();
+        $this->boolean($e2e_tests->canDeleteItem())->isTrue();
+        $this->boolean($e2e_tests->delete(['id' => $e2e_tests->getID()]))->isTrue();
 
         // Last user, can't be deleted or disabled
         $this->boolean($glpi->update([
@@ -1625,7 +1628,7 @@ class User extends \DbTestCase
             'is_active' => false
         ]))->isTrue();
         $this->hasSessionMessages(ERROR, [
-            "Can't set user as inactive as it is the only remaining super administrator."
+            "Can&#039;t set user as inactive as it is the only remaining super administrator."
         ]);
         $glpi->getFromDB($glpi->getId());
         $this->boolean((bool) $glpi->fields['is_active'])->isEqualTo(true);
@@ -1722,7 +1725,7 @@ class User extends \DbTestCase
         $this->variable($user->fields['user_dn_hash'])->isNull();
 
         // Create user with dn and check that user_dn_hash is set
-        $dn = 'user=' . __FUNCTION__ . '_created,dc=test,dc=glpi-project,dc=org';
+        $dn = 'user=' . __FUNCTION__ . '_created,dc=R&D,dc=glpi-project,dc=org';
         $user = $this->createItem('User', [
             'name'      => __FUNCTION__ . '_created',
             'user_dn'   => $dn
@@ -1730,7 +1733,7 @@ class User extends \DbTestCase
         $this->string($user->fields['user_dn_hash'])->isEqualTo(md5($dn));
 
         // Update user dn and check that user_dn_hash is updated
-        $dn = 'user=' . __FUNCTION__ . '_updated,dc=test,dc=glpi-project,dc=org';
+        $dn = 'user=' . __FUNCTION__ . '_updated,dc=R&D,dc=glpi-project,dc=org';
         $this->updateItem('User', $user->getID(), [
             'user_dn'   => $dn
         ]);
@@ -1769,7 +1772,7 @@ class User extends \DbTestCase
         $this->boolean($retrievedUser->isNewItem())->isTrue();
 
         // Create a user with a dn
-        $dn = 'user=' . __FUNCTION__ . ',dc=test,dc=glpi-project,dc=org';
+        $dn = 'user=' . __FUNCTION__ . ',dc=R&D,dc=glpi-project,dc=org';
         $user = $this->createItem('User', [
             'name'      => __FUNCTION__,
             'user_dn'   => $dn
@@ -1790,5 +1793,71 @@ class User extends \DbTestCase
         $this->boolean($retrievedUser->getFromDBbyDn($dn))->isTrue();
         $this->boolean($retrievedUser->isNewItem())->isFalse();
         $this->string($retrievedUser->fields['user_dn'])->isEmpty();
+    }
+
+    protected function toggleSavedSearchPinProvider(): iterable
+    {
+        foreach (['', '[]', '{}'] as $initial_db_value) {
+            // initial empty data
+            yield [
+                'initial_db_value' => $initial_db_value,
+                'itemtype'         => 'Computer',
+                'success'          => true,
+                'result_db_value'  => '{"Computer":1}',
+            ];
+        }
+
+        // toggle to 1
+        yield [
+            'initial_db_value' => '{"Computer":0,"Monitor":1}',
+            'itemtype'         => 'Computer',
+            'success'          => true,
+            'result_db_value'  => '{"Computer":1,"Monitor":1}',
+        ];
+
+        // toggle to 0
+        yield [
+            'initial_db_value' => '{"Computer":1,"Monitor":1}',
+            'itemtype'         => 'Monitor',
+            'success'          => true,
+            'result_db_value'  => '{"Computer":1,"Monitor":0}',
+        ];
+
+        // namespaced itemtype
+        yield [
+            'initial_db_value' => '{"Computer":1,"Monitor":0}',
+            'itemtype'         => 'Glpi\\Socket',
+            'success'          => true,
+            'result_db_value'  => '{"Computer":1,"Monitor":0,"Glpi\\\\Socket":1}',
+        ];
+
+        // invalid itemtype
+        yield [
+            'initial_db_value' => '{"Computer":1,"Monitor":1}',
+            'itemtype'         => 'This is not a valid itemtype',
+            'success'          => false,
+            'result_db_value'  => '{"Computer":1,"Monitor":1}',
+        ];
+    }
+
+    /**
+     * @dataProvider toggleSavedSearchPinProvider
+     */
+    public function testToggleSavedSearchPin(string $initial_db_value, string $itemtype, bool $success, string $result_db_value): void
+    {
+        $user = $this->createItem(
+            \User::class,
+            [
+                'name'                  => __FUNCTION__ . (string) mt_rand(),
+                'savedsearches_pinned'  => $initial_db_value,
+            ]
+        );
+
+        $this->boolean($user->toggleSavedSearchPin($itemtype))->isEqualTo($success);
+        $this->boolean($user->getFromDb($user->getID()))->isTrue();
+        $this->string($user->fields['savedsearches_pinned'])->isEqualTo($result_db_value);
+
+        // result value in DB is always a valid JSON string
+        $this->array(importArrayFromDB($user->fields['savedsearches_pinned']))->isEqualTo(json_decode($result_db_value, true));
     }
 }

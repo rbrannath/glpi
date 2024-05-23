@@ -33,6 +33,8 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Asset\Asset_PeripheralAsset;
+
 if (strpos($_SERVER['PHP_SELF'], "dropdownConnect.php")) {
     include('../inc/includes.php');
     header("Content-Type: text/html; charset=UTF-8");
@@ -48,11 +50,11 @@ if (!isset($_POST['fromtype']) || !($fromitem = getItemForItemtype($_POST['fromt
 $fromitem->checkGlobal(UPDATE);
 
 $used = $_POST["used"] ?? [];
-Computer_Item::dropdownConnect(
+Asset_PeripheralAsset::dropdownConnect(
     $_POST["itemtype"],
     $_POST['fromtype'],
     $_POST['myname'],
-    $_POST["entity_restrict"],
+    Session::getMatchingActiveEntities($_POST['entity_restrict']),
     $_POST["onlyglobal"],
     $used
 );

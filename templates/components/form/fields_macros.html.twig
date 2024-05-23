@@ -48,18 +48,19 @@
             {{ label }}
             {% if helper is not empty %}
                <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
-                     data-bs-content="{{ helper|e('html_attr') }}">?</span>
+                     data-bs-content="{{ helper }}">?</span>
             {% endif %}
          </h4>
       </div>
    </div>
 {% endmacro %}
 
-{% macro smallTitle(label, icon = '', helper = '') %}
+{% macro smallTitle(label, icon = '', helper = '', id = '') %}
    {% set margins = 'mt-2 mb-2' %}
+   {% set id = id != '' ? id : 'formsection' ~ random() %}
 
    <div class="card border-0 shadow-none p-0 m-0 {{ margins }}">
-      <div class="card-header mb-1 p-0 ps-3 py-1">
+      <div id="{{ id }}" class="card-header mb-1 p-0 ps-3 py-1">
          <h4 class="card-subtitle {{ icon|length ? 'ms-4' : '' }}">
             {% if icon|length %}
                <div class="ribbon ribbon-bookmark ribbon-top ribbon-start bg-blue s-1">
@@ -69,7 +70,7 @@
              <span class="ms-2">{{ label }}</span>
             {% if helper is not empty %}
                <span class="form-help" data-bs-toggle="popover" data-bs-placement="top" data-bs-html="true"
-                     data-bs-content="{{ helper|e('html_attr') }}">?</span>
+                     data-bs-content="{{ helper }}">?</span>
             {% endif %}
          </h4>
       </div>
@@ -581,6 +582,7 @@
 {% macro dropdownWebIcons(name, value, label = '', options = {}) %}
     {% set options = {
         rand: random(),
+        icon_sets: ['ti'],
     }|merge(options|merge({
         noselect2: true,
     })) %}
@@ -591,7 +593,7 @@
     <script type="module">
         import('{{ js_path('js/modules/Form/WebIconSelector.js') }}').then((m) => {
             const dropdown_id = '{{ ('dropdown_' ~ name ~ options.rand)|replace({'[': '_', ']': '_'}) }}';
-            const selector = new m.default(document.getElementById(dropdown_id), ['ti']);
+            const selector = new m.default(document.getElementById(dropdown_id), {{ options.icon_sets|json_encode|raw }});
             selector.init();
         });
     </script>
@@ -770,12 +772,14 @@
    {% set options = {
       'full_width': false,
       'mb': 'mb-3',
+      'add_field_class': '',
    }|merge(options) %}
 
    {% set class = options.field_class ?? 'col-12 col-sm-6' %}
    {% if options.full_width %}
       {% set class = 'col-12' %}
    {% endif %}
+   {% set class = class ~ ' ' ~ options.add_field_class %}
 
    <div class="{{ class }} {{ options.mb }}">
       {{ field|raw }}
@@ -793,8 +797,10 @@
       'field_class': 'col-12 col-sm-6',
       'container_id': '',
       'add_field_class': '',
+      'add_label_class': '',
       'add_field_attribs': {},
       'center': false,
+      'label_align': 'end',
    }|merge(options) %}
 
    {% if options.icon_label %}
@@ -824,7 +830,7 @@
 
    {% if options.align_label_right %}
       {% set options = options|merge({
-         label_class: options.label_class ~ ' text-xxl-end',
+         label_class: options.label_class ~ ' text-xxl-' ~ options.label_align,
       }) %}
    {% endif %}
 
@@ -843,7 +849,7 @@
 
    <div class="form-field row align-items-center {{ options.field_class }} {{ options.add_field_class }} {{ options.mb }}" {{ extra_attribs|raw }}>
       {% import 'components/form/basic_inputs_macros.html.twig' as _inputs %}
-      {{ _inputs.label(label, id, options, 'col-form-label ' ~ options.label_class) }}
+      {{ _inputs.label(label, id, options, 'col-form-label ' ~ options.label_class ~ ' ' ~ options.add_label_class) }}
       {% if options.center %}
          {% set flex_class = "d-flex align-items-center" %}
       {% endif %}
@@ -886,8 +892,46 @@
    </div>
 {% endmacro %}
 
-
 {% macro label(label, id, options = {}, class = 'form-label') %}
     {% import 'components/form/basic_inputs_macros.html.twig' as _inputs %}
     {{ _inputs.label(label, id, options, class) }}
+{% endmacro %}
+
+{% macro codeField(name, value, label, options) %}
+    {% set options = {
+        single_line: false,
+        language: 'twig',
+        completions: [],
+        helper: __('This field accepts %s content. Press Ctrl+Space to trigger autocompletion.')|format('Twig'),
+    }|merge(options) %}
+
+    {% if options.helper is not empty %}
+        {% set options = options|merge({
+            helper: options.helper|format(options.language)
+        }) %}
+    {% endif %}
+
+    {% set code_container_id = name ~ '_' ~ random() %}
+    {% set code_container %}
+        <div id="{{ code_container_id }}" class="form-control overflow-hidden text-start" style="height: {{ options.single_line ? '36px' : options.height|default('auto') }};"></div>
+    {% endset %}
+    {{ _self.htmlField(name, code_container, label, {
+        wrapper_class: 'd-flex flex-grow-1',
+    }|merge(options)) }}
+    <script>
+        $(() => {
+            const editor_options = {{ options.single_line ? 'true' : 'false' }} ? window.GLPI.Monaco.getSingleLineEditorOptions() : {};
+            window.GLPI.Monaco.createEditor('{{ code_container_id }}', 'twig', "{{ value|e('js') }}", {{ options.completions|json_encode|raw }}, editor_options).then(() => {
+                $('#{{ code_container_id }}').closest('form').on('formdata', (e) => {
+                    const editors = window.monaco.editor.getEditors().filter((editor) => {
+                        return editor._domElement.id === '{{ code_container_id }}';
+                    });
+                    if (editors.length) {
+                        e.originalEvent.formData.delete('{{ name }}');
+                        e.originalEvent.formData.append('{{ name }}', editors[0].getValue());
+                    }
+                });
+            });
+        });
+    </script>
 {% endmacro %}

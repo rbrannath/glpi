@@ -438,7 +438,9 @@ var GLPIPlanning  = {
                 }).done(function() {
                     // indicate to central page we're done rendering
                     if (!options.full_view) {
-                        $(document).trigger('masonry_grid:layout');
+                        setTimeout(function () {
+                            $(document).trigger('masonry_grid:layout');
+                        }, 100);
                     }
                 });
 
@@ -613,6 +615,12 @@ var GLPIPlanning  = {
                 GLPIPlanning.calendar.unselect();
             }
         });
+
+        // Load the last known view only if it is valid (else load default view)
+        const view = this.calendar.isValidViewType(options.default_view) ?
+            options.default_view :
+            default_options.default_view;
+        this.calendar.changeView(view);
 
         $('.planning_on_central a')
             .mousedown(function() {

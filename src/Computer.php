@@ -33,6 +33,7 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\Socket;
 
 /**
@@ -43,6 +44,8 @@ class Computer extends CommonDBTM
     use Glpi\Features\DCBreadcrumb;
     use Glpi\Features\Clonable;
     use Glpi\Features\Inventoriable;
+    use Glpi\Features\State;
+    use Glpi\Features\AssignableAsset;
 
    // From CommonDBTM
     public $dohistory                   = true;
@@ -73,7 +76,7 @@ class Computer extends CommonDBTM
             Contract_Item::class,
             Document_Item::class,
             NetworkPort::class,
-            Computer_Item::class,
+            Asset_PeripheralAsset::class,
             Notepad::class,
             KnowbaseItem_Item::class,
             Item_RemoteManagement::class,
@@ -112,7 +115,7 @@ class Computer extends CommonDBTM
          ->addStandardTab('Item_SoftwareVersion', $ong, $options)
          ->addStandardTab('Item_Process', $ong, $options)
          ->addStandardTab('Item_Environment', $ong, $options)
-         ->addStandardTab('Computer_Item', $ong, $options)
+         ->addStandardTab(Asset_PeripheralAsset::class, $ong, $options)
          ->addStandardTab('NetworkPort', $ong, $options)
          ->addStandardTab(Socket::class, $ong, $options)
          ->addStandardTab('Item_RemoteManagement', $ong, $options)
@@ -195,7 +198,7 @@ class Computer extends CommonDBTM
             ) {
                 $changes['states_id'] = $input['states_id'];
             }
-           // Update loction of attached items
+           // Update location of attached items
             if (
                 $this->updates[$i] == 'locations_id'
                 && Entity::getUsedConfig('is_location_autoupdate', $this->getEntityID())
@@ -212,18 +215,19 @@ class Computer extends CommonDBTM
             foreach ($CFG_GLPI['directconnect_types'] as $type) {
                 $items_result = $DB->request(
                     [
-                        'SELECT' => ['items_id'],
-                        'FROM'   => Computer_Item::getTable(),
+                        'SELECT' => ['items_id_peripheral'],
+                        'FROM'   => Asset_PeripheralAsset::getTable(),
                         'WHERE'  => [
-                            'itemtype'     => $type,
-                            'computers_id' => $this->fields["id"],
-                            'is_deleted'   => 0
+                            'itemtype_peripheral' => $type,
+                            'itemtype_asset'      => self::getType(),
+                            'items_id_asset'      => $this->fields["id"],
+                            'is_deleted'          => 0
                         ]
                     ]
                 );
                 $item      = new $type();
                 foreach ($items_result as $data) {
-                     $tID = $data['items_id'];
+                     $tID = $data['items_id_peripheral'];
                      $item->getFromDB($tID);
                     if (!$item->getField('is_global')) {
                         $item_input = $changes;
@@ -279,25 +283,25 @@ class Computer extends CommonDBTM
             if ($update_done) {
                 if (isset($changes['contact']) || isset($changes['contact_num'])) {
                     Session::addMessageAfterRedirect(
-                        __('Alternate username updated. The connected items have been updated using this alternate username.'),
+                        __s('Alternate username updated. The connected items have been updated using this alternate username.'),
                         true
                     );
                 }
                 if (isset($changes['groups_id']) || isset($changes['users_id'])) {
                     Session::addMessageAfterRedirect(
-                        __('User or group updated. The connected items have been moved in the same values.'),
+                        __s('User or group updated. The connected items have been moved in the same values.'),
                         true
                     );
                 }
                 if (isset($changes['states_id'])) {
                     Session::addMessageAfterRedirect(
-                        __('Status updated. The connected items have been updated using this status.'),
+                        __s('Status updated. The connected items have been updated using this status.'),
                         true
                     );
                 }
                 if (isset($changes['locations_id'])) {
                     Session::addMessageAfterRedirect(
-                        __('Location updated. The connected items have been moved in the same location.'),
+                        __s('Location updated. The connected items have been moved in the same location.'),
                         true
                     );
                 }
@@ -323,7 +327,7 @@ class Computer extends CommonDBTM
     {
         $this->deleteChildrenAndRelationsFromDb(
             [
-                Computer_Item::class,
+                Asset_PeripheralAsset::class,
                 ItemAntivirus::class,
                 ItemVirtualMachine::class,
                 Item_Environment::class,
@@ -339,14 +343,20 @@ class Computer extends CommonDBTM
         global $DB;
 
         $iterator = $DB->request([
-            'SELECT' => ['itemtype', 'items_id'],
-            'FROM'   => 'glpi_computers_items',
-            'WHERE'  => ['computers_id' => $this->getID()]
+            'SELECT' => [
+                'itemtype_peripheral',
+                'items_id_peripheral'
+            ],
+            'FROM'   => Asset_PeripheralAsset::getTable(),
+            'WHERE'  => [
+                'itemtype_asset' => self::getType(),
+                'items_id_asset' => $this->getID()
+            ]
         ]);
 
         $tab = [];
         foreach ($iterator as $data) {
-            $tab[$data['itemtype']][$data['items_id']] = $data['items_id'];
+            $tab[$data['itemtype_peripheral']][$data['items_id_peripheral']] = $data['items_id_peripheral'];
         }
         return $tab;
     }
@@ -354,7 +364,6 @@ class Computer extends CommonDBTM
 
     public function getSpecificMassiveActions($checkitem = null)
     {
-
         $isadmin = static::canUpdate();
         $actions = parent::getSpecificMassiveActions($checkitem);
 
@@ -362,21 +371,21 @@ class Computer extends CommonDBTM
             $actions += [
                 'Item_OperatingSystem' . MassiveAction::CLASS_ACTION_SEPARATOR . 'update'
                 => OperatingSystem::getTypeName(),
-                'Computer_Item' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
+                Asset_PeripheralAsset::class . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
                 => "<i class='fa-fw ti ti-plug'></i>" .
-                  _x('button', 'Connect'),
+                  _sx('button', 'Connect'),
                 'Item_SoftwareVersion' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
                 => "<i class='fa-fw fas fa-laptop-medical'></i>" .
-                  _x('button', 'Install'),
+                  _sx('button', 'Install'),
                 'Item_SoftwareLicense' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
                 => "<i class='fa-fw " . SoftwareLicense::getIcon() . "'></i>" .
-                  _x('button', 'Add a license'),
+                  _sx('button', 'Add a license'),
                 'Domain' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add_item'
                 => "<i class='fa-fw " . Domain::getIcon() . "'></i>" .
-                    _x('button', 'Add a domain'),
+                    _sx('button', 'Add a domain'),
                 'Domain' . MassiveAction::CLASS_ACTION_SEPARATOR . 'remove_domain'
                 => "<i class='fa-fw " . Domain::getIcon() . "'></i>" .
-                    _x('button', 'Remove a domain'),
+                    _sx('button', 'Remove a domain'),
             ];
 
             KnowbaseItem_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
@@ -420,11 +429,11 @@ class Computer extends CommonDBTM
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => 'glpi_states',
+            'table'              => State::getTable(),
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            'condition'          => ['is_visible_computer' => 1]
+            'condition'          => $this->getStateVisibilityCriteria(),
         ];
 
         $tab[] = [

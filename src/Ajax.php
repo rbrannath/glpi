@@ -344,15 +344,33 @@ JAVASCRIPT;
 
             foreach ($tabs as $tab_key => $val) {
                 $target = str_replace('\\', '_', $val['id']);
-                $href = $val['url'] . (isset($val['params']) ? '?' . $val['params'] : '');
+                $tab_content_url = $val['url'] . (isset($val['params']) ? '?' . $val['params'] : '');
                 $selected = $active_id == $target ? 'selected' : '';
                 $title = $val['title'];
                 $title_clean = strip_tags($title);
+
+                // Compute direct link that user can reach in a new tab using
+                // middle mouse click.
+                // TODO: ctrl+click should have the same behavior but it seems
+                // to be caught by the tabs events handler and does not trigger
+                // a new browser tab.
+                $direct_link_url = $_SERVER['REQUEST_URI'];
+                if (count($_GET)) {
+                    $direct_link_url .= count($_GET) ? '&' : '?';
+                }
+                $direct_link_url .= "forcetab=$tab_key";
+
                 if ($tab_key !== -1) {
                     $html_tabs .= <<<HTML
                         <li class='nav-item $navitemml'>
-                            <a class='nav-link justify-content-between $navlinkp $display_class' data-bs-toggle='tab'
-                                title='{$title_clean}' href='{$href}' data-bs-target='#{$target}'>{$title}</a>
+                            <a
+                                class='nav-link justify-content-between $navlinkp $display_class'
+                                data-bs-toggle='tab'
+                                title='{$title_clean}'
+                                data-glpi-ajax-content='{$tab_content_url}'
+                                href='{$direct_link_url}'
+                                data-bs-target='#{$target}'
+                            >{$title}</a>
                         </li>
 HTML;
                     $html_sele .= "<option value='$i' {$selected}>{$val['title']}</option>";
@@ -375,7 +393,7 @@ HTML;
             echo "<div class='tab-content p-2 flex-grow-1 card $border' style='min-height: 150px'>";
             foreach ($tabs as $val) {
                 $id = str_replace('\\', '_', $val['id']);
-                echo "<div class='tab-pane fade' role='tabpanel' id='{$id}'></div>";
+                echo "<div data-glpi-tab-content class='tab-pane fade' role='tabpanel' id='{$id}'></div>";
             }
             echo  "</div>"; // .tab-content
             echo "</div>"; // .container-fluid
@@ -385,9 +403,14 @@ HTML;
             $js = <<<JS
          var url_hash = window.location.hash;
          var loadTabContents = function (tablink, force_reload = false, update_session_tab = true) {
-            var url = tablink.attr('href');
+            var url = tablink.data('glpi-ajax-content');
+            var base_url = CFG_GLPI.url_base;
+            if (base_url === '') {
+                // If base URL is not configured, fallback to current URL domain + GLPI base dir.
+                base_url = window.location.origin + '/' + CFG_GLPI.root_doc;
+            }
+            const href_url_params = new URL(url, base_url).searchParams;
             var target = tablink.attr('data-bs-target');
-            const href_url_params = new URLSearchParams(url);
 
             const updateCurrentTab = () => {
                 $.get(
@@ -398,20 +421,7 @@ HTML;
                      tab_key: href_url_params.get('_glpi_tab'),
                      withtemplate: $withtemplate
                   }
-               ).done(function() {
-                    // try to restore the scroll on a specific anchor
-                    if (url_hash.length > 0) {
-                        // as we load content by ajax, when full page was ready, the anchor was not present
-                        // se we recall it to force the scroll.
-                        window.location.href = url_hash;
-
-                        // animate item with a flash
-                        $(url_hash).addClass('animate__animated animate__shakeX animate__slower');
-
-                        // unset hash (to avoid scrolling when changing tabs)
-                        url_hash   = '';
-                    }
-               });
+               );
             }
             if ($(target).html() && !force_reload) {
                 updateCurrentTab();
@@ -427,6 +437,19 @@ HTML;
                if (update_session_tab) {
                    updateCurrentTab();
                }
+            }).done(function() {
+                // try to restore the scroll on a specific anchor
+                if (url_hash.length > 0) {
+                    // as we load content by ajax, when full page was ready, the anchor was not present
+                    // se we recall it to force the scroll.
+                    window.location.href = url_hash;
+
+                    // animate item with a flash
+                    $(url_hash).addClass('animate__animated animate__shakeX animate__slower');
+
+                    // unset hash (to avoid scrolling when changing tabs)
+                    url_hash   = '';
+                }
             });
          };
 
@@ -441,8 +464,8 @@ HTML;
             // Restore href
             active_link.attr('href', currenthref);
          };
-         
-         const loadAllTabs = () => {
+
+         var loadAllTabs = () => {
              const tabs = $('#$tabdiv_id a[data-bs-toggle=\"tab\"]');
              tabs.each((index, tab) => {
                 loadTabContents($(tab));

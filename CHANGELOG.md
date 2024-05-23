@@ -3,7 +3,7 @@
 The present file will list all changes made to the project; according to the
 [Keep a Changelog](http://keepachangelog.com/) project.
 
-## [10.1.0] unreleased
+## [11.0.0] unreleased
 
 ### Added
 - Business Rules for Changes
@@ -28,6 +28,10 @@ The present file will list all changes made to the project; according to the
 - Two-Factor Authentication (2FA) support via Time-based One-time Password (TOTP).
 - `Deny login` authorization rule action to deny login for a user, but not prevent the import/existence of the user in GLPI.
 - Directly capture screenshots or screen recordings from the "Add a document" form in tickets.
+- With a clean install, dashboards now show fake/placeholder data by default with a message indicating you are viewing demonstration data and a button to disable it.
+- Assets that can be assigned to users/groups have new "View assigned" and "Update assigned" rights which give read/update access to users and groups assigned to the asset.
+- `ODS` and `XLS` export of search results.
+- Support for the well-known `change-password" URI which can be used by some password managers to automatically (or assist with) changing a user's password.
 
 ### Changed
 - ITIL Objects can now be linked to any other ITIL Objects similar to the previous Ticket/Ticket links.
@@ -56,9 +60,15 @@ The present file will list all changes made to the project; according to the
 - Followups, Tasks and Solutions now check the `canView()` method of the parent ITIL Object rather than just the "See my/See author" right of the parent item.
   This means they now take into account "See all", "See group", etc. rights for the global permission check.
   Permission checks at the item-level have not been changed.
+- External Links `Link or filename` and `File content` fields now use Twig templates instead of a custom tag syntax.
+- Itemtypes associated with External links are now in the main form rather than a separate tab.
+- The `Computer_Item` class has been replaced by the `\Glpi\Asset\Asset_PeripheralAsset` class.
+- List of network ports in a VLAN form now shows the NetworkPort link in a breadcrumb manner (MyServer > eth0 where MyServer is a link to the computer and eth0 is a link to the port).
+- Running `front/cron.php` or `bin/console` will attempt to check and block execution if running as root.
 
 ### Deprecated
 - Survey URL tags `TICKETCATEGORY_ID` and `TICKETCATEGORY_NAME` are deprecated and replaced by `ITILCATEGORY_ID` and `ITILCATEGORY_NAME` respectively.
+- `Search::joinDropdownTranslations()`
 
 ### Removed
 - XML-RPC API.
@@ -68,6 +78,9 @@ The present file will list all changes made to the project; according to the
 - The database "master" property in the status checker (/status.php and glpi:system:status), replaced by "main".
 - The database "slaves" property in the status checker (/status.php and glpi:system:status), replaced by "replicas".
 - API URL is no longer customizable within GLPI. Use alias/rewrite rules in your web server configuration instead if needed.
+- `status.php` and `bin/console system:status` no longer supports plain-text output.
+- `Glpi\System\Status\StatusChecker::getServiceStatus()` `as_array` parameter.
+- `Sylk` export of search results.
 
 ### API changes
 
@@ -76,6 +89,7 @@ The present file will list all changes made to the project; according to the
 - `Glpi\DBAL\QueryFunction` class with multiple static methods for building SQL query function strings in an abstract way.
 
 #### Changes
+- Many methods have their signature changed to specify both their return type and the types of their parameters.
 - `chartist` library has been replaced by `echarts`.
 - `codemirror` library has been replaced by `monaco-editor`.
 - `htmLawed` library has been replaced by `symfony/html-sanitizer`.
@@ -96,12 +110,12 @@ The present file will list all changes made to the project; according to the
 - All types of rules are now sortable and ordered by ranking.
 - Plugins console commands must now use the normalized prefix `plugins:XXX` where `XXX` is the plugin key.
 - GLPI web root is now the `/public` directory and all web request to PHP scripts are proxified by `public/index.php` script.
-- Usage of `DBmysql::query()`, `DBmysql::queryOrDie()` method are prohibited to ensure that legacy unsafe DB are no more executed. To execute DB queries,
-  either `DBmysql::request()` can be used to craft query using the GLPI query builder,
+- Usage of `DBmysql::query()`, `DBmysql::queryOrDie()` method are prohibited to ensure that legacy unsafe DB are no more executed.
+  Building and executing raw queries using `DBmysql::request()`, `DBmysqlIterator::buildQuery()` and `DBmysqlIterator::execute()` methods is also prohibited.
+  To execute DB queries, either `DBmysql::request()` can be used to craft query using the GLPI query builder,
   either `DBmysql::doQuery()`/`DBmysql::doQueryOrDie()` can be used for safe queries to execute DB query using a self-crafted a SQL string.
 - `js/fuzzysearch.js` replaced with `FuzzySearch/Modal` Vue component.
 - `Html::fuzzySearch()` replaced with `Html::getMenuFuzzySearchList()` function.
-- `Html::generateMenuSession()` `$force` argument has been removed.
 - `NotificationEvent::raiseEvent()` signature cahnged. A new `$trigger` parameter has been added at 4th position, and `$label` is now the 5th parameter.
 - `NotificationEventInterface::raise()` has a new `$trigger` parameter.
 - `QueryExpression` class moved to `Glpi\DBAL` namespace.
@@ -121,11 +135,23 @@ The present file will list all changes made to the project; according to the
 - `ITILTemplateField::showForITILTemplate()` method is no longer abstract.
 - `CommonITILTask::getItilObjectItemType` is now static.
 - The `Item_Ticket$1` tab should be used in replacement of the `Ticket$1` tab to display tickets associated with an item.
+- Specifying the `ranking` of a rule during add/update now triggers `RuleCollection::moveRule` to manage the rankings of other rules to try to keep them valid and in order.
+- `Lock::getLocksQueryInfosByItemType()` has been made private.
+- `DBmysql::request()`, `DBmysqlIterator::buildQuery()` and `DBmysqlIterator::execute()` methods signatures changed.
+-  Some values for the `$type` parameters of several `Stat` methods have changed to match English spelling (technicien -> technician).
+- `showInstantiationForm()` method for Network Port classes are now expected to output HTML for a flex form instead of a table.
+- `NetworkName::showFormForNetworkPort()` now outputs HTML for a flex form instead of a table.
+- `NetworkPortInstantiation::showSocketField()`, `NetworkPortInstantiation::showMacField()`, `NetworkPortInstantiation::showNetworkCardField` now outputs HTML for a flex form instead of a table.
+- `CommonGLPI::can*()` and `CommonDBTM::can*()` methods now have strict type hints for their parameters and return types.
+- Multiple methods in `CommonDevice` and sub-classes now have return types defined (classes that extends these must match the new method signatures).
+- `templates/password_form.html.twig` should no longer be used directly. Use `templates/forgotpassword.html.twig`, `templates/updatepassword.html.twig` or a custom template.
+- Usage of `ajax/dropdownMassiveActionAddValidator.php` and `ajax/dropdownValidator.php` now requires a `validation_class` parameter.
+- Usage of `ajax/dropdownValidator.php` with the `users_id_validate` parameter is no longer supported. Use `items_id_target` instead.
+- `Glpi\Dashboard\Filters\AbstractFilter::field()` method has been made protected.
+- Usage of `CommonITILValidation::dropdownValidator()` with the `name` and `users_id_validate` options are no longer supported. Use `prefix` and `itemtype_target`/`items_id_target` respectively instead.
 
 #### Deprecated
-- Usage of `GLPI_USE_CSRF_CHECK` constant.
 - Usage of `MAIL_SMTPSSL` and `MAIL_SMTPTLS` constants.
-- Usage of `ajax/dropdownMassiveActionAddValidator.php` and `ajax/dropdownValidator.php` without `validation_class` parameter.
 - Usage of `name` and `users_id_validate` parameter in `ajax/dropdownValidator.php`.
 - Usage of `users_id_validate` parameter in `front/commonitilvalidation.form.php`.
 - `ajax/itemTicket.php` script usage.
@@ -135,22 +161,19 @@ The present file will list all changes made to the project; according to the
 - Defining "users_id_validate" field without defining "itemtype_target"/"items_id_target" in "CommonITILValidation".
 - Usage of `name` and `users_id_validate` options in `CommonITILValidation::dropdownValidator()`.
 - Usage of `verbatim_value` Twig filter.
+- `Auth::getErr()`
 - `AuthLDAP::dropdownUserDeletedActions()`
 - `AuthLDAP::getOptions()`
 - `CommonITILObject::isValidator()`
-- `CommonITILValidation::alreadyExists()`
-- `CommonITILValidation::getTicketStatusNumber()`
 - `ComputerAntivirus` has been deprecated and replaced by `ItemAntivirus`
 - `ComputerVirtualMachine` has been deprecated and replaced by `ItemVirtualMachine`
 - `Config::validatePassword()`
-- `Consumable::showAddForm()`
-- `Consumable::showForConsumableItem()`
+- `Contract::getExpiredCriteria()` renamed to `Contract::getNotExpiredCriteria()` to match the actual behavior.
 - `DBmysql::truncate()`
 - `DBmysql::truncateOrDie()`
 - `Document::getImage()`
-- `DropdownTranslation::canBeTranslated()`
-- `DropdownTranslation::isDropdownTranslationActive()`
 - `Glpi\Application\View\Extension::getVerbatimValue()`
+- `Glpi\Dashboard\Filter::getAll()`
 - `Glpi\Event::showList()`
 - `Glpi\Features\DCBreadcrumb::getDcBreadcrumb()`
 - `Glpi\Features\DCBreadcrumb::getDcBreadcrumbSpecificValueToDisplay()`
@@ -170,25 +193,18 @@ The present file will list all changes made to the project; according to the
 - `Glpi\Toolbox\Sanitizer::isNsClassOrCallableIdentifier()`
 - `Glpi\Toolbox\Sanitizer::sanitize()`
 - `Glpi\Toolbox\Sanitizer::unsanitize()`
+- `Html::ajaxFooter()`
 - `Html::cleanInputText()`
 - `Html::cleanPostForTextArea()`
-- `Html::displayAjaxMessageAfterRedirect()`
-- `Item_Ticket::showForTicket()`
+- `Html::createProgressBar()`
 - `HookManager::enableCSRF()`
 - `Knowbase::getTreeCategoryList()`
 - `Knowbase::showBrowseView()`
 - `Knowbase::showManageView()`
 - `KnowbaseItem::showManageForm()`
-- `KnowbaseItemTranslation::canBeTranslated()`
-- `KnowbaseItemTranslation::isKbTranslationActive()`
-- `ReminderTranslation::canBeTranslated()`
-- `ReminderTranslation::isReminderTranslationActive()`
 - `Ticket` `link_to_problem` massive action is deprecated. Use `CommonITILObject_CommonITILObject` `add` massive action instead.
 - `Ticket_Ticket` `add` massive action is deprecated. Use `CommonITILObject_CommonITILObject` `add` massive action instead.
-- `Ticket_Ticket::checkParentSon()`
-- `Ticket_Ticket::countOpenChildren()`
 - `Ticket_Ticket::getLinkedTicketsTo()`
-- `Ticket_Ticket::manageLinkedTicketsOnSolved()`
 - `Toolbox::addslashes_deep()`
 - `Toolbox::seems_utf8()`
 - `Toolbox::stripslashes_deep()`
@@ -197,6 +213,7 @@ The present file will list all changes made to the project; according to the
 - `Timer` class.
 
 #### Removed
+- `GLPI_USE_CSRF_CHECK`, `GLPI_USE_IDOR_CHECK`, `GLPI_CSRF_EXPIRES`, `GLPI_CSRF_MAX_TOKENS` and `GLPI_IDOR_EXPIRES` constants.
 - Usage of `csrf_compliant` plugins hook.
 - Usage of `migratetypes` plugin hooks.
 - Usage of `planning_scheduler_key` plugins hook.
@@ -204,39 +221,121 @@ The present file will list all changes made to the project; according to the
 - `X-GLPI-Sanitized-Content` REST API header support.
 - Handling of encoded/escaped value in `autoName()`.
 - `regenerateTreeCompleteName()`
+- `Cartridge::getNotificationParameters()`
+- `Change_Item::showForChange()`
 - `CommonDBTM::$deduplicate_queued_notifications` property.
+- `CommonDBTM::getCacheKeyForFriendlyName()`
+- `CommonDBTM::getSNMPCredential()`
 - `CommonDropdown::displayHeader()`
+- `CommonITILActor::showUserNotificationForm()`
+- `CommonITILActor::showSupplierNotificationForm()`
+- `CommonITILValidation::alreadyExists()`
+- `CommonITILValidation::getTicketStatusNumber()`
 - `CommonTreeDropdown::sanitizeSeparatorInCompletename()`
 - `CommonTreeDropdown::unsanitizeSeparatorInCompletename()`
+- `Computer_Item::countForAll()`
+- `Computer_Item::disconnectForItem()`
+- `Computer_Item::dropdownAllConnect()`
+- `Computer_Item::showForComputer()`
+- `Computer_Item::showForItem()`
 - `ComputerAntivirus::showForComputer()`
 - `ComputerVirtualMachine::showForComputer()`
 - `Config::getCurrentDBVersion()`
+- `Consumable::showAddForm()`
+- `Consumable::showForConsumableItem()`
+- `Contract::commonListHeader()`
+- `Contract::getContractRenewalIDByName()`
+- `Contract::showShort()`
 - `DbUtils::regenerateTreeCompleteName()`
+- `Document::uploadDocument()`
+- `Document::showUploadedFilesDropdown()`
+- `Document_Item::showSimpleAddForItem()`
+- `DropdownTranslation::canBeTranslated()`. Translations are now always active.
+- `DropdownTranslation::isDropdownTranslationActive()`. Translations are now always active.
+- `Entity::getDefaultContractValues()`
 - `GLPI::getLogLevel()`
 - `Glpi\Api\API::returnSanitizedContent()`
+- `Glpi\Dashboard\Filter::dates()`
+- `Glpi\Dashboard\Filter::dates_mod()`
+- `Glpi\Dashboard\Filter::itilcategory()`
+- `Glpi\Dashboard\Filter::requesttype()`
+- `Glpi\Dashboard\Filter::location()`
+- `Glpi\Dashboard\Filter::manufacturer()`
+- `Glpi\Dashboard\Filter::group_tech()`
+- `Glpi\Dashboard\Filter::user_tech()`
+- `Glpi\Dashboard\Filter::state()`
+- `Glpi\Dashboard\Filter::tickettype()`
+- `Glpi\Dashboard\Filter::displayList()`
+- `Glpi\Dashboard\Filter::field()`
 - `Glpi\Dashboard\Widget::getCssGradientPalette()`
 - `Glpi\Inventory\Conf::importFile()`
 - `Glpi\Socket::executeAddMulti()`
 - `Glpi\Socket::showNetworkPortForm()`
 - `Glpi\System\Requirement\DataDirectoriesProtectedPath` class.
 - `Glpi\System\Requirement\ProtectedWebAccess` class.
+- `Glpi\System\Requirement\MysqliMysqlnd` class.
 - `Glpi\System\Requirement\SafeDocumentRoot` class.
 - `Glpi\System\Status\StatusChecker::getFullStatus()`
+- `Group::title()`
+- `Html::autocompletionTextField()`
 - `Html::clean()`
+- `Html::closeArrowMassives()`
+- `Html::displayAjaxMessageAfterRedirect()`. The JS function is already provided by `js/misc.js`.
+- `Html::jsConfirmCallback()`
+- `Html::jsHide()`
+- `Html::jsShow()`
+- `Html::openArrowMassives()`
+- `Html::showTimeField()`
+- `Impact::buildNetwork()`
+- `Item_Problem::showForProblem()`
+- `Item_Ticket::showForTicket()`
+- `KnowbaseItem::addToFaq()`
+- `KnowbaseItem::addVisibilityJoins()`
+- `KnowbaseItem::addVisibilityRestrict()`
+- `KnowbaseItem::showBrowseForm()`
+- `KnowbaseItem_Comment::displayComments()`
+- `KnowbaseItem_KnowbaseItemCategory::displayTabContentForItem()`
+- `KnowbaseItem_KnowbaseItemCategory::getTabNameForItem()`
+- `KnowbaseItem_KnowbaseItemCategory::showForItem()`
+- `KnowbaseItemTranslation::canBeTranslated()`. Translations are now always active.
+- `KnowbaseItemTranslation::isKbTranslationActive()`. Translations are now always active.
+- `Link::showForItem()`
+- `Link_Itemtype::showForLink()`
 - `MailCollector::listEncodings()`
+- `MailCollector::title()`
+- `ManualLink::showForItem()`
 - `Netpoint` class
+- `NetworkAlias::getInternetNameFromID()`
+- `NetworkName::getInternetNameFromID()`
+- `NetworkPort::getNetworkPortInstantiationsWithNames()`
+- `NetworkPort::resetConnections()`
+- `OlaLevel::showForSLA()`. Replaced by `LevelAgreementLevel::showForLA()`.
+- `PlanningExternalEvent::addVisibilityRestrict()`
 - `Plugin::migrateItemType()`
 - `ProfileRight::updateProfileRightAsOtherRight()`
 - `ProfileRight::updateProfileRightsAsOtherRights()`
+- `QuerySubQuery` class. Replaced by `Glpi\DBAL\QuerySubQuery`.
+- `QueryUnion` class. Replaced by `Glpi\DBAL\QueryUnion`.
+- `Reminder::addVisibilityJoins()`
+- `ReminderTranslation::canBeTranslated()`. Translations are now always active.
+- `ReminderTranslation::isReminderTranslationActive()`. Translations are now always active.
+- `Reservation::displayError()`
+- `RSSFeed::addVisibilityJoins()`
+- `RSSFeed::addVisibilityRestrict()`
 - `RSSFeed::showDiscoveredFeeds()`
 - `Rule::$can_sort` property.
 - `Rule::$orderby` property.
 - `Rule::showMinimalActionForm()`
+- `Rule::showMinimalCriteriaForm()`
+- `Rule::showMinimalForm()`
 - `RuleCollection::showTestResults()`
+- `RuleRightCollection::displayActionByName()`
+- `RuleRightCollection::showTestResults()`
 - `RuleImportComputer` class.
 - `RuleImportComputerCollection` class.
 - `RuleMatchedLog::showFormAgent()`.
 - `RuleMatchedLog::showItemForm()`.
+- `Search::SYLK_OUTPUT` constant.
 - `Search::computeTitle()`
 - `Search::csv_clean()`
 - `Search::findCriteriaInSession()`
@@ -245,7 +344,12 @@ The present file will list all changes made to the project; according to the
 - `Search::getMetaReferenceItemtype()`
 - `Search::outputData()`
 - `Search::sylk_clean()`
+- `SlaLevel::showForSLA()`. Replaced by `LevelAgreementLevel::showForLA()`.
 - `SLM::setTicketCalendar()`
+- `SoftwareLicense::getSonsOf()`
+- `Ticket_Ticket::checkParentSon()`
+- `Ticket_Ticket::countOpenChildren()`
+- `Ticket_Ticket::manageLinkedTicketsOnSolved()`. Replaced by `CommonITILObject_CommonITILObject::manageLinksOnChange()`.
 - `Toolbox::canUseCas()`
 - `Toolbox::checkValidReferer()`
 - `Toolbox::clean_cross_side_scripting_deep()`
@@ -259,6 +363,8 @@ The present file will list all changes made to the project; according to the
 - `Toolbox::sodiumDecrypt()`
 - `Toolbox::sodiumEncrypt()`
 - `Toolbox::unclean_cross_side_scripting_deep()`
+- `Transfer::manageConnectionComputer()`
+- `User::title()`
 - `XML` class.
 - Usage of `Search::addOrderBy` signature with ($itemtype, $ID, $order) parameters
 - Javascript file upload functions `dataURItoBlob`, `extractSrcFromImgTag`, `insertImgFromFile()`, `insertImageInTinyMCE`, `isImageBlobFromPaste`, `isImageFromPaste`.
@@ -269,9 +375,12 @@ The present file will list all changes made to the project; according to the
 - `DisplayPreference::showFormPerso` `target_id` parameter.
 - `$DEBUG_SQL, `$SQL_TOTAL_REQUEST`, `$TIMER_DEBUG` and `$TIMER` global variables.
 - `$CFG_GLPI['debug_sql']` and `$CFG_GLPI['debug_vars']` configuration options.
+- `DropdownTranslation::getTranslationByName()`
+- `addgroup` and `deletegroup` actions in `front/user.form.php`.
+- `ajax/ticketassigninformation.php` script. Use `ajax/actorinformation.php` instead.
 
 
-## [10.0.13] unreleased
+## [10.0.16] unreleased
 
 ### Added
 
@@ -286,6 +395,70 @@ The present file will list all changes made to the project; according to the
 #### Added
 
 #### Changes
+
+#### Deprecated
+
+#### Removed
+
+
+## [10.0.15] 2024-04-24
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### API changes
+
+#### Added
+
+#### Changes
+
+#### Deprecated
+
+#### Removed
+
+
+## [10.0.14] 2024-03-14
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### API changes
+
+#### Added
+
+#### Changes
+
+#### Deprecated
+
+#### Removed
+
+
+## [10.0.13] 2024-03-13
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### API changes
+
+#### Added
+
+#### Changes
+- `condition` and `displaywith` parameters must now be added in IDOR token creation data when they are not empty.
 
 #### Deprecated
 

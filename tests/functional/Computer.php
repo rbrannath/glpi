@@ -36,6 +36,7 @@
 namespace tests\units;
 
 use DbTestCase;
+use Glpi\Asset\Asset_PeripheralAsset;
 
 /* Test for inc/computer.class.php */
 
@@ -80,10 +81,12 @@ class Computer extends DbTestCase
         $printer  = $this->getNewPrinter();
 
        // Create the link
-        $link = new \Computer_Item();
-        $in = ['computers_id' => $computer->getField('id'),
-            'itemtype'     => $printer->getType(),
-            'items_id'     => $printer->getID(),
+        $link = new Asset_PeripheralAsset();
+        $in = [
+            'itemtype_asset' => $computer->getType(),
+            'items_id_asset' => $computer->getField('id'),
+            'itemtype_peripheral' => $printer->getType(),
+            'items_id_peripheral' => $printer->getID(),
         ];
         $this->integer((int)$link->add($in))->isGreaterThan(0);
 
@@ -297,10 +300,12 @@ class Computer extends DbTestCase
         $this->integer((int)$pid)->isGreaterThan(0);
 
        // Create the link
-        $link = new \Computer_Item();
-        $in2 = ['computers_id' => $computer->getField('id'),
-            'itemtype'     => $printer->getType(),
-            'items_id'     => $printer->getID(),
+        $link = new Asset_PeripheralAsset();
+        $in2 = [
+            'itemtype_asset' => $computer->getType(),
+            'items_id_asset' => $computer->getField('id'),
+            'itemtype_peripheral' => $printer->getType(),
+            'items_id_peripheral' => $printer->getID(),
         ];
         $this->integer((int)$link->add($in2))->isGreaterThan(0);
 
@@ -744,20 +749,22 @@ class Computer extends DbTestCase
         $computer = $this->getNewComputer();
         $printer1 = $this->getNewPrinter();
         $this->createItem(
-            \Computer_Item::class,
+            Asset_PeripheralAsset::class,
             [
-                'computers_id' => $computer->fields['id'],
-                'itemtype'     => \Printer::class,
-                'items_id'     => $printer1->fields['id'],
+                'itemtype_asset' => $computer->getType(),
+                'items_id_asset' => $computer->getID(),
+                'itemtype_peripheral' => \Printer::class,
+                'items_id_peripheral' => $printer1->fields['id'],
             ]
         );
         $printer2 = $this->getNewPrinter();
         $this->createItem(
-            \Computer_Item::class,
+            Asset_PeripheralAsset::class,
             [
-                'computers_id' => $computer->fields['id'],
-                'itemtype'     => \Printer::class,
-                'items_id'     => $printer2->fields['id'],
+                'itemtype_asset' => $computer->getType(),
+                'items_id_asset' => $computer->getID(),
+                'itemtype_peripheral' => \Printer::class,
+                'items_id_peripheral' => $printer2->fields['id'],
             ]
         );
 
@@ -830,5 +837,67 @@ class Computer extends DbTestCase
         $printer1_agent = $printer1->getInventoryAgent();
         $this->object($printer1_agent)->isInstanceOf(\Agent::class);
         $this->array($computer_agent->fields)->isEqualTo($printer1_agent->fields);
+    }
+
+    /**
+     * Data provider for the testFormatSessionMessageAfterAction method
+     *
+     * @return iterable
+     */
+    protected function testFormatSessionMessageAfterActionProvider(): iterable
+    {
+        $this->login();
+
+        $entity = $this->getTestRootEntity();
+
+        list (
+            $c1,
+            $c2,
+            $c3,
+        ) = $this->createItems(\Computer::class, [
+            ['name' => 'Computer 1', 'entities_id' => $entity->fields['id']],
+            ['name' => 'Computer 2', 'entities_id' => $entity->fields['id']],
+            ['name' => 'Computer 3', 'entities_id' => $entity->fields['id']],
+        ]);
+
+        // Test message with link to item
+        yield [
+            $c1,
+            "Test",
+            "Test: <a  href='/glpi/front/computer.form.php?id={$c1->getId()}'  title=\"Computer 1\">Computer 1</a>"
+        ];
+        yield [
+            $c2,
+            "Test",
+            "Test: <a  href='/glpi/front/computer.form.php?id={$c2->getId()}'  title=\"Computer 2\">Computer 2</a>"
+        ];
+
+        // Test message without link
+        $c3->input["_no_message_link"] = true;
+        yield [
+            $c3,
+            "Test",
+            "Test: Computer 3"
+        ];
+    }
+
+    /**
+     * Test the formatSessionMessageAfterAction method
+     *
+     * @dataProvider testFormatSessionMessageAfterActionProvider
+     *
+     * @param \Computer $item                        Test subject
+     * @param string    $raw_message                 Raw message to format
+     * @param string    $expected_formatted_message  Expected formatted message
+     *
+     * @return void
+     */
+    public function testFormatSessionMessageAfterAction(
+        \Computer $item,
+        string $raw_message,
+        string $expected_formatted_message
+    ): void {
+        $message = $item->formatSessionMessageAfterAction($raw_message);
+        $this->string($message)->isEqualTo($expected_formatted_message);
     }
 }

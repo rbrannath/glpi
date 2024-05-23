@@ -46,6 +46,7 @@
     --tblr-body-bg: #f5f7fb;
     --tblr-bg-surface: #fff;
     --tblr-bg-surface-tertiary: var(--tblr-gray-50);
+    --tblr-bg-surface-dark: color-mix(in srgb, var(--tblr-bg-surface), var(--tblr-dark) 1.5%);
     --glpi-tabs-bg: color-mix(in srgb, var(--tblr-bg-surface), black 1.5%);
     --glpi-tabs-fg: var(--tblr-muted);
     --glpi-tabs-border-color: var(--tblr-border-color);
@@ -75,9 +76,10 @@
     --glpi-form-header-danger-fg: var(--tblr-danger);
     --glpi-form-header-danger-bg: color-mix(in srgb, var(--glpi-form-header-danger-fg), var(--tblr-bg-surface) 90%);
     --glpi-form-header-danger-border-color: color-mix(in srgb, var(--glpi-form-header-danger-fg), var(--tblr-bg-surface) 75%);
+    --glpi-form-toolbar-bg: #f5f5f5;
     --glpi-topbar-height: 79px;
     --glpi-contextbar-height: 56px;
-    --glpi-content-margin: 20px;
+    --glpi-content-margin: 24px;
     --glpi-scrollbar-thumb-color: color-mix(in srgb, var(--tblr-secondary), transparent 20%);
     --glpi-scrollbar-track-color: transparent;
     --glpi-itil-secondary-bg: #f5f5f5;
@@ -410,4 +412,12 @@ body .toast {
 
 .accordion {
     --tblr-accordion-color: var(--tblr-muted);
+}
+
+.monaco-editor {
+    outline: none !important;
+}
+
+.tooltip {
+    --tblr-tooltip-color: var(--tblr-body-color);
 }

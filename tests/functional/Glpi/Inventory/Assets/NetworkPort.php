@@ -175,7 +175,7 @@ class NetworkPort extends AbstractInventoryAsset
 </CONTENT>
 </REQUEST>",
                 'ports'         => [
-                    '{"ifdescr":"Port-channel10","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"15 days, 23:20:53.24","ifmtu":1500,"ifname":"Po10","ifnumber":5010,"ifouterrors":0,"ifspeed":4294967295,"ifstatus":1,"iftype":56,"trunk":false,"mac":"c4:64:13:8c:7e:b5","instantiation_type":"NetworkPortEthernet","name":"Po10","logical_number":5010,"ifinbytes":1076823325,"ifoutbytes":2179528910}',
+                    '{"ifdescr":"Port-channel10","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"15 days, 23:20:53.24","ifmtu":1500,"ifname":"Po10","ifnumber":5010,"ifouterrors":0,"ifspeed":4294967295,"ifstatus":1,"iftype":56,"trunk":false,"mac":"c4:64:13:8c:7e:b5","instantiation_type":"NetworkPortFiberchannel","name":"Po10","logical_number":5010,"ifinbytes":1076823325,"ifoutbytes":2179528910}',
                     '{"ifdescr":"Agg one","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"18 days, 23:20:53.24","ifmtu":1500,"ifname":"Agg01","ifnumber":10001,"ifouterrors":0,"ifspeed":4294967295,"ifstatus":1,"iftype":6,"trunk":false,"mac":"c4:64:13:8c:7e:b6","instantiation_type":"NetworkPortEthernet","name":"Agg01","logical_number":10001,"ifinbytes":0,"ifoutbytes":0}',
                     '{"ifdescr":"Agg two","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"17 days, 23:20:53.24","ifmtu":1500,"ifname":"Agg02","ifnumber":10002,"ifouterrors":0,"ifspeed":4294967295,"ifstatus":1,"iftype":6,"trunk":false,"mac":"c4:64:13:8c:7e:b7","instantiation_type":"NetworkPortEthernet","name":"Agg02","logical_number":10002,"ifinbytes":0,"ifoutbytes":0}'
                 ],
@@ -313,7 +313,7 @@ Compiled Mon 23-Jul-12 13:22 by prod_rel_team</COMMENTS>
 </CONTENT>
 </REQUEST>",
                 'ports'  => [
-                    '{"ifalias":"lag1.glpi-project.org","ifdescr":"Port-channel6","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"32.65 seconds","ifmtu":9000,"ifname":"Po6","ifnumber":5006,"ifouterrors":0,"ifspeed":2000000000,"ifstatus":1,"iftype":56,"mac":"00:14:a9:37:ee:2d","trunk":false,"instantiation_type":"NetworkPortEthernet","name":"Po6","logical_number":5006,"ifinbytes":82823274,"ifoutbytes":657139488}',
+                    '{"ifalias":"lag1.glpi-project.org","ifdescr":"Port-channel6","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"32.65 seconds","ifmtu":9000,"ifname":"Po6","ifnumber":5006,"ifouterrors":0,"ifspeed":2000000000,"ifstatus":1,"iftype":56,"mac":"00:14:a9:37:ee:2d","trunk":false,"instantiation_type":"NetworkPortFiberchannel","name":"Po6","logical_number":5006,"ifinbytes":82823274,"ifoutbytes":657139488}',
                     '{"ifalias":"net1.glpi-project.org","ifdescr":"GigabitEthernet4\/0\/46","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"5 minutes, 50.26","ifmtu":9000,"ifname":"Gi4\/0\/46","ifnumber":11646,"ifouterrors":0,"ifportduplex":3,"ifspeed":1000000000,"ifstatus":1,"iftype":6,"mac":"00:19:2f:08:8f:2e","trunk":false,"instantiation_type":"NetworkPortEthernet","name":"Gi4\/0\/46","logical_number":11646,"portduplex":3,"ifinbytes":38145664,"ifoutbytes":167335360}',
                     '{"ifalias":"net2.glpi-project.org","ifdescr":"GigabitEthernet8\/0\/45","ifinerrors":0,"ifinternalstatus":1,"iflastchange":"30.69 seconds","ifmtu":9000,"ifname":"Gi8\/0\/45","ifnumber":13645,"ifouterrors":0,"ifportduplex":3,"ifspeed":1000000000,"ifstatus":1,"iftype":6,"mac":"00:14:a9:37:ee:2d","trunk":false,"instantiation_type":"NetworkPortEthernet","name":"Gi8\/0\/45","logical_number":13645,"portduplex":3,"ifinbytes":40326934,"ifoutbytes":454911808}'
                 ],
@@ -837,5 +837,566 @@ Compiled Mon 23-Jul-12 13:22 by prod_rel_team</COMMENTS>
 
         //check alias
         $this->string($networkport->fields['ifalias'])->isEqualTo('another alias');
+    }
+
+    public function testNetworkEquipmentInstanciationType()
+    {
+        $networkport = new \NetworkPort();
+        $networkequipment = new \NetworkEquipment();
+
+        //First step : import NetworkEquipement with only one NetworkPort (WiFi)
+        $xml_source = "<?xml version='1.0' encoding='UTF-8'?>
+            <REQUEST>
+              <CONTENT>
+                <DEVICE>
+                  <FIRMWARES>
+                    <DESCRIPTION>device firmware</DESCRIPTION>
+                    <MANUFACTURER>Aruba</MANUFACTURER>
+                    <NAME>AP 315</NAME>
+                    <TYPE>device</TYPE>
+                    <VERSION>8.6.0.23-8.6.0.23_88342</VERSION>
+                  </FIRMWARES>
+                  <INFO>
+                    <COMMENTS>ArubaOS (MODEL: 315), Version 8.6.0.23-8.6.0.23</COMMENTS>
+                    <CPU>5</CPU>
+                    <FIRMWARE>8.6.0.23-8.6.0.23_88342</FIRMWARE>
+                    <ID>0</ID>
+                    <IPS>
+                      <IP>172.31.98.1</IP>
+                      <IP>192.168.0.140</IP>
+                    </IPS>
+                    <MAC>24:f2:7f:c4:3d:62</MAC>
+                    <MANUFACTURER>Aruba</MANUFACTURER>
+                    <MEMORY>41</MEMORY>
+                    <MODEL>AP 315</MODEL>
+                    <NAME>AP02-ESCRITORIO</NAME>
+                    <RAM>512</RAM>
+                    <SERIAL>CNF0J0T4TH</SERIAL>
+                    <TYPE>NETWORKING</TYPE>
+                    <UPTIME>2 hours, 10:13.96</UPTIME>
+                  </INFO>
+                  <PORTS>
+                    <PORT>
+                      <IFDESCR>radio0_ssid_id0</IFDESCR>
+                      <IFINERRORS>0</IFINERRORS>
+                      <IFINOCTETS>0</IFINOCTETS>
+                      <IFINTERNALSTATUS>1</IFINTERNALSTATUS>
+                      <IFLASTCHANGE>0.00 seconds</IFLASTCHANGE>
+                      <IFMTU>1500</IFMTU>
+                      <IFNAME>radio0_ssid_id0</IFNAME>
+                      <IFNUMBER>50</IFNUMBER>
+                      <IFOUTERRORS>0</IFOUTERRORS>
+                      <IFOUTOCTETS>0</IFOUTOCTETS>
+                      <IFSPEED>0</IFSPEED>
+                      <IFSTATUS>1</IFSTATUS>
+                      <IFTYPE>71</IFTYPE>
+                      <MAC>24:f2:7f:c3:d6:30</MAC>
+                    </PORT>
+                  </PORTS>
+                </DEVICE>
+                <MODULEVERSION>6.1</MODULEVERSION>
+                <PROCESSNUMBER>1</PROCESSNUMBER>
+              </CONTENT>
+              <DEVICEID>foo</DEVICEID>
+              <QUERY>SNMPQUERY</QUERY>
+            </REQUEST>";
+
+        //networkequipement inventory
+        $inventory = $this->doInventory($xml_source, true);
+
+        //check networkequipement
+        $networkquipement_id = $inventory->getItem()->fields['id'];
+        $this->integer($networkquipement_id)->isGreaterThan(0);
+
+        //get networkport
+        $this->boolean(
+            $networkport->getFromDbByCrit([
+                'itemtype' => 'NetworkEquipment',
+                'items_id' => $networkquipement_id,
+                'name' => 'radio0_ssid_id0'
+            ])
+        )->isTrue();
+
+        //check type is correct
+        $this->string($networkport->fields['instantiation_type'])->isIdenticalTo('NetworkPortWifi');
+    }
+
+    public function testInstantiationType()
+    {
+        global $DB;
+        $json_str = '
+        {
+            "action": "inventory",
+            "content": {
+                "accesslog": {
+                  "logdate": "2023-12-11 09:39:16"
+                },
+                "bios": {
+                  "assettag": "Asset-1234567890",
+                  "bdate": "2013-10-29",
+                  "bmanufacturer": "American Megatrends Inc.",
+                  "bversion": "1602",
+                  "mmanufacturer": "ASUSTeK COMPUTER INC.",
+                  "mmodel": "Z87-A",
+                  "msn": "131219362301208",
+                  "skunumber": "All",
+                  "smanufacturer": "ASUS",
+                  "smodel": "All Series"
+                },
+                "hardware": {
+                  "chassis_type": "Desktop",
+                  "datelastloggeduser": "Mon Dec 11 09:34",
+                  "defaultgateway": "192.168.1.1",
+                  "dns": "127.0.0.53",
+                  "lastloggeduser": "teclib",
+                  "memory": 32030,
+                  "name": "teclib-asus-desktop",
+                  "swap": 2047,
+                  "uuid": "31042c80-d7da-11dd-93d0-bcee7b8de946",
+                  "vmsystem": "Physical",
+                  "workgroup": "home"
+                },
+                "networks": [
+                  {
+                    "description": "enp3s0",
+                    "driver": "r8169",
+                    "ipaddress": "192.168.1.20",
+                    "ipgateway": "192.168.1.1",
+                    "ipmask": "255.255.255.0",
+                    "ipsubnet": "192.168.1.0",
+                    "mac": "bc:ee:7b:8d:e9:46",
+                    "pciid": "10EC:8168:1043:859E",
+                    "pcislot": "0000:03:00.0",
+                    "speed": "1000",
+                    "status": "up",
+                    "type": "ethernet",
+                    "virtualdev": false
+                  },
+                  {
+                    "description": "lo",
+                    "ipaddress": "127.0.0.1",
+                    "ipmask": "255.0.0.0",
+                    "ipsubnet": "127.0.0.0",
+                    "mac": "00:00:00:00:00:00",
+                    "status": "up",
+                    "type": "loopback",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "br-8f1b5a0d178c",
+                    "ipaddress": "172.18.0.1",
+                    "ipmask": "255.255.0.0",
+                    "ipsubnet": "172.18.0.0",
+                    "mac": "02:42:4f:3f:06:74",
+                    "slaves": "veth12c6850,vethda9b669",
+                    "speed": "10000",
+                    "status": "up",
+                    "type": "bridge",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "Intel(R) WiFi Link 5100 AGN",
+                    "mac": "00:21:6B:36:7F:76",
+                    "pciid": "8086:4237:1211:8086",
+                    "pnpdeviceid": "PCI_VEN_8086&amp;DEV_4237&amp;SUBSYS_12118086&amp;REV_0000216BFFFF367F7600",
+                    "status": "up",
+                    "type": "wifi",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "fibrechannel A",
+                    "mac": "00:21:6B:36:7F:76",
+                    "status": "up",
+                    "type": "fibrechannel",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "bond0",
+                    "ipaddress": "10.129.17.3",
+                    "ipgateway": "10.129.17.1",
+                    "ipmask": "255.255.255.0",
+                    "ipsubnet": "10.129.17.0",
+                    "mac": "ec:b1:d7:af:6a:50",
+                    "slaves": "",
+                    "speed": "2000",
+                    "status": "up",
+                    "type": "aggregate",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "eth3",
+                    "ipaddress": "10.0.241.99",
+                    "ipmask": "255.255.255.0",
+                    "ipsubnet": "10.0.241.0",
+                    "mac": "bc:ee:7b:8d:e8:f2",
+                    "speed": "1000",
+                    "status": "up",
+                    "type": "alias",
+                    "virtualdev": true
+                  },
+                  {
+                    "description": "Bluetooth",
+                    "mac": "00:24:33:74:2b:f5",
+                    "pnpdeviceid": "bth_ms_bthpan_6&2101603c&0&2",
+                    "status": "down",
+                    "type": "bluetooth",
+                    "virtualdev": false
+                  },
+                  {
+                    "description": "Infiniband",
+                    "mac": "00:32:99:98:2b:f8",
+                    "status": "down",
+                    "type": "infiniband",
+                    "virtualdev": false
+                  },
+                  {
+                    "description": "Dialup",
+                    "mac": "00:87:01:02:2c:g8",
+                    "status": "down",
+                    "type": "dialup",
+                    "virtualdev": false
+                  }
+                ],
+                "operatingsystem": {
+                    "arch": "x86_64",
+                    "boot_time": "2023-12-11 08:36:20",
+                    "dns_domain": "home",
+                    "fqdn": "teclib-asus-desktop.home",
+                    "full_name": "Ubuntu 22.04.3 LTS",
+                    "hostid": "007f0101",
+                    "install_date": "2023-09-11 08:40:42",
+                    "kernel_name": "linux",
+                    "kernel_version": "5.15.0-89-generic",
+                    "name": "Ubuntu",
+                    "ssh_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYWwKX1KRqEzIjEsWMQrFX5xDHjx8uTv\/aqNaZ6Xk6m",
+                    "timezone": {
+                        "name": "Europe\/Paris",
+                        "offset": "+0100"
+                    },
+                    "version": "22.04.3 LTS (Jammy Jellyfish)"
+                },
+                "versionclient": "GLPI-Agent_v1.4-1"
+            },
+            "deviceid": "teclib-asus-desktop-2022-09-20-16-43-09",
+            "itemtype": "Computer"
+        }';
+
+        $json = json_decode($json_str);
+        $inventory = $this->doInventory($json);
+
+        //check created agent
+        $agenttype = $DB->request(['FROM' => \AgentType::getTable(), 'WHERE' => ['name' => 'Core']])->current();
+        $agents = $DB->request(['FROM' => \Agent::getTable()]);
+        $this->integer(count($agents))->isIdenticalTo(1);
+        $agent = $agents->current();
+        $this->array($agent)
+            ->string['deviceid']->isIdenticalTo('teclib-asus-desktop-2022-09-20-16-43-09')
+            ->string['name']->isIdenticalTo('teclib-asus-desktop-2022-09-20-16-43-09')
+            ->string['itemtype']->isIdenticalTo('Computer')
+            ->integer['agenttypes_id']->isIdenticalTo($agenttype['id'])
+            ->integer['items_id']->isGreaterThan(0);
+
+        //check created computer
+        $computers_id = $agent['items_id'];
+        $this->integer($computers_id)->isGreaterThan(0);
+        $computer = new \Computer();
+        $this->boolean($computer->getFromDB($computers_id))->isTrue();
+
+        //check created networkport
+        $networkport = new \NetworkPort();
+
+        // lo -> ethernet -> NetworkPortEthernet
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'enp3s0',
+                'instantiation_type' => 'NetworkPortEthernet'
+            ]
+        ))->isTrue();
+
+        // lo -> loopback -> NetworkPortLocal
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'lo',
+                'instantiation_type' => 'NetworkPortLocal'
+            ]
+        ))->isTrue();
+
+        // br-8f1b5a0d178c -> bridge -> NetworkPortEthernet (no NetworkPortBridge so use default NetworkPortEthernet )
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'br-8f1b5a0d178c',
+                'instantiation_type' => 'NetworkPortEthernet'
+            ]
+        ))->isTrue();
+
+        // Intel(R) WiFi Link 5100 AGN -> wifi -> NetworkPortWifi
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'Intel(R) WiFi Link 5100 AGN',
+                'instantiation_type' => 'NetworkPortWifi'
+            ]
+        ))->isTrue();
+
+        // fibrechannel A -> fibrechannel -> NetworkPortFiberChannel
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'fibrechannel A',
+                'instantiation_type' => 'NetworkPortFiberChannel'
+            ]
+        ))->isTrue();
+
+        // bond0 -> aggregate -> NetworkPortAggregate
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'bond0',
+                'instantiation_type' => 'NetworkPortAggregate'
+            ]
+        ))->isTrue();
+
+        // eth3 -> alias -> NetworkPortAlias
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'eth3',
+                'instantiation_type' => 'NetworkPortAlias'
+            ]
+        ))->isTrue();
+
+        //Bluetooth -> bluetooth -> NetworkPortEthernet (no NetworkPortBluetooth so use default NetworkPortEthernet )
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'Bluetooth',
+                'instantiation_type' => 'NetworkPortEthernet'
+            ]
+        ))->isTrue();
+
+        //Infiniband -> infiniband -> NetworkPortEthernet (no NetworkPortInfiniband so use default NetworkPortEthernet )
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'Infiniband',
+                'instantiation_type' => 'NetworkPortEthernet'
+            ]
+        ))->isTrue();
+
+        //Dialup -> dialup -> NetworkPortDialup
+        $this->boolean($networkport->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'Dialup',
+                'instantiation_type' => 'NetworkPortDialup'
+            ]
+        ))->isTrue();
+    }
+
+    public function testInstantiationTypeUpdate()
+    {
+        global $DB;
+        $json_str = '
+        {
+            "action": "inventory",
+            "content": {
+                "accesslog": {
+                  "logdate": "2023-12-11 09:39:16"
+                },
+                "bios": {
+                  "assettag": "Asset-1234567890",
+                  "bdate": "2013-10-29",
+                  "bmanufacturer": "American Megatrends Inc.",
+                  "bversion": "1602",
+                  "mmanufacturer": "ASUSTeK COMPUTER INC.",
+                  "mmodel": "Z87-A",
+                  "msn": "131219362301208",
+                  "skunumber": "All",
+                  "smanufacturer": "ASUS",
+                  "smodel": "All Series"
+                },
+                "hardware": {
+                  "chassis_type": "Desktop",
+                  "datelastloggeduser": "Mon Dec 11 09:34",
+                  "defaultgateway": "192.168.1.1",
+                  "dns": "127.0.0.53",
+                  "lastloggeduser": "teclib",
+                  "memory": 32030,
+                  "name": "teclib-asus-desktop",
+                  "swap": 2047,
+                  "uuid": "31042c80-d7da-11dd-93d0-bcee7b8de946",
+                  "vmsystem": "Physical",
+                  "workgroup": "home"
+                },
+                "networks": [
+                  {
+                    "description": "lo",
+                    "ipaddress": "127.0.0.1",
+                    "ipmask": "255.0.0.0",
+                    "ipsubnet": "127.0.0.0",
+                    "mac": "00:00:00:00:00:00",
+                    "type": "ethernet",
+                    "status": "up",
+                    "virtualdev": true
+                  }
+                ],
+                "operatingsystem": {
+                    "arch": "x86_64",
+                    "boot_time": "2023-12-11 08:36:20",
+                    "dns_domain": "home",
+                    "fqdn": "teclib-asus-desktop.home",
+                    "full_name": "Ubuntu 22.04.3 LTS",
+                    "hostid": "007f0101",
+                    "install_date": "2023-09-11 08:40:42",
+                    "kernel_name": "linux",
+                    "kernel_version": "5.15.0-89-generic",
+                    "name": "Ubuntu",
+                    "ssh_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYWwKX1KRqEzIjEsWMQrFX5xDHjx8uTv\/aqNaZ6Xk6m",
+                    "timezone": {
+                        "name": "Europe\/Paris",
+                        "offset": "+0100"
+                    },
+                    "version": "22.04.3 LTS (Jammy Jellyfish)"
+                },
+                "versionclient": "GLPI-Agent_v1.4-1"
+            },
+            "deviceid": "teclib-asus-desktop-2022-09-20-16-43-09",
+            "itemtype": "Computer"
+        }';
+
+        $json = json_decode($json_str);
+        $this->doInventory($json);
+
+        //check created agent
+        $agenttype = $DB->request(['FROM' => \AgentType::getTable(), 'WHERE' => ['name' => 'Core']])->current();
+        $agents = $DB->request(['FROM' => \Agent::getTable()]);
+        $this->integer(count($agents))->isIdenticalTo(1);
+        $agent = $agents->current();
+        $this->array($agent)
+            ->string['deviceid']->isIdenticalTo('teclib-asus-desktop-2022-09-20-16-43-09')
+            ->string['name']->isIdenticalTo('teclib-asus-desktop-2022-09-20-16-43-09')
+            ->string['itemtype']->isIdenticalTo('Computer')
+            ->integer['agenttypes_id']->isIdenticalTo($agenttype['id'])
+            ->integer['items_id']->isGreaterThan(0);
+
+        //check created computer
+        $computers_id = $agent['items_id'];
+        $this->integer($computers_id)->isGreaterThan(0);
+        $computer = new \Computer();
+        $this->boolean($computer->getFromDB($computers_id))->isTrue();
+
+        //check created networkport
+        $networkport1 = new \NetworkPort();
+
+
+        // lo -> ethernet -> NetworkPortEthernet
+        $this->boolean($networkport1->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'lo',
+                'instantiation_type' => 'NetworkPortEthernet'
+            ]
+        ))->isTrue();
+
+        global $DB;
+        $json_str = '
+        {
+            "action": "inventory",
+            "content": {
+                "accesslog": {
+                  "logdate": "2023-12-11 09:39:16"
+                },
+                "bios": {
+                  "assettag": "Asset-1234567890",
+                  "bdate": "2013-10-29",
+                  "bmanufacturer": "American Megatrends Inc.",
+                  "bversion": "1602",
+                  "mmanufacturer": "ASUSTeK COMPUTER INC.",
+                  "mmodel": "Z87-A",
+                  "msn": "131219362301208",
+                  "skunumber": "All",
+                  "smanufacturer": "ASUS",
+                  "smodel": "All Series"
+                },
+                "hardware": {
+                  "chassis_type": "Desktop",
+                  "datelastloggeduser": "Mon Dec 11 09:34",
+                  "defaultgateway": "192.168.1.1",
+                  "dns": "127.0.0.53",
+                  "lastloggeduser": "teclib",
+                  "memory": 32030,
+                  "name": "teclib-asus-desktop",
+                  "swap": 2047,
+                  "uuid": "31042c80-d7da-11dd-93d0-bcee7b8de946",
+                  "vmsystem": "Physical",
+                  "workgroup": "home"
+                },
+                "networks": [
+                  {
+                    "description": "lo",
+                    "ipaddress": "127.0.0.1",
+                    "ipmask": "255.0.0.0",
+                    "ipsubnet": "127.0.0.0",
+                    "mac": "00:00:00:00:00:00",
+                    "type": "loopback",
+                    "status": "up",
+                    "virtualdev": true
+                  }
+                ],
+                "operatingsystem": {
+                    "arch": "x86_64",
+                    "boot_time": "2023-12-11 08:36:20",
+                    "dns_domain": "home",
+                    "fqdn": "teclib-asus-desktop.home",
+                    "full_name": "Ubuntu 22.04.3 LTS",
+                    "hostid": "007f0101",
+                    "install_date": "2023-09-11 08:40:42",
+                    "kernel_name": "linux",
+                    "kernel_version": "5.15.0-89-generic",
+                    "name": "Ubuntu",
+                    "ssh_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYWwKX1KRqEzIjEsWMQrFX5xDHjx8uTv\/aqNaZ6Xk6m",
+                    "timezone": {
+                        "name": "Europe\/Paris",
+                        "offset": "+0100"
+                    },
+                    "version": "22.04.3 LTS (Jammy Jellyfish)"
+                },
+                "versionclient": "GLPI-Agent_v1.4-1"
+            },
+            "deviceid": "teclib-asus-desktop-2022-09-20-16-43-09",
+            "itemtype": "Computer"
+        }';
+
+        $json = json_decode($json_str);
+        $this->doInventory($json);
+
+        //check created networkport
+        $networkport2 = new \NetworkPort();
+
+        // lo -> eloopback -> NetworkPortLocal
+        $this->boolean($networkport2->getFromDbByCrit(
+            [
+                'itemtype' => 'Computer',
+                'items_id' => $computers_id,
+                'name' => 'lo',
+                'instantiation_type' => 'NetworkPortLocal'
+            ]
+        ))->isTrue();
+
+        $this->integer($networkport1->fields['id'])->isIdenticalTo($networkport2->fields['id']);
     }
 }

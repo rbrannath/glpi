@@ -71,7 +71,6 @@ class Html
         return html_entity_decode($value, ENT_QUOTES, "UTF-8");
     }
 
-
     /**
      * Recursivly execute htmlentities on an array
      *
@@ -90,7 +89,6 @@ class Html
 
         return htmlentities($value, ENT_QUOTES, "UTF-8");
     }
-
 
     /**
      * Convert a date YY-MM-DD to DD-MM-YY for calendar
@@ -121,28 +119,22 @@ class Html
         } catch (\Throwable $e) {
             ErrorHandler::getInstance()->handleException($e);
             Session::addMessageAfterRedirect(
-                sprintf(
+                htmlspecialchars(sprintf(
                     __('%1$s %2$s'),
                     $time,
                     _x('adjective', 'Invalid')
-                )
+                ))
             );
             return $time;
         }
-        $mask = 'Y-m-d';
-
-        switch ($format) {
-            case 1: // DD-MM-YYYY
-                $mask = 'd-m-Y';
-                break;
-            case 2: // MM-DD-YYYY
-                $mask = 'm-d-Y';
-                break;
-        }
+        $mask = match ($format) {
+            1 => 'd-m-Y', // DD-MM-YYYY
+            2 => 'm-d-Y', // MM-DD-YYYY
+            default => 'Y-m-d',
+        };
 
         return $date->format($mask);
     }
-
 
     /**
      * Convert a date YY-MM-DD HH:MM to DD-MM-YY HH:MM for display in a html table
@@ -155,14 +147,12 @@ class Html
      **/
     public static function convDateTime($time, $format = null, bool $with_seconds = false)
     {
-
-        if (is_null($time) || ($time == 'NULL')) {
+        if (is_null($time) || ($time === 'NULL')) {
             return null;
         }
 
         return self::convDate($time, $format) . ' ' . substr($time, 11, $with_seconds ? 8 : 5);
     }
-
 
     /**
      * Clean string for input text field
@@ -171,7 +161,7 @@ class Html
      *
      * @return string
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function cleanInputText($string)
     {
@@ -180,9 +170,8 @@ class Html
         if (!is_string($string)) {
             return $string;
         }
-        return preg_replace('/\'/', '&apos;', preg_replace('/\"/', '&quot;', $string));
+        return htmlspecialchars($string);
     }
-
 
     /**
      * Clean all parameters of an URL. Get a clean URL
@@ -193,11 +182,9 @@ class Html
      **/
     public static function cleanParametersURL($url)
     {
-
         $url = preg_replace("/(\/[0-9a-zA-Z\.\-\_]+\.php).*/", "$1", $url);
         return preg_replace("/\?.*/", "", $url);
     }
-
 
     /**
      *  Resume text for followup
@@ -209,14 +196,12 @@ class Html
      **/
     public static function resume_text($string, $length = 255)
     {
-
         if (Toolbox::strlen($string) > $length) {
             $string = Toolbox::substr($string, 0, $length) . "&nbsp;(...)";
         }
 
         return $string;
     }
-
 
     /**
      * Clean post value for display in textarea
@@ -225,30 +210,15 @@ class Html
      *
      * @return string
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function cleanPostForTextArea($value)
     {
         Toolbox::deprecated();
 
-        if (is_array($value)) {
-            return array_map(__METHOD__, $value);
-        }
-        $order   = ['\r\n',
-            '\n',
-            "\\'",
-            '\"',
-            '\\\\'
-        ];
-        $replace = ["\n",
-            "\n",
-            "'",
-            '"',
-            "\\"
-        ];
-        return str_replace($order, $replace, $value);
+        // As input is no more sanitized automatically, this method does not need to revert backslashes anymore.
+        return $value;
     }
-
 
     /**
      * Convert a number to correct display
@@ -265,13 +235,13 @@ class Html
         global $CFG_GLPI;
 
        // Php 5.3 : number_format() expects parameter 1 to be double,
-        if ($number == "") {
+        if ($number === '') {
             $number = 0;
-        } else if ($number == "-") { // used for not defines value (from Infocom::Amort, p.e.)
+        } else if ($number === "-") { // used for not defines value (from Infocom::Amort, p.e.)
             return "-";
         }
 
-        $number  = doubleval($number);
+        $number  = (float) $number;
         $decimal = $CFG_GLPI["decimal_number"];
         if ($forcedecimal >= 0) {
             $decimal = $forcedecimal;
@@ -282,25 +252,15 @@ class Html
             return number_format($number, $decimal, '.', '');
         }
 
-       // Display : clean display
-        switch ($_SESSION['glpinumber_format']) {
-            case 0: // French
-                return number_format($number, $decimal, '.', ' ');
-
-            case 2: // Other French
-                return number_format($number, $decimal, ',', ' ');
-
-            case 3: // No space with dot
-                return number_format($number, $decimal, '.', '');
-
-            case 4: // No space with comma
-                return number_format($number, $decimal, ',', '');
-
-            default: // English
-                return number_format($number, $decimal, '.', ',');
-        }
+        // Display : clean display
+        return match ((int) $_SESSION['glpinumber_format']) {
+            0 => number_format($number, $decimal, '.', ' '),
+            2 => number_format($number, $decimal, ',', ' '),
+            3 => number_format($number, $decimal, '.', ''),
+            4 => number_format($number, $decimal, ',', ''),
+            default => number_format($number, $decimal, '.', ','),
+        };
     }
-
 
     /**
      * Make a good string from the unix timestamp $sec
@@ -313,7 +273,6 @@ class Html
      **/
     public static function timestampToString($time, $display_sec = true, $use_days = true)
     {
-
         $time = (float)$time;
 
         $sign = '';
@@ -437,9 +396,9 @@ class Html
     /**
      * Redirection to $_SERVER['HTTP_REFERER'] page
      *
-     * @return void
+     * @return never
      **/
-    public static function back()
+    public static function back(): never
     {
         self::redirect(self::getBackUrl());
     }
@@ -448,12 +407,12 @@ class Html
     /**
      * Redirection hack
      *
-     * @param $dest string: Redirection destination
-     * @param $http_response_code string: Forces the HTTP response code to the specified value
+     * @param string $dest Redirection destination
+     * @param string $http_response_code Forces the HTTP response code to the specified value
      *
-     * @return void
+     * @return never
      **/
-    public static function redirect($dest, $http_response_code = 302)
+    public static function redirect($dest, $http_response_code = 302): never
     {
 
         $toadd = '';
@@ -526,24 +485,22 @@ class Html
      **/
     public static function displayNotFoundError(string $additional_info = '')
     {
-        /**
-         * @var array $CFG_GLPI
-         * @var bool $HEADER_LOADED
-         */
-        global $CFG_GLPI, $HEADER_LOADED;
+        /** @var bool $HEADER_LOADED */
+        global $HEADER_LOADED;
 
         if (!$HEADER_LOADED) {
             if (!Session::getCurrentInterface()) {
                 self::nullHeader(__('Access denied'));
-            } else if (Session::getCurrentInterface() == "central") {
+            } else if (Session::getCurrentInterface() === "central") {
                 self::header(__('Access denied'));
-            } else if (Session::getCurrentInterface() == "helpdesk") {
+            } else if (Session::getCurrentInterface() === "helpdesk") {
                 self::helpHeader(__('Access denied'));
             }
         }
-        echo "<div class='center'><br><br>";
-        echo "<img src='" . $CFG_GLPI["root_doc"] . "/pics/warning.png' alt='" . __s('Warning') . "'>";
-        echo "<br><br><span class='b'>" . __('Item not found') . "</span></div>";
+        TemplateRenderer::getInstance()->display('display_and_die.html.twig', [
+            'message' => __('Item not found'),
+            'link'    => self::getBackUrl()
+        ]);
         $requested_url = $_SERVER['REQUEST_URI'] ?? 'Unknown';
         $user_id = Session::getLoginUserID() ?? 'Anonymous';
         $internal_message = "User ID: $user_id tried to access a non-existent item $requested_url. Additional information: $additional_info\n";
@@ -566,7 +523,7 @@ class Html
     public static function displayRightError(string $additional_info = '')
     {
         Toolbox::handleProfileChangeRedirect();
-        $requested_url = (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : 'Unknown');
+        $requested_url = ($_SERVER['REQUEST_URI'] ?? 'Unknown');
         $user_id = Session::getLoginUserID() ?? 'Anonymous';
         if (empty($additional_info)) {
             $additional_info = __('No additional information given');
@@ -593,30 +550,6 @@ class Html
             'display_container' => $display_container
         ]);
     }
-
-
-    /**
-     * @deprecated since version 10.1.0
-     */
-    public static function displayAjaxMessageAfterRedirect()
-    {
-        Toolbox::deprecated("The js function is already provided by js/misc.js");
-
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        echo Html::scriptBlock("
-      displayAjaxMessageAfterRedirect = function() {
-         $('.messages_after_redirect').remove();
-         $.ajax({
-            url:  '" . $CFG_GLPI['root_doc'] . "/ajax/displayMessageAfterRedirect.php',
-            success: function(html) {
-               $('body').append(html);
-            }
-         });
-      }");
-    }
-
 
     /**
      * Common Title Function
@@ -645,7 +578,7 @@ class Html
 
         if (is_array($ref_btts) && count($ref_btts)) {
             foreach ($ref_btts as $key => $val) {
-                echo "<a class='btn btn-outline-secondary' href='" . $key . "'>" . $val . "</a>";
+                echo "<a class='btn btn-outline-secondary' href='" . htmlspecialchars($key) . "'>" . htmlspecialchars($val) . "</a>";
             }
         }
         echo "</div>";
@@ -700,9 +633,9 @@ class Html
     {
         $url_referer = self::getBackUrl();
         if ($url_referer !== false) {
-            echo "<a href='$url_referer'>" . __('Back') . "</a>";
+            echo '<a href="' . htmlspecialchars($url_referer) . '">' . __s('Back') . "</a>";
         } else {
-            echo "<a href='javascript:history.back();'>" . __('Back') . "</a>";
+            echo "<a href='javascript:history.back();'>" . __s('Back') . "</a>";
         }
     }
 
@@ -720,17 +653,16 @@ class Html
     {
         if (
             isset($_SERVER['HTTP_REFERER'])
-            && strlen($url_in) == 0
+            && $url_in === ''
         ) {
             $url_in = $_SERVER['HTTP_REFERER'];
         }
-        if (strlen($url_in) > 0) {
+        if ($url_in !== '') {
             $url = parse_url($url_in);
 
             if (isset($url['query'])) {
                 parse_str($url['query'], $parameters);
-                unset($parameters['forcetab']);
-                unset($parameters['tab_params']);
+                unset($parameters['forcetab'], $parameters['tab_params']);
                 $new_query = http_build_query($parameters);
                 return str_replace($url['query'], $new_query, $url_in);
             }
@@ -778,15 +710,14 @@ class Html
     /**
      * Add confirmation on button or link before action
      *
-     * @param $string             string   to display or array of string for using multilines
-     * @param $additionalactions  string   additional actions to do on success confirmation
+     * @param string $string             to display or array of string for using multilines
+     * @param string $additionalactions  additional actions to do on success confirmation
      *                                     (default '')
      *
      * @return string
      **/
     public static function addConfirmationOnAction($string, $additionalactions = '')
     {
-
         return "onclick=\"" . htmlspecialchars(Html::getConfirmationOnActionScript($string, $additionalactions)) . "\"";
     }
 
@@ -796,8 +727,8 @@ class Html
      *
      * @since 0.85
      *
-     * @param $string             string   to display or array of string for using multilines
-     * @param $additionalactions  string   additional actions to do on success confirmation
+     * @param string $string             to display or array of string for using multilines
+     * @param string $additionalactions  additional actions to do on success confirmation
      *                                     (default '')
      *
      * @return string confirmation script
@@ -839,18 +770,17 @@ class Html
      *
      * @since 0.85
      *
-     * @param $id                 HTML ID of the progress bar
-     * @param $options    array   progress status
+     * @param string $id HTML ID of the progress bar
+     * @param array $options progress status options
      *                    - create    do we have to create it ?
-     *                    - message   add or change the message
-     *                    - percent   current level
+     *                    - message   add or change the message (HTML allowed. Text content must be escaped)
+     *                    - percent   current level (Must be cast to a numeric type)
      *
      *
      * @return string|void Generated HTML if `display` param is true, void otherwise.
      **/
     public static function progressBar($id, array $options = [])
     {
-
         $params = [
             'create'    => false,
             'message'   => null,
@@ -938,17 +868,24 @@ HTML;
      * Create a Dynamic Progress Bar
      *
      * @param string $msg  initial message (under the bar)
+     * @param array  $options See {@link Html::progressBar()} for available options (excluding message)
      *
-     * @return void
+     * @return string|void
+     * @deprecated 11.0.0
+     * @see Html::progressBar()
      **/
-    public static function createProgressBar($msg = "&nbsp;")
+    public static function createProgressBar($msg = null, array $options = [])
     {
+        Toolbox::deprecated('Html::createProgressBar is deprecated. Use Html::progressBar instead.');
+        $options = array_replace([
+            'create' => true,
+            'display' => true
+        ], $options);
+        $options['message'] = $msg;
 
-        $options = ['create' => true];
-        if ($msg != "&nbsp;") {
-            $options['message'] = $msg;
+        if (!$options['display']) {
+            return self::progressBar('doaction_progress', $options);
         }
-
         self::progressBar('doaction_progress', $options);
     }
 
@@ -961,7 +898,6 @@ HTML;
      **/
     public static function changeProgressBarMessage($msg = "&nbsp;")
     {
-
         self::progressBar('doaction_progress', ['message' => $msg]);
         self::glpi_flush();
     }
@@ -978,7 +914,6 @@ HTML;
      **/
     public static function changeProgressBarPosition($crt, $tot, $msg = "")
     {
-
         $options = [];
 
         if (!$tot) {
@@ -1176,6 +1111,10 @@ HTML;
                 Html::requireJs('marketplace');
             }
 
+            if (in_array('kb', $jslibs)) {
+                $tpl_vars['css_files'][] = ['path' => 'css/standalone/kb.scss'];
+            }
+
             if (in_array('rack', $jslibs)) {
                 Html::requireJs('rack');
             }
@@ -1188,11 +1127,6 @@ HTML;
 
             if (in_array('masonry', $jslibs)) {
                 Html::requireJs('masonry');
-            }
-
-            if (in_array('prism', $jslibs)) {
-                Html::requireJs('prismjs');
-                $tpl_vars['css_files'][] = ['path' => 'public/lib/prismjs.css'];
             }
 
             if (in_array('tinymce', $jslibs)) {
@@ -1289,6 +1223,7 @@ HTML;
         $tpl_vars['js_files'][] = ['path' => 'public/lib/base.js'];
         $tpl_vars['js_files'][] = ['path' => 'js/webkit_fix.js'];
         $tpl_vars['js_modules'][] = ['path' => 'public/build/vue/app.js'];
+        $tpl_vars['js_files'][] = ['path' => 'js/common_ajax_controller.js'];
         $tpl_vars['js_files'][] = ['path' => 'js/common.js'];
 
        // Search
@@ -1387,7 +1322,8 @@ HTML;
                 'title' => __('Administration'),
                 'types' => [
                     'User', 'Group', 'Entity', 'Rule',
-                    'Profile', 'QueuedNotification', 'Glpi\System\Log\LogViewer', 'Glpi\Inventory\Inventory'
+                    'Profile', 'QueuedNotification', 'Glpi\System\Log\LogViewer',
+                    'Glpi\Inventory\Inventory', 'Glpi\Form\Form',
                 ],
                 'icon'  => 'ti ti-shield-check'
             ],
@@ -1419,16 +1355,18 @@ HTML;
      *
      * @since  9.2
      *
+-    * @param  boolean $force do we need to force regeneration of $_SESSION['glpimenu']
      * @return array the menu array
      */
-    public static function generateMenuSession()
+    public static function generateMenuSession($force = false)
     {
         /** @var array $PLUGIN_HOOKS */
         global $PLUGIN_HOOKS;
         $menu = [];
 
         if (
-            GLPI_ENVIRONMENT_TYPE === GLPI::ENV_DEVELOPMENT
+            $force
+            || GLPI_ENVIRONMENT_TYPE === GLPI::ENV_DEVELOPMENT
             || !isset($_SESSION['glpimenu'])
             || !is_array($_SESSION['glpimenu'])
             || (count($_SESSION['glpimenu']) == 0)
@@ -1519,7 +1457,6 @@ HTML;
             }
 
             $_SESSION['glpimenu'] = $menu;
-           // echo 'menu load';
         } else {
             $menu = $_SESSION['glpimenu'];
         }
@@ -1721,7 +1658,7 @@ HTML;
             && !$DB->first_connection
         ) {
             echo "<div id='dbslave-float'>";
-            echo "<a href='#see_debug'>" . __('SQL replica: read only') . "</a>";
+            echo "<a href='#see_debug'>" . __s('SQL replica: read only') . "</a>";
             echo "</div>";
         }
 
@@ -1733,7 +1670,7 @@ HTML;
     /**
      * Print footer for every page
      *
-     * @param $keepDB boolean, closeDBConnections if false (false by default)
+     * @param boolean $keepDB closeDBConnections if false (false by default)
      **/
     public static function footer($keepDB = false)
     {
@@ -1759,8 +1696,8 @@ HTML;
 
         if (isset($CFG_GLPI['notifications_ajax']) && $CFG_GLPI['notifications_ajax'] && !Session::isImpersonateActive()) {
             $options = [
-                'interval'  => ($CFG_GLPI['notifications_ajax_check_interval'] ? $CFG_GLPI['notifications_ajax_check_interval'] : 5) * 1000,
-                'sound'     => $CFG_GLPI['notifications_ajax_sound'] ? $CFG_GLPI['notifications_ajax_sound'] : false,
+                'interval'  => ($CFG_GLPI['notifications_ajax_check_interval'] ?: 5) * 1000,
+                'sound'     => $CFG_GLPI['notifications_ajax_sound'] ?: false,
                 'icon'      => ($CFG_GLPI["notifications_ajax_icon_url"] ? $CFG_GLPI['root_doc'] . $CFG_GLPI['notifications_ajax_icon_url'] : false),
                 'user_id'   => Session::getLoginUserID()
             ];
@@ -1865,16 +1802,16 @@ HTML;
         }
     }
 
-
     /**
      * Display Ajax Footer for debug
-     **/
+     *
+     * @deprecated 11.0.0
+     */
     public static function ajaxFooter()
     {
         // Not currently used. Old debug stuff is now in the new debug bar.
-        // FIXME: Deprecate this in GLPI 10.1.
+        Toolbox::deprecated();
     }
-
 
     /**
      * Print a simple HTML head with links
@@ -2079,7 +2016,7 @@ HTML;
      *
      * @param string  $title    title of the page
      * @param string  $url      not used anymore
-     * @param boolean $iframed  indicate if page loaded in iframe - css target
+     * @param boolean $in_modal indicate if page loaded in modal - css target
      * @param string  $sector    sector in which the page displayed is (default 'none')
      * @param string  $item      item corresponding to the page displayed (default 'none')
      * @param string  $option    option corresponding to the page displayed (default '')
@@ -2184,99 +2121,17 @@ HTML;
      **/
     public static function header_nocache()
     {
-
         header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
         header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); // Date du passe
     }
-
-
-
-    /**
-     * show arrow for massives actions : opening
-     *
-     * @param string  $formname
-     * @param boolean $fixed     used tab_cadre_fixe in both tables
-     * @param boolean $ontop     display on top of the list
-     * @param boolean $onright   display on right of the list
-     *
-     * @deprecated 0.84
-     **/
-    public static function openArrowMassives($formname, $fixed = false, $ontop = false, $onright = false)
-    {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        Toolbox::deprecated('openArrowMassives() method is deprecated');
-
-        if ($fixed) {
-            echo "<table width='950px'>";
-        } else {
-            echo "<table width='80%'>";
-        }
-
-        $arrow = "fas fa-level-down-alt";
-        if (!$ontop) {
-            $arrow = "fas fa-level-up-alt";
-        }
-
-        echo "<tr>";
-        if (!$onright) {
-            echo "<td><i class='$arrow fa-flip-horizontal fa-lg mx-2'></i></td>";
-        } else {
-            echo "<td class='left' width='80%'></td>";
-        }
-        echo "<td class='center' style='white-space:nowrap;'>";
-        echo "<a onclick= \"if ( markCheckboxes('$formname') ) return false;\"
-             href='#'>" . __('Check all') . "</a></td>";
-        echo "<td>/</td>";
-        echo "<td class='center' style='white-space:nowrap;'>";
-        echo "<a onclick= \"if ( unMarkCheckboxes('$formname') ) return false;\"
-             href='#'>" . __('Uncheck all') . "</a></td>";
-
-        if ($onright) {
-            echo "<td><i class='$arrow fa-lg mx-2'></i>";
-        } else {
-            echo "<td class='left' width='80%'>";
-        }
-    }
-
-
-    /**
-     * show arrow for massives actions : closing
-     *
-     * @param $actions array of action : $name -> $label
-     * @param $confirm array of confirmation string (optional)
-     *
-     * @deprecated 0.84
-     **/
-    public static function closeArrowMassives($actions, $confirm = [])
-    {
-
-        Toolbox::deprecated('closeArrowMassives() method is deprecated');
-
-        if (count($actions)) {
-            foreach ($actions as $name => $label) {
-                if (!empty($name)) {
-                    echo "<input type='submit' name='$name' ";
-                    if (is_array($confirm) && isset($confirm[$name])) {
-                        echo self::addConfirmationOnAction($confirm[$name]);
-                    }
-                    echo "value=\"" . htmlspecialchars($label) . "\" class='btn btn-primary'>&nbsp;";
-                }
-            }
-        }
-        echo "</td></tr>";
-        echo "</table>";
-    }
-
 
     /**
      * Get "check All as" checkbox
      *
      * @since 0.84
      *
-     * @param $container_id  string html of the container of checkboxes link to this check all checkbox
-     * @param $rand          string rand value to use (default is auto generated)(default '')
+     * @param string $container_id  html of the container of checkboxes link to this check all checkbox
+     * @param string $rand          rand value to use (default is auto generated)(default '')
      *
      * @return string
      **/
@@ -2458,7 +2313,7 @@ HTML;
      *
      * @since 0.85
      *
-     * @param $options   array
+     * @param array $options
      *
      * @return void
      **/
@@ -2564,7 +2419,7 @@ HTML;
      *
      * @todo replace 'hidden' by data-glpicore-ma-tags ?
      *
-     * @param $options   array    of parameters
+     * @param array $options  Array of parameters
      * must contains :
      *    - container       : DOM ID of the container of the item checkboxes (since version 0.85)
      * may contains :
@@ -2666,9 +2521,9 @@ HTML;
                 || (isset($p['forcecreate']) && $p['forcecreate'])
             ) {
                 $out .= "<span class='b'>";
-                $out .= __('Selection too large, massive action disabled.') . "</span>";
-                if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
-                    $out .= __('To increase the limit: change max_input_vars or suhosin.post.max_vars in php configuration.');
+                $out .= __s('Selection too large, massive action disabled.') . "</span>";
+                if ($_SESSION['glpi_use_mode'] === Session::DEBUG_MODE) {
+                    $out .= __s('To increase the limit: change max_input_vars or suhosin.post.max_vars in php configuration.');
                 }
             }
         } else {
@@ -3067,127 +2922,11 @@ JS;
     }
 
     /**
-     * Display TimeField form
-     *
-     * @param string $name
-     * @param array  $options
-     *   - value      : default value to display (default '')
-     *   - timestep   : step for time in minute (-1 use default config) (default -1)
-     *   - maybeempty : may be empty ? (true by default)
-     *   - canedit    : could not modify element (true by default)
-     *   - mintime    : minimum allowed time (default '')
-     *   - maxtime    : maximum allowed time (default '')
-     *   - display    : boolean display or get string (default true)
-     *   - rand       : specific random value (default generated one)
-     *   - required   : required field (will add required attribute)
-     *   - on_change  : function to execute when date selection changed
-     * @return void
-     */
-    public static function showTimeField($name, $options = [])
-    {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        $p = [
-            'value'      => '',
-            'maybeempty' => true,
-            'canedit'    => true,
-            'mintime'    => '',
-            'maxtime'    => '',
-            'timestep'   => -1,
-            'display'    => true,
-            'rand'       => mt_rand(),
-            'required'   => false,
-            'on_change'  => '',
-        ];
-
-        foreach ($options as $key => $val) {
-            if (isset($p[$key])) {
-                $p[$key] = $val;
-            }
-        }
-
-        if ($p['timestep'] < 0) {
-            $p['timestep'] = $CFG_GLPI['time_step'];
-        }
-
-        $hour_value = '';
-        if (!empty($p['value'])) {
-            $hour_value = $p['value'];
-        }
-
-        if (!empty($p['mintime'])) {
-           // Check time in interval
-            if (!empty($hour_value) && ($hour_value < $p['mintime'])) {
-                $hour_value = $p['mintime'];
-            }
-        }
-        if (!empty($p['maxtime'])) {
-           // Check time in interval
-            if (!empty($hour_value) && ($hour_value > $p['maxtime'])) {
-                $hour_value = $p['maxtime'];
-            }
-        }
-       // reconstruct value to be valid
-        if (!empty($hour_value)) {
-            $p['value'] = $hour_value;
-        }
-
-        $required = $p['required'] == true
-         ? " required='required'"
-         : "";
-        $disabled = !$p['canedit']
-         ? " disabled='disabled'"
-         : "";
-        $clear    = $p['maybeempty'] && $p['canedit']
-         ? "<a data-clear  title='" . __s('Clear') . "'>
-               <i class='input-group-text fas fa-times-circle pointer'></i>
-            </a>"
-         : "";
-
-        $output = <<<HTML
-         <div class="input-group flex-grow-1 flatpickr" id="showtime{$p['rand']}">
-            <input type="text" name="{$name}" value="{$p['value']}"
-                   {$required} {$disabled} data-input class="form-control rounded-start ps-2">
-            <a class="input-button" data-toggle>
-               <i class="input-group-text far fa-clock fa-lg pointer"></i>
-            </a>
-            $clear
-         </div>
-HTML;
-        $locale = Locale::parseLocale($_SESSION['glpilanguage']);
-        $js = <<<JS
-      $(function() {
-         $("#showtime{$p['rand']}").flatpickr({
-            dateFormat: 'H:i:S',
-            wrap: true, // permits to have controls in addition to input (like clear or open date buttons)
-            enableTime: true,
-            noCalendar: true, // only time picker
-            enableSeconds: true,
-            time_24hr: true,
-            locale: getFlatPickerLocale("{$locale['language']}", "{$locale['region']}"),
-            minuteIncrement: "{$p['timestep']}",
-            onChange: function(selectedDates, dateStr, instance) {
-               {$p['on_change']}
-            }
-         });
-      });
-JS;
-        $output .= Html::scriptBlock($js);
-
-        if ($p['display']) {
-            echo $output;
-            return $p['rand'];
-        }
-        return $output;
-    }
-
-    /**
      * Show generic date search
      *
      * @param string $element  name of the html element
      * @param string $value    default value
-     * @param $options   array of possible options:
+     * @param array $options   Array of possible options:
      *      - with_time display with time selection ? (default false)
      *      - with_future display with future date selection ? (default false)
      *      - with_days display specific days selection TODAY, BEGINMONTH, LASTMONDAY... ? (default true)
@@ -3601,8 +3340,8 @@ JS;
     /**
      * Show a tooltip on an item
      *
-     * @param $content   string   data to put in the tooltip
-     * @param $options   array    of possible options:
+     * @param string $content  data to put in the tooltip
+     * @param array $options   Array of possible options:
      *   - applyto : string / id of the item to apply tooltip (default empty).
      *                  If not set display an icon
      *   - title : string / title to display (default empty)
@@ -3746,72 +3485,19 @@ JS;
         }
     }
 
-
-    /**
-     * Show div with auto completion
-     *
-     * @param CommonDBTM $item    item object used for create dropdown
-     * @param string     $field   field to search for autocompletion
-     * @param array      $options array of possible options:
-     *    - name    : string / name of the select (default is field parameter)
-     *    - value   : integer / preselected value (default value of the item object)
-     *    - size    : integer / size of the text field
-     *    - entity  : integer / restrict to a defined entity (default entity of the object if define)
-     *                set to -1 not to take into account
-     *    - user    : integer / restrict to a defined user (default -1 : no restriction)
-     *    - option  : string / options to add to text field
-     *    - display : boolean / if false get string
-     *    - type    : string / html5 field type (number, date, text, ...) defaults to 'text'
-     *    - required: boolean / whether the field is required
-     *    - rand    : integer / pre-exsting random value
-     *    - attrs   : array of attributes to add (['name' => 'value']
-     *
-     * @return void|string
-     **/
-    public static function autocompletionTextField(CommonDBTM $item, $field, $options = [])
-    {
-        Toolbox::deprecated('Autocompletion feature has been removed.');
-
-        $params['name']   = $field;
-        $params['value']  = '';
-
-        if (array_key_exists($field, $item->fields)) {
-            $params['value'] = $item->fields[$field];
-        }
-        $params['option'] = '';
-        $params['type']   = 'text';
-        $params['required']  = false;
-
-        if (is_array($options) && count($options)) {
-            foreach ($options as $key => $val) {
-                $params[$key] = $val;
-            }
-        }
-
-        $rand = (isset($params['rand']) ? $params['rand'] : mt_rand());
-        $name    = "field_" . $params['name'] . $rand;
-
-        $output = "<input " . $params['option'] . " type='text' id='text$name' class='form-control' name='" . $params['name'] . "'
-                value=\"" . htmlspecialchars($params['value']) . "\"" .
-                ($params['required'] ? ' required="required"' : '') . ">";
-
-        if (!isset($options['display']) || $options['display']) {
-            echo $output;
-        } else {
-            return $output;
-        }
-    }
-
-
     /**
      * Init the Editor System to a textarea
      *
-     * @param string  $id            id of the html textarea to use
-     * @param string  $rand          rand of the html textarea to use (if empty no image paste system)(default '')
-     * @param boolean $display       display or get js script (true by default)
-     * @param boolean $readonly      editor will be readonly or not
-     * @param boolean $enable_images enable image pasting in rich text
-     * @param int     $editor_height editor default height
+     * @param string  $id               id of the html textarea to use
+     * @param string  $rand             rand of the html textarea to use (if empty no image paste system)(default '')
+     * @param boolean $display          display or get js script (true by default)
+     * @param boolean $readonly         editor will be readonly or not
+     * @param boolean $enable_images    enable image pasting in rich text
+     * @param int     $editor_height    editor default height
+     * @param array   $add_body_classes tinymce iframe's body classes
+     * @param string  $toolbar_location tinymce toolbar location (default: top)
+     * @param bool    $init             init the editor (default: true)
+     * @param string  $placeholder      textarea placeholder
      *
      * @return void|string
      *    integer if param display=true
@@ -3824,6 +3510,10 @@ JS;
         $readonly = false,
         $enable_images = true,
         int $editor_height = 150,
+        array $add_body_classes = [],
+        string $toolbar_location = 'top',
+        bool $init = true,
+        string $placeholder = ''
     ) {
         /**
          * @var array $CFG_GLPI
@@ -3858,6 +3548,10 @@ JS;
         }, $content_css_paths));
         $content_css .= ',' . preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('public/lib/base.css', ['force_no_version' => true]));
         $skin_url = preg_replace('/^.*href="([^"]+)".*$/', '$1', self::css('css/standalone/tinymce_empty_skin', ['force_no_version' => true]));
+
+        // TODO: the recent changes to $skin_url above break tinyMCE's placeholders
+        // Reverted to the previous version here, but this should be fixed properly
+        $skin_url = $CFG_GLPI['root_doc'] . "/public/lib/tinymce/skins/ui/oxide";
 
         $cache_suffix = '?v=' . FrontEnd::getVersionCacheKey(GLPI_VERSION);
         $readonlyjs   = $readonly ? 'true' : 'false';
@@ -3901,34 +3595,51 @@ JS;
 
         $mandatory_field_msg = json_encode(__('The %s field is mandatory'));
 
-        // init tinymce
+        // Add custom classes to tinymce body
+        $body_class = "rich_text_container";
+        foreach ($add_body_classes as $class) {
+            $body_class .= " $class";
+        }
+
+        // Compute init option as "string boolean" so it can be inserted directly into the js output
+        $init = $init ? 'true' : 'false';
+
         $js = <<<JS
          $(function() {
             const html_el = $('html');
             var richtext_layout = "{$_SESSION['glpirichtext_layout']}";
 
-            // init editor
-            tinyMCE.init(Object.assign({
+            // Store config in global var so the editor can be reinitialized from the client side if needed
+            tinymce_editor_configs['{$id}'] = Object.assign({
+               license_key: 'gpl',
+
                link_default_target: '_blank',
                branding: false,
-               selector: '#{$id}',
+               selector: '#' + $.escapeSelector('{$id}'),
                text_patterns: false,
 
                plugins: {$pluginsjs},
 
                // Appearance
                skin_url: '{$skin_url}', // Doesn't matter which skin is used. We include the proper skins in the core GLPI styles.
-               body_class: 'rich_text_container',
+               body_class: '{$body_class}',
                content_css: '{$content_css}',
+               highlight_on_focus: false,
+               autoresize_bottom_margin: 0, // Avoid excessive bottom padding
+               autoresize_overflow_padding: 0,
 
                min_height: $editor_height,
+               height: $editor_height, // Must be used with min_height to prevent "height jump" when the page is loaded
                resize: true,
 
                // disable path indicator in bottom bar
                elementpath: false,
 
+               placeholder: "{$placeholder}",
+
                // inline toolbar configuration
                menubar: false,
+               toolbar_location: '{$toolbar_location}',
                toolbar: richtext_layout == 'classic'
                   ? 'styles | bold italic | forecolor backcolor | bullist numlist outdent indent | emoticons table link image | code fullscreen'
                   : false,
@@ -3952,6 +3663,10 @@ JS;
                // Misc options
                browser_spellcheck: true,
                cache_suffix: '{$cache_suffix}',
+
+               // Security options
+               // Iframes are disabled by default. We assume that administrator that enable it are aware of the potential security issues.
+               sandbox_iframes: false,
 
                init_instance_callback: (editor) => {
                    const page_root_el = $(document.documentElement);
@@ -3999,21 +3714,50 @@ JS;
                         // Pasting with Ctrl+V is already handled by keyup event above
                         $(editor.container).removeClass('required');
                      });
-                  }
+                   }
+                        // Propagate click event to allow other components to
+                        // listen to it
+                        editor.on('click', function (e) {
+                            $(document).trigger('tinyMCEClick', [e]);
+                        });
 
-                  editor.on('Change', function (e) {
-                     // Nothing fancy here. Since this is only used for tracking unsaved changes,
-                     // we want to keep the logic in common.js with the other form input events.
-                     onTinyMCEChange(e);
-                  });
-                  // ctrl + enter submit the parent form
-                  editor.addShortcut('ctrl+13', 'submit', function() {
-                     editor.save();
-                     submitparentForm($('#$id'));
-                  });
-               }
-            }, {$language_opts}));
-         });
+                        // Simulate focus on content-editable tinymce
+                        editor.on('click focus', function (e) {
+                            // Some focus events don't have the correct target and cant be handled
+                            if (!$(e.target.editorContainer).length) {
+                                return;
+                            }
+
+                            // Clear focus on other editors
+                            $('.simulate-focus').removeClass('simulate-focus');
+
+                            // Simulate input focus on our current editor
+                            $(e.target.editorContainer)
+                                .closest('.content-editable-tinymce')
+                                .addClass('simulate-focus');
+                        });
+
+                        editor.on('Change', function (e) {
+                            // Nothing fancy here. Since this is only used for tracking unsaved changes,
+                            // we want to keep the logic in common.js with the other form input events.
+                            onTinyMCEChange(e);
+
+                            // Propagate event to the document to allow other components to listen to it
+                            $(document).trigger('tinyMCEChange', [e]);
+                        });
+                        // ctrl + enter submit the parent form
+                        editor.addShortcut('ctrl+13', 'submit', function() {
+                            editor.save();
+                            submitparentForm($('#$id'));
+                        });
+                    }
+                }, {$language_opts});
+
+                // Init tinymce
+                if ({$init}) {
+                    tinyMCE.init(tinymce_editor_configs['{$id}']);
+                }
+            });
 JS;
 
         if ($display) {
@@ -4026,7 +3770,8 @@ JS;
     /**
      * Activate autocompletion for user templates in rich text editor.
      *
-     * @param string $editor_id
+     * @param string $selector Selector of the textarea to activate autocompletion for
+     * @param array  $values   Array of values to use for autocompletion
      *
      * @return void
      *
@@ -4054,7 +3799,7 @@ JAVASCRIPT
     /**
      * Insert an html link to the twig template variables documentation page
      *
-     * @param string $preset_traget Preset of parameters for which to show documentation (key)
+     * @param string $preset_target Preset of parameters for which to show documentation (key)
      * @param string|null $link_id  Useful if you need to interract with the link through client side code
      */
     public static function addTemplateDocumentationLink(
@@ -4086,7 +3831,7 @@ JAVASCRIPT
      * Useful if you don't have access to the form where you want to put this link at
      *
      * @param string $selector JQuery selector to find the target textarea
-     * @param string $preset_traget   Preset of parameters for which to show documentation (key)
+     * @param string $preset_target   Preset of parameters for which to show documentation (key)
      */
     public static function addTemplateDocumentationLinkJS(
         string $selector,
@@ -4274,7 +4019,7 @@ JAVASCRIPT
      * @param integer        $numrows                 total items
      * @param string         $target                  page would be open when click on the option (last,previous etc)
      * @param string         $parameters              parameters would be passed on the URL.
-     * @param integer|string $item_type_output        item type display - if >0 display export PDF et Sylk form
+     * @param integer|string $item_type_output        item type display - if >0 display export
      * @param integer|string $item_type_output_param  item type parameter for export
      * @param string         $additional_info         Additional information to display (default '')
      *
@@ -4359,6 +4104,7 @@ JAVASCRIPT
             !empty($item_type_output)
             && isset($_SESSION["glpiactiveprofile"])
             && (Session::getCurrentInterface() == "central")
+            && $numrows > 0
         ) {
             echo "<td class='tab_bg_2 responsive_hidden' width='30%'>";
             echo "<form method='GET' action='" . $CFG_GLPI["root_doc"] . "/front/report.dynamic.php'>";
@@ -4454,9 +4200,9 @@ JAVASCRIPT
     /**
      * Create a title for list, as  "List (5 on 35)"
      *
-     * @param $string String  text for title
-     * @param $num    Integer number of item displayed
-     * @param $tot    Integer number of item existing
+     * @param string $string Text for title
+     * @param integer $num   Number of item displayed
+     * @param integer $tot   Number of item existing
      *
      * @since 0.83.1
      *
@@ -4464,32 +4210,31 @@ JAVASCRIPT
      **/
     public static function makeTitle($string, $num, $tot)
     {
-
         if (($num > 0) && ($num < $tot)) {
            // TRANS %1$d %2$d are numbers (displayed, total)
             $cpt = "<span class='primary-bg primary-fg count'>" .
-            sprintf(__('%1$d on %2$d'), $num, $tot) . "</span>";
+            htmlspecialchars(sprintf(__('%1$d on %2$d'), $num, $tot)) . "</span>";
         } else {
            // $num is 0, so means configured to display nothing
            // or $num == $tot
             $cpt = "<span class='primary-bg primary-fg count'>$tot</span>";
         }
-        return sprintf(__('%1$s %2$s'), $string, $cpt);
+        return sprintf(__s('%1$s %2$s'), htmlspecialchars($string), $cpt);
     }
 
 
     /**
      * create a minimal form for simple action
      *
-     * @param $action   String   URL to call on submit
-     * @param $btname   String   button name (maybe if name <> value)
-     * @param $btlabel  String   button label
-     * @param $fields   Array    field name => field  value
-     * @param $btimage  String   button image uri (optional)   (default '')
+     * @param string $action   URL to call on submit
+     * @param string $btname   Button name (maybe if name <> value)
+     * @param string $btlabel  Button label
+     * @param array $fields    Field name => field  value
+     * @param string $btimage  Button image uri (optional)   (default '')
      *                           If image name starts with "fa-", il will be turned into
      *                           a font awesome element rather than an image.
-     * @param $btoption String   optional button option        (default '')
-     * @param $confirm  String   optional confirm message      (default '')
+     * @param string $btoption Optional button option        (default '')
+     * @param string $confirm  Optional confirm message      (default '')
      *
      * @since 0.84
      **/
@@ -4553,13 +4298,13 @@ JAVASCRIPT
     /**
      * create a minimal form for simple action
      *
-     * @param $action   String   URL to call on submit
-     * @param $btname   String   button name
-     * @param $btlabel  String   button label
-     * @param $fields   Array    field name => field  value
-     * @param $btimage  String   button image uri (optional) (default '')
-     * @param $btoption String   optional button option (default '')
-     * @param $confirm  String   optional confirm message (default '')
+     * @param string $action   URL to call on submit
+     * @param string $btname   Button name
+     * @param string $btlabel  Button label
+     * @param array $fields    Field name => field  value
+     * @param string $btimage  Button image uri (optional) (default '')
+     * @param string $btoption Optional button option (default '')
+     * @param string $confirm  Optional confirm message (default '')
      *
      * @since 0.83.3
      **/
@@ -4580,19 +4325,16 @@ JAVASCRIPT
     /**
      * Create a close form part including CSRF token
      *
-     * @param $display boolean Display or return string (default true)
+     * @param boolean $display Display or return string (default true)
      *
      * @since 0.83.
      *
-     * @return string
+     * @return string|true
+     * @phpstan-return $display is true ? true : string
      **/
     public static function closeForm($display = true)
     {
-        $out = '';
-
-        if (GLPI_USE_CSRF_CHECK) {
-            $out .= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
-        }
+        $out = Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
 
         $out .= "</form>";
         if ($display) {
@@ -4602,41 +4344,10 @@ JAVASCRIPT
         return $out;
     }
 
-
-    /**
-     * Get javascript code for hide an item
-     *
-     * @param $id string id of the dom element
-     *
-     * @since 0.85.
-     *
-     * @return string
-     **/
-    public static function jsHide($id)
-    {
-        return self::jsGetElementbyID($id) . ".hide();\n";
-    }
-
-
-    /**
-     * Get javascript code for hide an item
-     *
-     * @param $id string id of the dom element
-     *
-     * @since 0.85.
-     *
-     * @return string
-     **/
-    public static function jsShow($id)
-    {
-        return self::jsGetElementbyID($id) . ".show();\n";
-    }
-
-
     /**
      * Clean ID used for HTML elements
      *
-     * @param $id string id of the dom element
+     * @param string $id ID of the dom element
      *
      * @since 0.85.
      *
@@ -4647,11 +4358,10 @@ JAVASCRIPT
         return str_replace(['[',']'], '_', $id);
     }
 
-
     /**
      * Get javascript code to get item by id
      *
-     * @param $id string id of the dom element
+     * @param string $id ID of the dom element
      *
      * @since 0.85.
      *
@@ -4662,12 +4372,11 @@ JAVASCRIPT
         return "$('#$id')";
     }
 
-
     /**
      * Set dropdown value
      *
-     * @param $id      string   id of the dom element
-     * @param $value   string   value to set
+     * @param string $id      ID of the dom element
+     * @param string $value   Value to set
      *
      * @since 0.85.
      *
@@ -4681,7 +4390,7 @@ JAVASCRIPT
     /**
      * Get item value
      *
-     * @param $id      string   id of the dom element
+     * @param string $id  ID of the dom element
      *
      * @since 0.85.
      *
@@ -4696,8 +4405,8 @@ JAVASCRIPT
     /**
      * Adapt dropdown to clean JS
      *
-     * @param $id       string   id of the dom element
-     * @param $params   array    of parameters
+     * @param string $id     ID of the dom element
+     * @param array $params  Array of parameters
      *
      * @since 0.85.
      *
@@ -4709,119 +4418,32 @@ JAVASCRIPT
         global $CFG_GLPI;
 
         $width = '';
-        if (isset($params["width"]) && !empty($params["width"])) {
+        if (!empty($params["width"])) {
             $width = $params["width"];
             unset($params["width"]);
         }
 
-        $placeholder = '';
-        if (isset($params["placeholder"])) {
-            $placeholder = "placeholder: " . json_encode($params["placeholder"]) . ",";
-        }
+        $placeholder = json_encode($params["placeholder"] ?? '');
 
         $templateresult    = $params["templateResult"] ?? "templateResult";
         $templateselection = $params["templateSelection"] ?? "templateSelection";
 
-        $js = "$(function() {
-         const select2_el = $('#$id').select2({
-            $placeholder
-            width: '$width',
-            dropdownAutoWidth: true,
-            dropdownParent: $('#$id').closest('div.modal, div.dropdown-menu, body'),
-            quietMillis: 100,
-            minimumResultsForSearch: " . $CFG_GLPI['ajax_limit_count'] . ",
-            matcher: function(params, data) {
-               // store last search in the global var
-               query = params;
+        $js = <<<JS
+            select2_configs['{$id}'] = {
+                type: 'adapt',
+                field_id: '{$id}',
+                width: '{$width}',
+                placeholder: {$placeholder},
+                ajax_limit_count: {$CFG_GLPI['ajax_limit_count']},
+                templateresult: {$templateresult},
+                templateselection: {$templateselection}
+            };
+JS;
 
-               // If there are no search terms, return all of the data
-               if ($.trim(params.term) === '') {
-                  return data;
-               }
+        if ($params['init'] ?? true) {
+            $js .= "setupAdaptDropdown(window.select2_configs['{$id}']);";
+        }
 
-               var searched_term = getTextWithoutDiacriticalMarks(params.term);
-               var data_text = typeof(data.text) === 'string'
-                  ? getTextWithoutDiacriticalMarks(data.text)
-                  : '';
-               var select2_fuzzy_opts = {
-                  pre: '<span class=\"select2-rendered__match\">',
-                  post: '</span>',
-               };
-
-               if (data_text.indexOf('>') !== -1 || data_text.indexOf('<') !== -1) {
-                  // escape text, if it contains chevrons (can already be escaped prior to this point :/)
-                  data_text = jQuery.fn.select2.defaults.defaults.escapeMarkup(data_text);
-               }
-
-               // Skip if there is no 'children' property
-               if (typeof data.children === 'undefined') {
-                  var match  = fuzzy.match(searched_term, data_text, select2_fuzzy_opts);
-                  if (match == null) {
-                     return false;
-                  }
-                  data.rendered_text = match.rendered_text;
-                  data.score = match.score;
-                  return data;
-               }
-
-               // `data.children` contains the actual options that we are matching against
-               // also check in `data.text` (optgroup title)
-               var filteredChildren = [];
-
-               $.each(data.children, function (idx, child) {
-                  var child_text = typeof(child.text) === 'string'
-                     ? getTextWithoutDiacriticalMarks(child.text)
-                     : '';
-
-                  if (child_text.indexOf('>') !== -1 || child_text.indexOf('<') !== -1) {
-                     // escape text, if it contains chevrons (can already be escaped prior to this point :/)
-                     child_text = jQuery.fn.select2.defaults.defaults.escapeMarkup(child_text);
-                  }
-
-                  var match_child = fuzzy.match(searched_term, child_text, select2_fuzzy_opts);
-                  var match_text  = fuzzy.match(searched_term, data_text, select2_fuzzy_opts);
-                  if (match_child !== null || match_text !== null) {
-                     if (match_text !== null) {
-                        data.score         = match_text.score;
-                        data.rendered_text = match_text.rendered;
-                     }
-
-                     if (match_child !== null) {
-                        child.score         = match_child.score;
-                        child.rendered_text = match_child.rendered;
-                     }
-                     filteredChildren.push(child);
-                  }
-               });
-
-               // If we matched any of the group's children, then set the matched children on the group
-               // and return the group object
-               if (filteredChildren.length) {
-                  var modifiedData = $.extend({}, data, true);
-                  modifiedData.children = filteredChildren;
-
-                  // You can return modified objects from here
-                  // This includes matching the `children` how you want in nested data sets
-                  return modifiedData;
-               }
-
-               // Return `null` if the term should not be displayed
-               return null;
-            },
-            templateResult: $templateresult,
-            templateSelection: $templateselection,
-         })
-         .bind('setValue', function(e, value) {
-            $('#$id').val(value).trigger('change');
-         })
-         $('label[for=$id]').on('click', function(){ $('#$id').select2('open'); });
-         $('#$id').on('select2:open', function(e){
-            const search_input = document.querySelector(`.select2-search__field[aria-controls='select2-\${e.target.id}-results']`);
-            if (search_input) {
-               search_input.focus();
-            }
-         });
-      });";
         return Html::scriptBlock($js);
     }
 
@@ -4829,10 +4451,10 @@ JAVASCRIPT
     /**
      * Create Ajax dropdown to clean JS
      *
-     * @param $name
-     * @param $field_id   string   id of the dom element
-     * @param $url        string   URL to get datas
-     * @param $params     array    of parameters
+     * @param string $name
+     * @param string $field_id  ID of the dom element
+     * @param string $url       URL to get datas
+     * @param array $params     Array of parameters
      *            must contains :
      *                if single select
      *                   - 'value'       : default value selected
@@ -4851,6 +4473,7 @@ JAVASCRIPT
         global $CFG_GLPI;
 
         $default_options = [
+            'init'                => true,
             'value'               => 0,
             'valuename'           => Dropdown::EMPTY_VALUE,
             'multiple'            => false,
@@ -4862,6 +4485,8 @@ JAVASCRIPT
             'display_emptychoice' => false,
             'specific_tags'       => [],
             'parent_id_field'     => null,
+            'templateResult'      => 'templateResult',
+            'templateSelection'   => 'templateSelection',
         ];
         $params = array_merge($default_options, $params);
 
@@ -4871,11 +4496,12 @@ JAVASCRIPT
         $on_change = $params["on_change"];
         $placeholder = $params['placeholder'] ?? '';
         $multiple = $params['multiple'];
-        unset($params["on_change"]);
-        unset($params["width"]);
+        $templateResult = $params['templateResult'];
+        $templateSelection = $params['templateSelection'];
+        unset($params["on_change"], $params["width"]);
 
         $allowclear =  "false";
-        if (strlen($placeholder) > 0 && !$params['display_emptychoice']) {
+        if ($placeholder !== '' && !$params['display_emptychoice']) {
             $allowclear = "true";
         }
 
@@ -4884,7 +4510,7 @@ JAVASCRIPT
             'selected'  => $value
         ];
 
-       // manage multiple select (with multiple values)
+        // manage multiple select (with multiple values)
         if ($params['multiple']) {
             $values = array_combine($params['values'], $params['valuesnames']);
             $options['multiple'] = 'multiple';
@@ -4892,17 +4518,14 @@ JAVASCRIPT
         } else {
             $values = [];
 
-           // simple select (multiple = no)
+            // simple select (multiple = no)
             if ($value !== null) {
                 $values = ["$value" => $valuename];
             }
         }
         $parent_id_field = $params['parent_id_field'];
 
-        unset($params['placeholder']);
-        unset($params['value']);
-        unset($params['valuename']);
-        unset($params['parent_id_field']);
+        unset($params['placeholder'], $params['value'], $params['valuename'], $params['parent_id_field']);
 
         foreach ($params['specific_tags'] as $tag => $val) {
             if (is_array($val)) {
@@ -4913,110 +4536,50 @@ JAVASCRIPT
 
         $output = '';
 
-        $js = "
-         var params_$field_id = {";
+        $js_params = "";
         foreach ($params as $key => $val) {
-           // Specific boolean case
+            // Specific boolean case
             if (is_bool($val)) {
-                $js .= "$key: " . ($val ? 1 : 0) . ",\n";
+                $js_params .= "$key: " . ($val ? 1 : 0) . ",\n";
             } else {
-                $js .= "$key: " . json_encode($val) . ",\n";
+                $js_params .= "$key: " . json_encode($val) . ",\n";
             }
         }
-        $js .= "};
 
-         const select2_el = $('#$field_id').select2({
-            width: '$width',
-            multiple: '$multiple',
-            placeholder: " . json_encode($placeholder) . ",
-            allowClear: $allowclear,
-            minimumInputLength: 0,
-            quietMillis: 100,
-            dropdownAutoWidth: true,
-            dropdownParent: $('#$field_id').closest('div.modal, div.dropdown-menu, body'),
-            minimumResultsForSearch: " . $CFG_GLPI['ajax_limit_count'] . ",
-            ajax: {
-               url: '$url',
-               dataType: 'json',
-               type: 'POST',
-               data: function (params) {
-                  query = params;
-                  return $.extend({}, params_$field_id, {
-                     searchText: params.term,";
-
-        if ($parent_id_field !== null) {
-            $js .= "
-                     parent_id : document.getElementById('" . $parent_id_field . "').value,";
-        }
-        $js .= "
-                     page_limit: " . $CFG_GLPI['dropdown_max'] . ", // page size
-                     page: params.page || 1, // page number
-                  });
-               },
-               processResults: function (data, params) {
-                  params.page = params.page || 1;
-                  var more = (data.count >= " . $CFG_GLPI['dropdown_max'] . ");
-
-                  return {
-                     results: data.results,
-                     pagination: {
-                           more: more
-                     }
-                  };
-               }
-            },
-            templateResult: templateResult,
-            templateSelection: templateSelection
-         })
-         .bind('setValue', function(e, value) {
-            $.ajax('$url', {
-               data: $.extend({}, params_$field_id, {
-                  _one_id: value,
-               }),
-               dataType: 'json',
-               type: 'POST',
-            }).done(function(data) {
-
-               var iterate_options = function(options, value) {
-                  var to_return = false;
-                  $.each(options, function(index, option) {
-                     if (option.hasOwnProperty('id')
-                         && option.id == value) {
-                        to_return = option;
-                        return false; // act as break;
-                     }
-
-                     if (option.hasOwnProperty('children')) {
-                        to_return = iterate_options(option.children, value);
-                     }
-                  });
-
-                  return to_return;
-               };
-
-               var option = iterate_options(data.results, value);
-               if (option !== false) {
-                  var newOption = new Option(option.text, option.id, true, true);
-                   $('#$field_id').append(newOption).trigger('change');
-               }
-            });
-         });
-         ";
-        if (!empty($on_change)) {
-            $js .= " $('#$field_id').on('change', function(e) {" . $on_change . "});";
+        // Some variables need to be json encoded
+        $on_change = json_encode($on_change);
+        if (!empty($placeholder)) {
+            $placeholder = json_encode($placeholder);
         }
 
-        $js .= " $('label[for=$field_id]').on('click', function(){ $('#$field_id').select2('open'); });";
-        $js .= " $('#$field_id').on('select2:open', function(e){";
-        $js .= "    const search_input = document.querySelector(`.select2-search__field[aria-controls='select2-\${e.target.id}-results']`);";
-        $js .= "    if (search_input) {";
-        $js .= "       search_input.focus();";
-        $js .= "    }";
-        $js .= " });";
+        $js = <<<JS
+            select2_configs['{$field_id}'] = {
+                type: 'ajax',
+                field_id: '{$field_id}',
+                width: '{$width}',
+                multiple: '{$multiple}',
+                placeholder: '{$placeholder}',
+                allowclear: {$allowclear},
+                ajax_limit_count: {$CFG_GLPI['ajax_limit_count']},
+                dropdown_max: {$CFG_GLPI['dropdown_max']},
+                url: '{$url}',
+                parent_id_field: '{$parent_id_field}',
+                on_change: '{$on_change}',
+                templateResult: {$templateResult},
+                templateSelection: {$templateSelection},
+                params: {
+                    {$js_params}
+                }
+            };
+JS;
+
+        if ($params['init']) {
+            $js .= "setupAjaxDropdown(window.select2_configs['{$field_id}']);";
+        }
 
         $output .= Html::scriptBlock('$(function() {' . $js . '});');
 
-       // display select tag
+        // display select tag
         $options['class'] = $params['class'] ?? 'form-select';
         $output .= self::select($name, $values, $options);
 
@@ -5185,9 +4748,8 @@ JAVASCRIPT
      *
      * @since 9.3
      *
-     * @param string $ame      Name of the field
+     * @param string $name     Name of the field
      * @param array  $values   Array of the options
-     * @param mixed  $selected Current selected option
      * @param array  $options  Array of HTML attributes
      *
      * @return string
@@ -5344,9 +4906,11 @@ HTML;
      *
      * @since 0.85
      *
-     * @param $options Array of options.
+     * @param array $options Array of options.
      *
      * @return string Composed attributes.
+     * @used-by templates/components/form/fields_macros.html.twig
+     * @used-by templates/components/form/buttons.html.twig
      **/
     public static function parseAttributes($options = [])
     {
@@ -5544,7 +5108,7 @@ HTML;
      *
      * @since 9.2
      *
-     * @param $options       array of options
+     * @param array $options    Array of options
      *    - name                string   field name (default filename)
      *    - onlyimages          boolean  restrict to image files (default false)
      *    - filecontainer       string   DOM ID of the container showing file uploaded:
@@ -5632,7 +5196,7 @@ HTML;
 
         if (!$p['only_uploaded_files']) {
            // manage file upload without tinymce editor
-            $display .= "<span class='b'>" . __('Drag and drop your file here, or') . '</span><br>';
+            $display .= "<span class='b'>" . __s('Drag and drop your file here, or') . '</span><br>';
         }
         $display .= "<input id='fileupload{$p['rand']}' type='file' name='_uploader_" . $p['name'] . "[]'
                       class='form-control'
@@ -5816,13 +5380,13 @@ HTML;
      * Display uploaded files area
      * @see displayUploadedFile() in fileupload.js
      *
-     * @param $options       array of options
+     * @param array $options  Array of options
      *    - name                string   field name (default filename)
      *    - filecontainer       string   DOM ID of the container showing file uploaded:
      *    - editor_id           string   id attribute for the textarea
      *    - display             bool     display or return the generated html
      *    - uploads             array    uploads to display (done in a previous form submit)
-     * @return void|string   the html if display parameter is false
+     * @return string|true   The html if display parameter is false
      */
     private static function uploadedFiles($options = [])
     {
@@ -5910,14 +5474,14 @@ HTML;
      * Display choice matrix
      *
      * @since 0.85
-     * @param $columns   array   of column field name => column label
-     * @param $rows      array    of field name => array(
+     * @param array $columns  Array of column field name => column label
+     * @param array $rows     Array of field name => array(
      *      'label' the label of the row
      *      'columns' an array of specific information regaring current row
      *                and given column indexed by column field_name
      *                 * a string if only have to display a string
      *                 * an array('value' => ???, 'readonly' => ???) that is used to Dropdown::showYesNo()
-     * @param $options   array   possible:
+     * @param array $options Possible:
      *       'title'         of the matrix
      *       'first_cell'    the content of the upper-left cell
      *       'row_check_all' set to true to display a checkbox to check all elements of the row
@@ -6077,39 +5641,6 @@ HTML;
       };");
     }
 
-
-    /**
-     * Summary of confirmCallback
-     * Is a replacement for Javascript native confirm function
-     * Beware that native confirm is synchronous by nature (will block
-     * browser waiting an answer from user, but that this is emulating the confirm behaviour
-     * by using callbacks functions when user presses 'Yes' or 'No' buttons.
-     *
-     * @since 9.1
-     *
-     * @param $msg            string      message to be shown
-     * @param $title          string      title for dialog box
-     * @param $yesCallback    string      function that will be called when 'Yes' is pressed
-     *                                    (default null)
-     * @param $noCallback     string      function that will be called when 'No' is pressed
-     *                                    (default null)
-     **/
-    public static function jsConfirmCallback($msg, $title, $yesCallback = null, $noCallback = null)
-    {
-        return "glpi_confirm({
-         title: " . json_encode($title) . ",
-         message: " . json_encode($msg) . ",
-         confirm_callback: function() {
-            " . ($yesCallback !== null ? '(' . $yesCallback . ')()' : '') . "
-         },
-         cancel_callback: function() {
-            " . ($noCallback !== null ? '(' . $noCallback . ')()' : '') . "
-         },
-      });
-      ";
-    }
-
-
     /**
      * In this function, we redefine 'window.confirm' javascript function
      * by a prettier dialog.
@@ -6179,9 +5710,9 @@ HTML;
      *
      * @since 9.1
      *
-     * @param $msg          string   message to be shown
-     * @param $title        string   title for dialog box
-     * @param $okCallback   string   function that will be called when 'Ok' is pressed
+     * @param string $msg          Message to be shown
+     * @param string $title        Title for dialog box
+     * @param string $okCallback   Function that will be called when 'Ok' is pressed
      *                               (default null)
      **/
     public static function jsAlertCallback($msg, $title, $okCallback = null)
@@ -6305,6 +5836,7 @@ HTML;
                 break;
             case 'tinymce':
                 $_SESSION['glpi_js_toload'][$name][] = 'public/lib/tinymce.js';
+                $_SESSION['glpi_js_toload'][$name][] = 'js/RichText/FormTags.js';
                 $_SESSION['glpi_js_toload'][$name][] = 'js/RichText/UserMention.js';
                 $_SESSION['glpi_js_toload'][$name][] = 'js/RichText/ContentTemplatesParameters.js';
                 break;
@@ -6372,9 +5904,6 @@ HTML;
                 break;
             case 'leaflet':
                 $_SESSION['glpi_js_toload'][$name][] = 'public/lib/leaflet.js';
-                break;
-            case 'prismjs':
-                $_SESSION['glpi_js_toload'][$name][] = 'public/lib/prismjs.js';
                 break;
             case 'log_filters':
                 $_SESSION['glpi_js_toload'][$name][] = 'js/log_filters.js';
@@ -6601,7 +6130,7 @@ HTML;
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
         $prefix = $CFG_GLPI['root_doc'];
-        if (substr($url, 0, 1) != '/') {
+        if (!str_starts_with($url, '/')) {
             $prefix .= '/';
         }
         return $prefix . $url;
@@ -6643,7 +6172,7 @@ HTML;
      * Get all options for the menu fuzzy search
      * @return array
      * @phpstan-return array{url: string, title: string}
-     * @since 10.1.0
+     * @since 11.0.0
      */
     public static function getMenuFuzzySearchList(): array
     {
@@ -6707,16 +6236,16 @@ HTML;
      * @param  string  $hexcolor the color, you can pass hex color (prefixed or not by #)
      *                           You can also pass a short css color (ex #FFF)
      * @param  boolean $bw       default true, should we invert the color or return black/white function of the input color
-     * @param  boolean $sb       default true, should we soft the black/white to a dark/light grey
+     * @param  boolean $sbw      default true, should we soft the black/white to a dark/light grey
      * @return string            the inverted color prefixed by #
      */
     public static function getInvertedColor($hexcolor = "", $bw = true, $sbw = true)
     {
-        if (strpos($hexcolor, '#') !== false) {
+        if (str_contains($hexcolor, '#')) {
             $hexcolor = trim($hexcolor, '#');
         }
        // convert 3-digit hex to 6-digits.
-        if (strlen($hexcolor) == 3) {
+        if (strlen($hexcolor) === 3) {
             $hexcolor = $hexcolor[0] + $hexcolor[0]
                    + $hexcolor[1] + $hexcolor[1]
                    + $hexcolor[2] + $hexcolor[2];
@@ -6770,12 +6299,12 @@ HTML;
          */
         global $CFG_GLPI, $GLPI_CACHE;
 
-        if (!isset($args['file']) || empty($args['file'])) {
+        if (empty($args['file'])) {
             throw new \InvalidArgumentException('"file" argument is required.');
         }
 
         $ckey = 'css_';
-        $ckey .= isset($args['v']) ? $args['v'] : GLPI_VERSION;
+        $ckey .= $args['v'] ?? GLPI_VERSION;
 
         $scss = new Compiler();
         if (isset($args['debug'])) {
@@ -6969,9 +6498,9 @@ CSS;
      *
      * @param string $root_dir
      *
-     * @return array
+     * @return string
      *
-     * @TODO GLPI 10.1 Handle SCSS compiled directory in plugins.
+     * @TODO GLPI 11.0 Handle SCSS compiled directory in plugins.
      */
     public static function getScssCompilePath($file, string $root_dir = GLPI_ROOT)
     {

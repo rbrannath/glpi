@@ -72,7 +72,7 @@
                {{ options.disabled ? 'disabled' : '' }}
                {{ options.multiple ? 'multiple' : '' }} {# Only for emailField #}
                {{ options.required ? 'required' : '' }}
-               {{ options.pattern ? ('pattern="' ~ options.pattern|e('html_attr') ~ '"')|raw : '' }}
+               {% if options.pattern is defined %}pattern="{{ options.pattern }}"{% endif %}
                {% if options.min is defined %}min="{{ options.min }}"{% endif %}
                {% if options.max is defined %}max="{{ options.max }}"{% endif %}
                {% if options.step is defined %}step="{{ options.step }}"{% endif %} />
@@ -80,16 +80,17 @@
 
     {% set more_html %}
         {% if options.is_disclosable %}
-            <div class="btn btn-outline-secondary">
-                <i class="ti ti-eye disclose" onmousedown="showDisclosablePasswordField('{{ options.id }}')"
-                onmouseup="hideDisclosablePasswordField('{{ options.id }}')"
-                onmouseout="hideDisclosablePasswordField('{{ options.id }}')"></i>
+            <div class="btn btn-outline-secondary"
+                 onmousedown="showDisclosablePasswordField('{{ options.id }}')"
+                 onmouseup="hideDisclosablePasswordField('{{ options.id }}')"
+                 onmouseout="hideDisclosablePasswordField('{{ options.id }}')">
+                <i class="ti ti-eye disclose"></i>
             </div>
         {% endif %}
 
         {% if options.is_copyable %}
-            <div class="btn btn-outline-secondary">
-                <i class="ti ti-clipboard-copy disclose" onclick="copyDisclosablePasswordFieldToClipboard('{{ options.id }}')"></i>
+            <div class="btn btn-outline-secondary" onclick="copyDisclosablePasswordFieldToClipboard('{{ options.id }}')">
+                <i class="ti ti-clipboard-copy disclose"></i>
             </div>
         {% endif %}
     {% endset %}
@@ -249,8 +250,9 @@
             </button>
             {# maybeempty has no distinct purpose, but it was here first #}
             {% if options.clearable or options.maybeempty %}
-                <i class="input-group-text fas fa-times-circle pointer" data-clear
-                    title="{{ __('Clear') }}"></i>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-toggle title="{{ __('Clear') }}">
+                    <i class="ti ti-circle-x" data-clear></i>
+                </button>
             {% endif %}
         {% endif %}
     </div>
@@ -302,6 +304,13 @@
         'readonly': false,
         'disabled': false,
         'required': false,
+        'add_body_classes': [],
+        'toolbar_location': 'top',
+        'init': true,
+        'placeholder': "",
+        'enable_form_tags': false,
+        'form_tags_form_id': null,
+        'aria_label': "",
     }|merge(options) %}
 
     {% if options.fields_template.isMandatoryField(name) %}
@@ -315,6 +324,9 @@
     <textarea class="form-control {{ options.input_addclass }}"
             id="{{ options.id }}" name="{{ name }}" rows="{{ options.rows }}"
             style="width: 100%;"
+            {% if not options.aria_label is empty %}
+                aria-label="{{ options.aria_label }}"
+            {% endif %}
             {{ options.disabled ? 'disabled' : '' }}
             {{ options.readonly ? 'readonly' : '' }}
             {{ options.required ? 'required' : '' }}>{{ options.enable_richtext ? value|safe_html|escape : value }}</textarea>
@@ -327,8 +339,24 @@
             options.disabled|default(false),
             options.enable_images,
             options.editor_height|default(150),
+            options.add_body_classes,
+            options.toolbar_location,
+            options.init,
+            options.placeholder,
         ]) %}
    {% endif %}
+
+   {% if options.enable_form_tags %}
+        <script>
+            $(function() {
+                const form_tags = new GLPI.RichText.FormTags(
+                    tinymce.get('{{ options.id }}'),
+                    {{ options.form_tags_form_id }},
+                );
+                form_tags.register();
+            });
+        </script>
+    {% endif %}
 
     {% if options.enable_mentions and config('use_notifications') %}
         <script>
@@ -357,7 +385,7 @@
     <input type="hidden"   name="{{ name }}" value="0" />
     <input type="checkbox" name="{{ name }}" value="1"
            class="form-check-input {{ options.input_addclass }}"
-           {{ options.id != null ? 'id="' ~ options.id ~ '"' : '' }}
+           {{ (options.id != null ? 'id="' ~ options.id|escape ~ '"' : '')|raw }}
            {{ value == 1 ? 'checked' : '' }}
            {{ options.readonly ? 'readonly' : '' }}
            {{ options.required ? 'required' : '' }}
@@ -376,7 +404,7 @@
 
     <button class="{{ options.class }}" type="{{ type }}" name="{{ name }}" value="{{ value }}"
         {% for attr, value in options.additional_attributes %}
-            {{ attr }}="{{ value|e('html_attr') }}"
+            {{ attr }}="{{ value }}"
         {% endfor %}>
         {% if options.icon is not empty %}
             <i class="{{ options.icon }}" title="{{ options.icon_title }}"></i>
@@ -410,7 +438,7 @@
               data-bs-toggle="popover"
               data-bs-placement="top"
               data-bs-html="true"
-              data-bs-content="{{ options.helper|nl2br|escape('html_attr') }}">
+              data-bs-content="{{ options.helper|raw|nl2br|escape }}">
             ?
         </span>
         {% endset %}
@@ -430,7 +458,7 @@
     {% endif %}
 
     <label class="{{ class }}" for="{{ id }}">
-        {{ label|raw }}
+        {{ label }}
         {{ locked_mark|raw }}
         {{ required_mark|raw }}
         {{ helper|raw }}

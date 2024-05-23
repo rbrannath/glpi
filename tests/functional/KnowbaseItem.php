@@ -738,7 +738,7 @@ HTML,
     }
 
     /**
-     * To be deleted after 10.1 release
+     * To be deleted after 11.0 release
      */
     public function testCreateWithCategoriesDeprecated()
     {
@@ -754,7 +754,7 @@ HTML,
         ]);
 
         // Create KB item with category
-        $kb_item = $this->createItem(\KnowbaseItem::class, [
+        $kb_item = @$this->createItem(\KnowbaseItem::class, [
             'name' => __FUNCTION__ . '_1',
             'answer' => __FUNCTION__ . '_1',
             'knowbaseitemcategories_id' => $category->getID(),
@@ -1449,6 +1449,7 @@ HTML,
         $names = empty($names) ? [] : explode("\n", $names);
 
         // Check results
-        $this->array($names)->isEqualTo($articles);
+        $this->array($names)->size->isEqualTo(count($articles));
+        $this->array($names)->containsValues($articles);
     }
 }

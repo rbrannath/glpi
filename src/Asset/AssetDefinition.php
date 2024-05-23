@@ -37,10 +37,15 @@ namespace Glpi\Asset;
 
 use CommonDBTM;
 use CommonGLPI;
+use Dropdown;
+use Gettext\Languages\CldrData as Language_CldrData;
+use Gettext\Languages\Category as Language_Category;
+use Gettext\Languages\Language;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\Asset\Capacity\CapacityInterface;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QueryFunction;
+use Glpi\Search\SearchOption;
 use Profile;
 use ProfileRight;
 use Session;
@@ -59,13 +64,13 @@ final class AssetDefinition extends CommonDBTM
         return 'ti ti-database-cog';
     }
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         // required due to usage of `config` rightname
         return static::canUpdate();
     }
 
-    public static function canPurge()
+    public static function canPurge(): bool
     {
         // required due to usage of `config` rightname
         return static::canUpdate();
@@ -100,19 +105,33 @@ final class AssetDefinition extends CommonDBTM
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof self) {
+            $capacities_count   = 0;
+            $profiles_count     = 0;
+            $translations_count = 0;
+            if ($_SESSION['glpishow_count_on_tabs']) {
+                $capacities_count   = count($item->getDecodedCapacitiesField());
+                $profiles_count     = count(array_filter($item->getDecodedProfilesField()));
+                $translations_count = count($item->getDecodedTranslationsField());
+            }
             return [
                 1 => self::createTabEntry(
                     __('Capacities'),
-                    0,
+                    $capacities_count,
                     self::class,
                     'ti ti-adjustments'
                 ),
                 // 2 is reserved for "Fields"
                 3 => self::createTabEntry(
                     _n('Profile', 'Profiles', Session::getPluralNumber()),
-                    0,
+                    $profiles_count,
                     self::class,
                     'ti ti-user-check'
+                ),
+                4 => self::createTabEntry(
+                    _n('Translation', 'Translations', Session::getPluralNumber()),
+                    $translations_count,
+                    self::class,
+                    'ti ti-language'
                 ),
             ];
         }
@@ -133,6 +152,9 @@ final class AssetDefinition extends CommonDBTM
                 case 3:
                     $item->showProfilesForm();
                     break;
+                case 4:
+                    $item->showTranslationForm();
+                    break;
             }
         }
         return true;
@@ -141,6 +163,30 @@ final class AssetDefinition extends CommonDBTM
     public function showForm($ID, array $options = [])
     {
         $this->initForm($ID, $options);
+        $options['candel'] = false;
+
+        $asset_count = 0;
+
+        if (!self::isNewID($ID)) {
+            // Add custom delete button that will show the number of assets using this definition and a link to their search page
+            $asset_count = countElementsInTable(
+                table: 'glpi_assets_assets',
+                condition: [
+                    'assets_assetdefinitions_id' => $ID,
+                    'is_template' => 0
+                ]
+            );
+            $options['addbuttons'] = [
+                'purge' => [
+                    'title' => _x('button', 'Delete permanently'),
+                    'add_class' => 'btn-outline-danger',
+                    'icon' => 'ti ti-trash',
+                    'text' => _x('button', 'Delete permanently'),
+                    'type' => 'submit',
+                ]
+            ];
+        }
+
         TemplateRenderer::getInstance()->display(
             'pages/admin/assetdefinition/main.html.twig',
             [
@@ -148,6 +194,7 @@ final class AssetDefinition extends CommonDBTM
                 'params'                => $options,
                 'has_rights_enabled'    => $this->hasRightsEnabled(),
                 'reserved_system_names' => AssetDefinitionManager::getInstance()->getReservedAssetsSystemNames(),
+                'asset_count'           => $asset_count,
             ]
         );
         return true;
@@ -161,6 +208,10 @@ final class AssetDefinition extends CommonDBTM
     private function showCapacitiesForm(): void
     {
         $capacities = AssetDefinitionManager::getInstance()->getAvailableCapacities();
+        usort(
+            $capacities,
+            fn (CapacityInterface $a, CapacityInterface $b) => strnatcasecmp($a->getLabel(), $b->getLabel())
+        );
 
         TemplateRenderer::getInstance()->display(
             'pages/admin/assetdefinition/capacities.html.twig',
@@ -246,18 +297,54 @@ final class AssetDefinition extends CommonDBTM
         );
     }
 
+    /**
+     * Display translation form.
+     *
+     * @return void
+     */
+    private function showTranslationForm(): void
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        $translations = $this->getDecodedTranslationsField();
+        uksort(
+            $translations,
+            fn (string $lang_a, string $lang_b) => strnatcasecmp($CFG_GLPI['languages'][$lang_a][0], $CFG_GLPI['languages'][$lang_b][0])
+        );
+
+        $rand = mt_rand();
+
+        TemplateRenderer::getInstance()->display(
+            'pages/admin/assetdefinition/translations.html.twig',
+            [
+                'item' => $this,
+                'classname' => $this->getAssetClassName(),
+                'translations' => $translations,
+                'languages_dropdown' => Dropdown::showLanguages('language', [
+                    'display'             => false,
+                    'display_emptychoice' => true,
+                    'width'               => '100%',
+                    'on_change'           => 'setModalLanguagePlural(this.value);',
+                    'rand'                => $rand,
+                ]),
+                'rand' => $rand,
+            ]
+        );
+    }
+
     public function prepareInputForAdd($input)
     {
         if (!array_key_exists('system_name', $input)) {
             Session::addMessageAfterRedirect(
-                __('The system name is mandatory.'),
+                __s('The system name is mandatory.'),
                 false,
                 ERROR
             );
             return false;
         }
 
-        foreach (['capacities', 'profiles'] as $json_field) {
+        foreach (['capacities', 'profiles', 'translations'] as $json_field) {
             if (!array_key_exists($json_field, $input)) {
                 // ensure default value of JSON fields will be a valid array
                 $input[$json_field] = [];
@@ -273,11 +360,25 @@ final class AssetDefinition extends CommonDBTM
             && $input['system_name'] !== $this->fields['system_name']
         ) {
             Session::addMessageAfterRedirect(
-                __('The system name cannot be changed.'),
+                __s('The system name cannot be changed.'),
                 false,
                 ERROR
             );
             return false;
+        }
+
+        if (isset($input['_save_translation']) && isset($input['language']) && isset($input['plurals'])) {
+            $translations = $this->getDecodedTranslationsField();
+            $translations[$input['language']] = $input['plurals'];
+            unset($input['_save_translation'], $input['language'], $input['plurals']);
+            $input['translations'] = $translations;
+        }
+
+        if (isset($input['_delete_translation']) && isset($input['language'])) {
+            $translations = $this->getDecodedTranslationsField();
+            unset($translations[$input['language']]);
+            unset($input['_delete_translation'], $input['language']);
+            $input['translations'] = $translations;
         }
 
         return $this->prepareInput($input);
@@ -296,27 +397,27 @@ final class AssetDefinition extends CommonDBTM
         if (array_key_exists('system_name', $input)) {
             if (!is_string($input['system_name']) || preg_match('/^[A-Za-z]+$/i', $input['system_name']) !== 1) {
                 Session::addMessageAfterRedirect(
-                    sprintf(
+                    htmlspecialchars(sprintf(
                         __('The following field has an incorrect value: "%s".'),
                         __('System name')
-                    ),
+                    )),
                     false,
                     ERROR
                 );
                 $has_errors = true;
             } elseif (in_array($input['system_name'], AssetDefinitionManager::getInstance()->getReservedAssetsSystemNames())) {
                 Session::addMessageAfterRedirect(
-                    sprintf(
+                    htmlspecialchars(sprintf(
                         __('The system name must not be the reserved word "%s".'),
                         $input['system_name']
-                    ),
+                    )),
                     false,
                     ERROR
                 );
                 $has_errors = true;
             } elseif (preg_match('/(Model|Type)$/i', $input['system_name']) === 1) {
                 Session::addMessageAfterRedirect(
-                    __('The system name must not end with the word "Model" or the word "Type".'),
+                    __s('The system name must not end with the word "Model" or the word "Type".'),
                     false,
                     ERROR
                 );
@@ -327,10 +428,10 @@ final class AssetDefinition extends CommonDBTM
         if (array_key_exists('capacities', $input)) {
             if (!$this->validateCapacityArray($input['capacities'])) {
                 Session::addMessageAfterRedirect(
-                    sprintf(
+                    htmlspecialchars(sprintf(
                         __('The following field has an incorrect value: "%s".'),
                         __('Capacities')
-                    ),
+                    )),
                     false,
                     ERROR
                 );
@@ -343,16 +444,32 @@ final class AssetDefinition extends CommonDBTM
         if (array_key_exists('profiles', $input)) {
             if (!$this->validateProfileArray($input['profiles'])) {
                 Session::addMessageAfterRedirect(
-                    sprintf(
+                    htmlspecialchars(sprintf(
                         __('The following field has an incorrect value: "%s".'),
                         _n('Profile', 'Profiles', Session::getPluralNumber())
-                    ),
+                    )),
                     false,
                     ERROR
                 );
                 $has_errors = true;
             } else {
                 $input['profiles'] = json_encode($input['profiles']);
+            }
+        }
+
+        if (array_key_exists('translations', $input)) {
+            if (!$this->validateTranslationsArray($input['translations'])) {
+                Session::addMessageAfterRedirect(
+                    htmlspecialchars(sprintf(
+                        __('The following field has an incorrect value: "%s".'),
+                        _n('Translation', 'Translations', Session::getPluralNumber())
+                    )),
+                    false,
+                    ERROR
+                );
+                $has_errors = true;
+            } else {
+                $input['translations'] = json_encode($input['translations']);
             }
         }
 
@@ -533,8 +650,29 @@ final class AssetDefinition extends CommonDBTM
      */
     public function getTranslatedName(int $count = 1): string
     {
-        // TODO Return translated plural form.
-        return $this->fields['system_name'];
+        if ($this->isNewItem()) {
+            return '';
+        }
+
+        $translations = $this->getDecodedTranslationsField();
+        $language = Session::getLanguage();
+        $current_translation = $translations[$language] ?? null;
+        if ($current_translation === null) {
+            return $this->fields['system_name'];
+        }
+
+        // retrieve the formulas associated to the language
+        $gettext_language = Language::getById($language);
+
+        // compute the formula with the paramater count
+        $formula_to_compute = str_replace('n', $count, $gettext_language->formula);
+        $category_index_number = eval("return $formula_to_compute;");
+
+        // retrieve the category index string (one, few, many, other) based on the index
+        $found_category = $gettext_language->categories[$category_index_number] ?? $gettext_language->categories[0];
+        $category_index_string = $found_category->id;
+
+        return $current_translation[$category_index_string] ?? $this->fields['system_name'];
     }
 
     /**
@@ -603,14 +741,19 @@ final class AssetDefinition extends CommonDBTM
             'datatype'      => 'text'
         ];
 
-        $i = 1000;
+        $search_options[] = [
+            'id'            => 8,
+            'table'         => self::getTable(),
+            'field'         => 'translations',
+            'name'          => __('Translations'),
+            'datatype'      => 'specific'
+        ];
+
         $search_options[] = [
             'id'   => 'capacities',
             'name' => __('Capacities')
         ];
         foreach (AssetDefinitionManager::getInstance()->getAvailableCapacities() as $capacity) {
-            $i++;
-
             // capacity is stored in a JSON array, so entry is surrounded by double quotes
             $search_string = json_encode($capacity::class);
             // Backslashes must be doubled in LIKE clause, according to MySQL documentation:
@@ -620,7 +763,7 @@ final class AssetDefinition extends CommonDBTM
             $search_string = str_replace('\\', '\\\\', $search_string);
 
             $search_options[] = [
-                'id'            => $i,
+                'id'            => SearchOption::generateAProbablyUniqueId($capacity::class),
                 'table'         => self::getTable(),
                 'field'         => sprintf('_capacities_%s', $capacity::class),
                 'name'          => $capacity->getLabel(),
@@ -638,6 +781,9 @@ final class AssetDefinition extends CommonDBTM
 
     public static function getSpecificValueToDisplay($field, $values, array $options = [])
     {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
         if (!is_array($values)) {
             $values = [$field => $values];
         }
@@ -646,6 +792,28 @@ final class AssetDefinition extends CommonDBTM
             case 'icon':
                 $value = htmlspecialchars($values[$field]);
                 return sprintf('<i class="ti %s"></i>', $value);
+            case 'translations':
+                $translations = json_decode($values[$field], associative: true);
+
+                return TemplateRenderer::getInstance()->renderFromStringTemplate(
+                    <<<TWIG
+                    {% if translations is not empty %}
+                        <ul>
+                            {% for language, plurals in translations %}
+                                <li>
+                                    {{ config('languages')[language][0] }}:
+                                    {% include "pages/admin/assetdefinition/plurals.html.twig" with {
+                                        'plurals': plurals,
+                                    } only %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+TWIG,
+                    [
+                        'translations' => $translations,
+                    ]
+                );
         }
         return parent::getSpecificValueToDisplay($field, $values, $options);
     }
@@ -818,6 +986,95 @@ TWIG, ['name' => $name, 'value' => $value]);
         }
 
         return $is_valid;
+    }
+
+    /**
+     * Return the decoded value of the `translations` field.
+     *
+     * @return array
+     */
+    private function getDecodedTranslationsField(): array
+    {
+        $translations = @json_decode($this->fields['translations'], associative: true);
+        if (!$this->validateTranslationsArray($translations)) {
+            trigger_error(
+                sprintf('Invalid `translations` value (`%s`).', $this->fields['translations']),
+                E_USER_WARNING
+            );
+            $this->fields['translations'] = '[]'; // prevent warning to be triggered on each method call
+            $translations = [];
+        }
+        return $translations;
+    }
+
+    /**
+     * Validate that the given translations array contains valid values.
+     *
+     * @param mixed $profiles
+     * @return bool
+     */
+    private function validateTranslationsArray(mixed $translations): bool
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        if (!is_array($translations)) {
+            return false;
+        }
+
+        $is_valid = true;
+
+        foreach ($translations as $language => $values) {
+            if (!in_array($language, array_keys($CFG_GLPI['languages']), true)) {
+                $is_valid = false;
+                break;
+            }
+
+            $available_categories = array_map(
+                fn (Language_Category $category) => $category->id,
+                self::getPluralFormsForLanguage($language)
+            );
+            foreach ($values as $category => $translation) {
+                if (!in_array($category, $available_categories, true)) {
+                    $is_valid = false;
+                    break 2;
+                }
+                if (!is_string($translation)) {
+                    $is_valid = false;
+                    break 2;
+                }
+            }
+        }
+
+        return $is_valid;
+    }
+
+    /**
+     * Gel plural form list for given language.
+     *
+     * @param string $language
+     * @return \Gettext\Languages\Category[]
+     */
+    public static function getPluralFormsForLanguage(string $language): array
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        // check language exists in GLPI configuration
+        if (!array_key_exists($language, $CFG_GLPI['languages'])) {
+            return [];
+        }
+
+        $cldrLanguage = Language_CldrData::getLanguageInfo($language);
+        $cldrCategories = $cldrLanguage['categories'] ?? [];
+
+        $languageCategories = [];
+        foreach ($cldrCategories as $cldrCategoryId => $cldrFormulaAndExamples) {
+            $category = new Language_Category($cldrCategoryId, $cldrFormulaAndExamples);
+            $languageCategories[] = $category;
+        }
+
+        return $languageCategories;
     }
 
     /**

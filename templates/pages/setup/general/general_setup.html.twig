@@ -246,6 +246,9 @@
         inline_field_options|merge(lock_options)|merge({
             'width': 'auto',
             'rand': locks_rand,
+            'condition': {
+                'interface': 'central',
+            }
         })
     ) }}
 
@@ -270,6 +273,44 @@
         });
     });
     </script>
+</div>
+
+<div class="hr-text">
+    <i class="ti ti-layout-kanban"></i>
+    <span>{{ __('Project Task State') }}</span>
+</div>
+
+<div class="row ps-4">
+
+    {{ fields.dropdownField(
+        'ProjectState',
+        'projecttask_unstarted_states_id',
+        config['projecttask_unstarted_states_id']|default('0'),
+        __('Status of unstarted tasks'),
+        inline_field_options|merge({
+            'width': 'auto',
+        })
+    ) }}
+
+    {{ fields.dropdownField(
+        'ProjectState',
+        'projecttask_inprogress_states_id',
+        config['projecttask_inprogress_states_id']|default('0'),
+        __('Status of tasks in progress'),
+        inline_field_options|merge({
+            'width': 'auto',
+        })
+    ) }}
+
+    {{ fields.dropdownField(
+        'ProjectState',
+        'projecttask_completed_states_id',
+        config['projecttask_completed_states_id']|default('0'),
+        __('Status of tasks done'),
+        inline_field_options|merge({
+            'width': 'auto',
+        })
+    ) }}
 </div>
 
 <div class="hr-text">

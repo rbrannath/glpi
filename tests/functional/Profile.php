@@ -296,7 +296,20 @@ class Profile extends DbTestCase
             '_profile' => [UPDATE . "_0" => false]
         ]))->isEqualTo(true);
         $this->hasSessionMessages(ERROR, [
-            "Can't remove update right on this profile as it is the only remaining profile with this right."
+            // Session messages may contain HTML (allowed), but this message only contains text from translations and it should be santiiized
+            "Can&#039;t remove update right on this profile as it is the only remaining profile with this right."
+        ]);
+
+        // Try to change the interface of the lock profile
+        $readonly = getItemByTypeName('Profile', 'Read-Only');
+        $this->updateItem("Profile", $readonly->getID(), [
+            'interface' => 'helpdesk'
+        ], ['interface']); // Skip interface check as it should not be updated.
+        $readonly->getFromDB($readonly->fields['id']); // Reload data
+        $this->string($readonly->fields['interface'])->isEqualTo('central');
+        $this->hasSessionMessages(ERROR, [
+            // Session messages may contain HTML (allowed), but this message only contains text from translations and it should be santiiized
+            "This profile can&#039;t be moved to the simplified interface as it is used for locking items."
         ]);
     }
 

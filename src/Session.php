@@ -37,6 +37,7 @@ use Glpi\Cache\CacheManager;
 use Glpi\Cache\I18nCache;
 use Glpi\Event;
 use Glpi\Plugin\Hooks;
+use Glpi\Session\SessionInfo;
 
 /**
  * Session Class
@@ -48,6 +49,17 @@ class Session
     const TRANSLATION_MODE  = 1; // no more used
     const DEBUG_MODE        = 2;
 
+    /**
+     * Max count of CSRF tokens to keep in session.
+     * Prevents intensive use of forms from resulting in an excessively cumbersome session.
+     */
+    private const CSRF_MAX_TOKENS = 500;
+
+    /**
+     * Max count of IDOR tokens to keep in session.
+     * Prevents intensive use of dropdowns from resulting in an excessively cumbersome session.
+     */
+    private const IDOR_MAX_TOKENS = 2500;
 
     /**
      * Destroy the current session
@@ -413,6 +425,8 @@ class Session
                     }
                 }
             } else {
+                $ID = (int)$ID;
+
                /// Check entity validity
                 $ancestors = getAncestorsOf("glpi_entities", $ID);
                 $ok        = false;
@@ -957,7 +971,7 @@ class Session
     public static function redirectIfNotLoggedIn()
     {
 
-        if (!self::getLoginUserID()) {
+        if (!self::isAuthenticated()) {
             Html::redirectToLogin();
         }
     }
@@ -1381,7 +1395,7 @@ class Session
         }
 
         if (isset($_SESSION["glpiactiveprofile"][$module])) {
-            return intval($_SESSION["glpiactiveprofile"][$module]) & $right;
+            return (int)$_SESSION["glpiactiveprofile"][$module] & $right;
         }
 
         return false;
@@ -1484,7 +1498,6 @@ class Session
         $message_type = INFO,
         $reset = false
     ) {
-
         if (!empty($msg)) {
             if (self::isCron()) {
                 // We are in cron mode
@@ -1514,6 +1527,32 @@ class Session
         }
     }
 
+    /**
+     * Delete a session message
+     *
+     * @param string  $msg          Message to delete
+     * @param integer $message_type Message type (INFO, WARNING, ERROR) (default INFO)
+     *
+     * @return void
+     */
+    public static function deleteMessageAfterRedirect(
+        string $msg,
+        int $message_type = INFO
+    ): void {
+        if (!empty($msg)) {
+            $array = &$_SESSION['MESSAGE_AFTER_REDIRECT'];
+
+            if (isset($array[$message_type])) {
+                $key = array_search($msg, $array[$message_type]);
+                if ($key !== false) {
+                    unset($array[$message_type][$key]);
+                }
+            }
+
+            // Reorder keys
+            $array[$message_type] = array_values($array[$message_type]);
+        }
+    }
 
     /**
      *  Force active Tab for an itemtype
@@ -1605,7 +1644,7 @@ class Session
         if (!isset($_SESSION['glpicsrftokens'])) {
             $_SESSION['glpicsrftokens'] = [];
         }
-        $_SESSION['glpicsrftokens'][$token] = time() + GLPI_CSRF_EXPIRES;
+        $_SESSION['glpicsrftokens'][$token] = 1;
 
         if (!$standalone) {
             $CURRENTCSRFTOKEN = $token;
@@ -1624,25 +1663,18 @@ class Session
      **/
     public static function cleanCSRFTokens()
     {
-
-        $now = time();
-        if (isset($_SESSION['glpicsrftokens']) && is_array($_SESSION['glpicsrftokens'])) {
-            if (count($_SESSION['glpicsrftokens'])) {
-                foreach ($_SESSION['glpicsrftokens'] as $token => $expires) {
-                    if ($expires < $now) {
-                        unset($_SESSION['glpicsrftokens'][$token]);
-                    }
-                }
-                $overflow = count($_SESSION['glpicsrftokens']) - GLPI_CSRF_MAX_TOKENS;
-                if ($overflow > 0) {
-                    $_SESSION['glpicsrftokens'] = array_slice(
-                        $_SESSION['glpicsrftokens'],
-                        $overflow + 1,
-                        null,
-                        true
-                    );
-                }
-            }
+        if (
+            isset($_SESSION['glpicsrftokens'])
+            && is_array($_SESSION['glpicsrftokens'])
+            && count($_SESSION['glpicsrftokens']) > self::CSRF_MAX_TOKENS
+        ) {
+            $overflow = count($_SESSION['glpicsrftokens']) - self::CSRF_MAX_TOKENS;
+            $_SESSION['glpicsrftokens'] = array_slice(
+                $_SESSION['glpicsrftokens'],
+                $overflow,
+                null,
+                true
+            );
         }
     }
 
@@ -1660,23 +1692,19 @@ class Session
      **/
     public static function validateCSRF($data)
     {
+        Session::cleanCSRFTokens();
 
         if (!isset($data['_glpi_csrf_token'])) {
-            Session::cleanCSRFTokens();
             return false;
         }
         $requestToken = $data['_glpi_csrf_token'];
-        if (
-            isset($_SESSION['glpicsrftokens'][$requestToken])
-            && ($_SESSION['glpicsrftokens'][$requestToken] >= time())
-        ) {
+        if (isset($_SESSION['glpicsrftokens'][$requestToken])) {
             if (!defined('GLPI_KEEP_CSRF_TOKEN')) { /* When post open a new windows */
                 unset($_SESSION['glpicsrftokens'][$requestToken]);
             }
-            Session::cleanCSRFTokens();
             return true;
         }
-        Session::cleanCSRFTokens();
+
         return false;
     }
 
@@ -1692,26 +1720,19 @@ class Session
      **/
     public static function checkCSRF($data)
     {
-        if (!GLPI_USE_CSRF_CHECK) {
+        if (defined('GLPI_USE_CSRF_CHECK')) {
             trigger_error(
                 'Definition of "GLPI_USE_CSRF_CHECK" constant is deprecated and is ignore for security reasons.',
                 E_USER_WARNING
             );
         }
 
-        $message = __("The action you have requested is not allowed.");
-        if (
-            ($requestToken = $data['_glpi_csrf_token'] ?? null) !== null
-            && isset($_SESSION['glpicsrftokens'][$requestToken])
-            && ($_SESSION['glpicsrftokens'][$requestToken] < time())
-        ) {
-            $message = __("Your session has expired.");
-        }
-
         if (!Session::validateCSRF($data)) {
             $requested_url = (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : 'Unknown');
             $user_id = self::getLoginUserID() ?? 'Anonymous';
             Toolbox::logInFile('access-errors', "CSRF check failed for User ID: $user_id at $requested_url\n");
+
+            $message = __("The action you have requested is not allowed.");
 
             // Output JSON if requested by client
             if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
@@ -1728,7 +1749,7 @@ class Session
      * Get new IDOR token
      * This token validates the itemtype used by an ajax request is the one asked by a dropdown.
      * So, we avoid IDOR request where an attacker asks for an another itemtype
-     * than the originaly indtended
+     * than the originaly intended
      *
      * @since 9.5.3
      *
@@ -1739,6 +1760,11 @@ class Session
      **/
     public static function getNewIDORToken(string $itemtype = "", array $add_params = []): string
     {
+        if ($itemtype === '' && count($add_params) === 0) {
+            trigger_error('IDOR token cannot be generated with empty criteria.', E_USER_WARNING);
+            return '';
+        }
+
         $token = "";
         do {
             $token = bin2hex(random_bytes(32));
@@ -1748,10 +1774,7 @@ class Session
             $_SESSION['glpiidortokens'] = [];
         }
 
-        $_SESSION['glpiidortokens'][$token] = [
-            'expires'  => time() + GLPI_IDOR_EXPIRES
-        ] + ($itemtype !== "" ? ['itemtype' => $itemtype] : [])
-        + $add_params;
+        $_SESSION['glpiidortokens'][$token] = ($itemtype !== "" ? ['itemtype' => $itemtype] : []) + $add_params;
 
         return $token;
     }
@@ -1779,14 +1802,24 @@ class Session
 
         $token = $data['_idor_token'];
 
-        if (
-            isset($_SESSION['glpiidortokens'][$token])
-            && $_SESSION['glpiidortokens'][$token]['expires'] >= time()
-        ) {
+        if (isset($_SESSION['glpiidortokens'][$token])) {
             $idor_data =  $_SESSION['glpiidortokens'][$token];
-            unset($idor_data['expires']);
 
-           // check all stored data for the idor token are present (and identifical) in the posted data
+            // Ensure that `displaywith` and `condition` is checked if passed in data
+            $mandatory_properties = [
+                'displaywith' => [],
+                'condition'   => [],
+            ];
+            foreach ($mandatory_properties as $property_name => $default_value) {
+                if (!array_key_exists($property_name, $data)) {
+                    $data[$property_name] = $default_value;
+                }
+                if (!array_key_exists($property_name, $idor_data)) {
+                    $idor_data[$property_name] = $default_value;
+                }
+            }
+
+           // check all stored data for the idor token are present (and identical) in the posted data
             $match_expected = function ($expected, $given) use (&$match_expected) {
                 if (is_array($expected)) {
                     if (!is_array($given)) {
@@ -1818,13 +1851,18 @@ class Session
      **/
     public static function cleanIDORTokens()
     {
-        $now = time();
-        if (isset($_SESSION['glpiidortokens']) && is_array($_SESSION['glpiidortokens'])) {
-            foreach ($_SESSION['glpiidortokens'] as $footprint => $token) {
-                if ($token['expires'] < $now) {
-                    unset($_SESSION['glpiidortokens'][$footprint]);
-                }
-            }
+        if (
+            isset($_SESSION['glpiidortokens'])
+            && is_array($_SESSION['glpiidortokens'])
+            && count($_SESSION['glpiidortokens']) > self::IDOR_MAX_TOKENS
+        ) {
+            $overflow = count($_SESSION['glpiidortokens']) - self::IDOR_MAX_TOKENS;
+            $_SESSION['glpiidortokens'] = array_slice(
+                $_SESSION['glpiidortokens'],
+                $overflow,
+                null,
+                true
+            );
         }
     }
 
@@ -2076,6 +2114,67 @@ class Session
     }
 
     /**
+     * Filter given entities ID list to return only these tht are matching current active entities in session.
+     *
+     * @since 10.0.13
+     *
+     * @param int|int[] $entities_ids
+     *
+     * @return int|int[]
+     */
+    public static function getMatchingActiveEntities(/*int|array*/ $entities_ids)/*: int|array*/
+    {
+        if (
+            (int)$entities_ids === -1
+            || (is_array($entities_ids) && count($entities_ids) === 1 && (int)reset($entities_ids) === -1)
+        ) {
+            // Special value that is generally used to fallback to all active entities.
+            return $entities_ids;
+        }
+
+        if (
+            !is_array($entities_ids)
+            && !is_int($entities_ids)
+            && (!is_string($entities_ids) || !ctype_digit($entities_ids))
+        ) {
+            // Unexpected value type.
+            return [];
+        }
+
+        $active_entities_ids = [];
+        foreach ($_SESSION['glpiactiveentities'] ?? [] as $active_entity_id) {
+            if (
+                !is_int($active_entity_id)
+                && (!is_string($active_entity_id) || !ctype_digit($active_entity_id))
+            ) {
+                // Ensure no unexpected value converted to int
+                // as it would be converted to `0` and would permit access to root entity
+                trigger_error(
+                    sprintf('Unexpected value `%s` found in `$_SESSION[\'glpiactiveentities\']`.', $active_entity_id ?? 'null'),
+                    E_USER_WARNING
+                );
+                continue;
+            }
+            $active_entities_ids[] = (int)$active_entity_id;
+        }
+
+        if (!is_array($entities_ids) && in_array((int)$entities_ids, $active_entities_ids, true)) {
+            return (int)$entities_ids;
+        }
+
+        $filtered = [];
+        foreach ((array)$entities_ids as $entity_id) {
+            if (
+                (is_int($entity_id) || (is_string($entity_id) && ctype_digit($entity_id)))
+                && in_array((int)$entity_id, $active_entities_ids, true)
+            ) {
+                $filtered[] = (int)$entity_id;
+            }
+        }
+        return $filtered;
+    }
+
+    /**
      * Get recursive state of active entity selection.
      *
      * @since 9.5.5
@@ -2174,7 +2273,7 @@ class Session
      */
     public static function getCurrentTime(): ?string
     {
-        // TODO (10.1 refactoring): replace references to $_SESSION['glpi_currenttime'] by a call to this function
+        // TODO (11.0 refactoring): replace references to $_SESSION['glpi_currenttime'] by a call to this function
         return $_SESSION['glpi_currenttime'] ?? null;
     }
 
@@ -2207,5 +2306,28 @@ class Session
                 $profile->fields
             );
         }
+    }
+
+    public static function isAuthenticated(): bool
+    {
+        return self::getLoginUserID() !== false;
+    }
+
+    /**
+     * Get a SessionInfo object with the current session information.
+     *
+     * @return ?SessionInfo
+     */
+    public static function getCurrentSessionInfo(): ?SessionInfo
+    {
+        if (!self::isAuthenticated()) {
+            return null;
+        }
+
+        return new SessionInfo(
+            user_id   : self::getLoginUserID(),
+            group_ids : $_SESSION['glpigroups'] ?? [],
+            profile_id: $_SESSION['glpiactiveprofile']['id'],
+        );
     }
 }

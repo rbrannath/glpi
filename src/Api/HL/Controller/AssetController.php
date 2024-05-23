@@ -48,6 +48,7 @@ use Glpi\Http\Response;
 use Glpi\Socket;
 use Glpi\SocketModel;
 use Group;
+use GuzzleHttp\Psr7\Utils;
 use Location;
 use Manufacturer;
 use Network;
@@ -876,7 +877,7 @@ final class AssetController extends AbstractController
     }
 
     /**
-     * @param bool $classes_only If true, only the class names are returned. If false, the class name => localized name pairs are returned..
+     * @param bool $classes_only If true, only the class names are returned. If false, the class name => localized name pairs are returned.
      * @return array<class-string<CommonDBTM>, string>
      */
     public static function getAssetTypes(bool $classes_only = true): array
@@ -940,46 +941,13 @@ final class AssetController extends AbstractController
         $asset_schemas = array_filter($asset_schemas, static function ($key) use ($asset_types) {
             return !str_starts_with($key, '_') && in_array($key, $asset_types, true);
         }, ARRAY_FILTER_USE_KEY);
-
-        $shared_properties = [];
-        $subtype_info = [];
-        foreach ($asset_schemas as $schema_name => $schema) {
-            $itemtype = $schema['x-itemtype'];
-            // Need to check rights for each asset type
-            if (!$itemtype::canView()) {
-                continue;
-            }
-            $subtype_info[] = [
-                'schema_name' => $schema_name,
-                'itemtype' => $itemtype,
-            ];
-            if (empty($shared_properties)) {
-                $shared_properties = $schema['properties'];
-                // Remove array properties (complex handling may be required. No support added for now)
-                $shared_properties = array_filter($shared_properties, static function ($property) {
-                    return !isset($property['type']) || $property['type'] !== Doc\Schema::TYPE_ARRAY;
-                });
-            } else {
-                $props = Doc\Schema::flattenProperties($schema['properties']);
-                foreach ($shared_properties as $key => $value) {
-                    if (!array_key_exists($key, $props)) {
-                        unset($shared_properties[$key]);
-                    }
-                }
-            }
-        }
-
-        return [
-            'x-subtypes' => $subtype_info,
-            'type' => Doc\Schema::TYPE_OBJECT,
-            'properties' => $shared_properties,
-        ];
+        return Doc\Schema::getUnionSchema($asset_schemas);
     }
 
     #[Route(path: '/Global', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search assets of all types',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'CommonAsset[]']
         ]
@@ -994,7 +962,7 @@ final class AssetController extends AbstractController
     ], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search assets of a specific type',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => '{itemtype}[]']
         ]
@@ -1019,6 +987,39 @@ final class AssetController extends AbstractController
     {
         $itemtype = $request->getAttribute('itemtype');
         return Search::getOneBySchema($this->getKnownSchema($itemtype), $request->getAttributes(), $request->getParameters());
+    }
+
+    #[Route(path: '/{itemtype}/{id}/Infocom', methods: ['GET'], requirements: [
+        'itemtype' => [self::class, 'getAssetTypes'],
+        'id' => '\d+'
+    ], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the financial and administration information for a specific asset',
+        responses: [
+            ['schema' => 'Infocom']
+        ]
+    )]
+    public function getItemInfocom(Request $request): Response
+    {
+        if (!\Infocom::canView()) {
+            return self::getAccessDeniedErrorResponse();
+        }
+        $params = $request->getParameters();
+        $itemtype = $request->getAttribute('itemtype');
+        $items_id = $request->getAttribute('id');
+        $filter = 'itemtype==' . $itemtype . ';items_id==' . $items_id;
+        $params['filter'] = $filter;
+        $management_controller = new ManagementController();
+        $result = Search::searchBySchema($management_controller->getKnownSchema('Infocom'), $params);
+        if ($result->getStatusCode() !== 200) {
+            return $result;
+        }
+        $results = json_decode((string) $result->getBody(), true);
+        if (empty($results)) {
+            return self::getNotFoundErrorResponse();
+        }
+        $results = reset($results);
+        return $result->withBody(Utils::streamFor(json_encode($results)));
     }
 
     #[Route(path: '/{itemtype}', methods: ['POST'], requirements: [
@@ -1076,7 +1077,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Cartridge', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search cartridge models',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'CartridgeItem[]']
         ]
@@ -1207,7 +1208,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Consumable', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search consumables models',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'ConsumableItem[]']
         ]
@@ -1338,7 +1339,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Software', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search software',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Software[]']
         ]
@@ -1410,7 +1411,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Rack', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search racks',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Rack[]']
         ]
@@ -1482,7 +1483,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Enclosure', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search enclosure',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Enclosure[]']
         ]
@@ -1554,7 +1555,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/PDU', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search PDUs',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'PDU[]']
         ]
@@ -1626,7 +1627,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/PassiveDCEquipment', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search passive DC equipment',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'PassiveDCEquipment[]']
         ]
@@ -1698,7 +1699,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Cable', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search cables',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Cable[]']
         ]
@@ -1770,7 +1771,7 @@ final class AssetController extends AbstractController
     #[Route(path: '/Socket', methods: ['GET'], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search sockets',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Socket[]']
         ]
@@ -1844,7 +1845,7 @@ final class AssetController extends AbstractController
     ], tags: ['Assets'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search software versions',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'SoftwareVersion[]']
         ]

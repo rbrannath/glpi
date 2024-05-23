@@ -109,13 +109,13 @@ class Config extends CommonDBTM
     }
 
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return false;
     }
 
 
-    public function canViewItem()
+    public function canViewItem(): bool
     {
         if (
             isset($this->fields['context'])
@@ -181,7 +181,7 @@ class Config extends CommonDBTM
             if (Toolbox::isValidWebUrl($input["url_base"])) {
                 $input["url_base"] = rtrim($input["url_base"], '/');
             } else {
-                Session::addMessageAfterRedirect(__('Invalid base URL!'), false, ERROR);
+                Session::addMessageAfterRedirect(__s('Invalid base URL!'), false, ERROR);
                 return false;
             }
         }
@@ -248,10 +248,8 @@ class Config extends CommonDBTM
             }
         }
 
-        if (isset($input['_update_devices_in_menu'])) {
-            $input['devices_in_menu'] = exportArrayToDB(
-                (isset($input['devices_in_menu']) ? $input['devices_in_menu'] : [])
-            );
+        if (isset($input['devices_in_menu'])) {
+            $input['devices_in_menu'] = exportArrayToDB(empty($input['devices_in_menu']) ? [] : $input['devices_in_menu']);
         }
 
        // lock mechanism update
@@ -276,10 +274,10 @@ class Config extends CommonDBTM
        // Add skipMaintenance if maintenance mode update
         if (isset($input['maintenance_mode']) && $input['maintenance_mode']) {
             $_SESSION['glpiskipMaintenance'] = 1;
-            $url = $CFG_GLPI['root_doc'] . "/index.php?skipMaintenance=1";
+            $url = htmlspecialchars($CFG_GLPI['root_doc'] . "/index.php?skipMaintenance=1");
             Session::addMessageAfterRedirect(
                 sprintf(
-                    __('Maintenance mode activated. Backdoor using: %s'),
+                    __s('Maintenance mode activated. Backdoor using: %s'),
                     "<a href='$url'>$url</a>"
                 ),
                 false,
@@ -290,6 +288,22 @@ class Config extends CommonDBTM
         // Automatically trim whitespaces around registration key.
         if (array_key_exists('glpinetwork_registration_key', $input) && !empty($input['glpinetwork_registration_key'])) {
             $input['glpinetwork_registration_key'] = trim($input['glpinetwork_registration_key']);
+        }
+
+        // Prevent invalid profile to be set as the lock profile.
+        // User updating the config from GLPI's UI should not be able to send
+        // invalid values but API or manual HTTP requests might be invalid.
+        if (isset($input['lock_lockprofile_id'])) {
+            $profile = Profile::getById($input['lock_lockprofile_id']);
+            if (!$profile || $profile->fields['interface'] !== 'central') {
+                // Invalid profile
+                Session::addMessageAfterRedirect(
+                    __s("The specified profile doesn't exist or is not allowed to access the central interface."),
+                    false,
+                    ERROR
+                );
+                unset($input['lock_lockprofile_id']);
+            }
         }
 
         $tfa_enforced_changed = isset($input['2fa_enforced']) && $input['2fa_enforced'] !== $CFG_GLPI['2fa_enforced'];
@@ -696,7 +710,7 @@ class Config extends CommonDBTM
             if (Toolbox::strlen($password) < $CFG_GLPI['password_min_length']) {
                 $ok = false;
                 if ($display) {
-                    Session::addMessageAfterRedirect(__('Password too short!'), false, ERROR);
+                    Session::addMessageAfterRedirect(__s('Password too short!'), false, ERROR);
                 } else {
                     $exception->addMessage(__('Password too short!'));
                 }
@@ -708,7 +722,7 @@ class Config extends CommonDBTM
                 $ok = false;
                 if ($display) {
                     Session::addMessageAfterRedirect(
-                        __('Password must include at least a digit!'),
+                        __s('Password must include at least a digit!'),
                         false,
                         ERROR
                     );
@@ -723,7 +737,7 @@ class Config extends CommonDBTM
                 $ok = false;
                 if ($display) {
                     Session::addMessageAfterRedirect(
-                        __('Password must include at least a lowercase letter!'),
+                        __s('Password must include at least a lowercase letter!'),
                         false,
                         ERROR
                     );
@@ -738,7 +752,7 @@ class Config extends CommonDBTM
                 $ok = false;
                 if ($display) {
                     Session::addMessageAfterRedirect(
-                        __('Password must include at least a uppercase letter!'),
+                        __s('Password must include at least a uppercase letter!'),
                         false,
                         ERROR
                     );
@@ -753,7 +767,7 @@ class Config extends CommonDBTM
                 $ok = false;
                 if ($display) {
                     Session::addMessageAfterRedirect(
-                        __('Password must include at least a symbol!'),
+                        __s('Password must include at least a symbol!'),
                         false,
                         ERROR
                     );
@@ -979,6 +993,9 @@ class Config extends CommonDBTM
             [ 'name'    => 'elvanto/litemoji',
                 'check'   => 'LitEmoji\\LitEmoji'
             ],
+            [ 'name'    => 'gettext/languages',
+                'check'   => 'Gettext\\Languages\\Language'
+            ],
             [ 'name'    => 'symfony/console',
                 'check'   => 'Symfony\\Component\\Console\\Application'
             ],
@@ -999,6 +1016,9 @@ class Config extends CommonDBTM
             ],
             [ 'name'    => 'ramsey/uuid',
                 'check'   => 'Ramsey\\Uuid\\Uuid'
+            ],
+            [ 'name' => 'phpoffice/phpspreadsheet',
+                'check' => 'PhpOffice\\PhpSpreadsheet\\Spreadsheet'
             ],
             [ 'name'    => 'psr/log',
                 'check'   => 'Psr\\Log\\LoggerInterface'
@@ -1057,10 +1077,6 @@ class Config extends CommonDBTM
             ],
             [ 'name'    => 'symfony/polyfill-mbstring',
                 'check'   => 'mb_list_encodings'
-            ],
-            [
-                'name'  => 'symfony/polyfill-php82',
-                'check' => 'ini_parse_quantity'
             ],
             [
                 'name'  => 'symfony/polyfill-php83',
@@ -2031,6 +2047,12 @@ class Config extends CommonDBTM
                 ['state' => 1,],
                 ['name' => 'passwordexpiration']
             );
+        }
+
+        // If the `devices_in_menu` option changed, we should regenerate the menu
+        if ($this->fields['name'] === 'devices_in_menu') {
+            $CFG_GLPI['devices_in_menu'] = json_decode($this->fields['value']) ?? [];
+            Html::generateMenuSession(true);
         }
 
         if (array_key_exists('value', $this->oldvalues)) {

@@ -42,6 +42,7 @@ use Glpi\Application\View\TemplateRenderer;
 class Unmanaged extends CommonDBTM
 {
     use Glpi\Features\Inventoriable;
+    use Glpi\Features\State;
 
    // From CommonDBTM
     public $dohistory                   = true;
@@ -186,11 +187,11 @@ class Unmanaged extends CommonDBTM
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => 'glpi_states',
+            'table'              => State::getTable(),
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            'condition'          => ['is_visible_unmanaged' => 1]
+            'condition'          => $this->getStateVisibilityCriteria()
         ];
 
         return $tab;
@@ -205,7 +206,7 @@ class Unmanaged extends CommonDBTM
     {
         $actions = [];
         if (self::canUpdate()) {
-            $actions['Unmanaged' . MassiveAction::CLASS_ACTION_SEPARATOR . 'convert']    = __('Convert');
+            $actions['Unmanaged' . MassiveAction::CLASS_ACTION_SEPARATOR . 'convert']    = __s('Convert');
         }
         return $actions;
     }
@@ -217,7 +218,7 @@ class Unmanaged extends CommonDBTM
         CommonDBTM $checkitem = null
     ) {
         if (self::canUpdate()) {
-            $actions['Unmanaged' . MassiveAction::CLASS_ACTION_SEPARATOR . 'convert']    = __('Convert');
+            $actions['Unmanaged' . MassiveAction::CLASS_ACTION_SEPARATOR . 'convert']    = __s('Convert');
         }
     }
 

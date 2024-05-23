@@ -34,6 +34,7 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Dashboard\Dashboard;
 use Glpi\Event;
 use Glpi\Plugin\Hooks;
 use Glpi\System\Requirement\PhpSupportedVersion;
@@ -67,15 +68,15 @@ class Central extends CommonGLPI
 
         if ($item->getType() == __CLASS__) {
             $tabs = [
-                1 => __('Personal View'),
-                2 => __('Group View'),
-                3 => __('Global View'),
-                4 => _n('RSS feed', 'RSS feeds', Session::getPluralNumber()),
+                1 => self::createTabEntry(__('Personal View'), 0, null, User::getIcon()),
+                2 => self::createTabEntry(__('Group View'), 0, null, Group::getIcon()),
+                3 => self::createTabEntry(__('Global View'), 0, null, 'ti ti-world'),
+                4 => self::createTabEntry(_n('RSS feed', 'RSS feeds', Session::getPluralNumber()), 0, null, RSSFeed::getIcon()),
             ];
 
             $grid = new Glpi\Dashboard\Grid('central');
             if ($grid::canViewOneDashboard()) {
-                array_unshift($tabs, __('Dashboard'));
+                array_unshift($tabs, self::createTabEntry(__('Dashboard'), 0, null, Dashboard::getIcon()));
             }
 
             return $tabs;
@@ -305,6 +306,28 @@ class Central extends CommonGLPI
                 ]
             ];
         }
+        $idor = Session::getNewIDORToken(Project::class);
+        if (Session::haveRight("project", Project::READMY)) {
+            $twig_params['cards'][] = [
+                'itemtype'  => Project::class,
+                'widget'    => 'central_list',
+                'params'    => $card_params + [
+                    'itemtype'      => \User::getType(),
+                    '_idor_token'  => $idor
+                ]
+            ];
+        }
+        $idor = Session::getNewIDORToken(ProjectTask::class);
+        if (Session::haveRight("projecttask", ProjectTask::READMY)) {
+            $twig_params['cards'][] = [
+                'itemtype'  => ProjectTask::class,
+                'widget'    => 'central_list',
+                'params'    => $card_params + [
+                    'itemtype'      => \User::getType(),
+                    '_idor_token'  => $idor
+                ]
+            ];
+        }
 
         TemplateRenderer::getInstance()->display('central/widget_tab.html.twig', $twig_params);
     }
@@ -440,6 +463,30 @@ class Central extends CommonGLPI
                 ]
             ];
         }
+
+        $idor = Session::getNewIDORToken(Project::class);
+        if (Session::haveRight("project", Project::READMY)) {
+            $twig_params['cards'][] = [
+                'itemtype'  => Project::class,
+                'widget'    => 'central_list',
+                'params'    => [
+                    'itemtype'    => \Group::getType(),
+                    '_idor_token' => $idor
+                ]
+            ];
+        }
+        $idor = Session::getNewIDORToken(ProjectTask::class);
+        if (Session::haveRight("projecttask", ProjectTask::READMY)) {
+            $twig_params['cards'][] = [
+                'itemtype'  => ProjectTask::class,
+                'widget'    => 'central_list',
+                'params'    => [
+                    'itemtype'    => \Group::getType(),
+                    '_idor_token' => $idor
+                ]
+            ];
+        }
+
         TemplateRenderer::getInstance()->display('central/widget_tab.html.twig', $twig_params);
     }
 

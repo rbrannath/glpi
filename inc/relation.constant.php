@@ -37,6 +37,7 @@ if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
 
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\Socket;
 
 /**
@@ -244,8 +245,7 @@ $RELATION = [
     ],
 
     'glpi_computers' => [
-        '_glpi_computers_items'           => 'computers_id',
-        'glpi_networknames'               => [['items_id', 'itemtype']], // FIXME Find a list that can be used to declare this polymorphic relation
+        'glpi_networknames' => [['items_id', 'itemtype']], // FIXME Find a list that can be used to declare this polymorphic relation
     ],
 
     'glpi_computertypes' => [
@@ -583,6 +583,8 @@ $RELATION = [
         '_glpi_entities_rssfeeds'          => 'entities_id',
         'glpi_fieldblacklists'             => 'entities_id',
         'glpi_fieldunicities'              => 'entities_id',
+        'glpi_forms_forms'                 => 'entities_id',
+        'glpi_forms_answerssets'           => 'entities_id',
         'glpi_fqdns'                       => 'entities_id',
         'glpi_groups'                      => 'entities_id',
         'glpi_groups_knowbaseitems'        => 'entities_id',
@@ -692,6 +694,22 @@ $RELATION = [
         'glpi_items_disks' => 'filesystems_id',
     ],
 
+    'glpi_forms_answerssets' => [
+        "_glpi_forms_destinations_answerssets_formdestinationitems" => "forms_answerssets_id",
+    ],
+
+    'glpi_forms_forms' => [
+        "_glpi_forms_accesscontrols_formaccesscontrols" => "forms_forms_id",
+        "_glpi_forms_answerssets"                       => "forms_forms_id",
+        "_glpi_forms_destinations_formdestinations"     => "forms_forms_id",
+        "_glpi_forms_sections"                          => "forms_forms_id",
+    ],
+
+    'glpi_forms_sections' => [
+        "_glpi_forms_questions" => "forms_sections_id",
+        "_glpi_forms_comments" => "forms_sections_id",
+    ],
+
     'glpi_fqdns' => [
         'glpi_networkaliases' => 'fqdns_id',
         'glpi_networknames'   => 'fqdns_id',
@@ -706,7 +724,10 @@ $RELATION = [
             'groups_id_tech',
             'groups_id',
         ],
-        'glpi_cartridgeitems'        => 'groups_id_tech',
+        'glpi_cartridgeitems'        => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_certificates'          => [
             'groups_id_tech',
             'groups_id',
@@ -718,8 +739,14 @@ $RELATION = [
             'groups_id_tech',
             'groups_id',
         ],
-        'glpi_consumableitems'       => 'groups_id_tech',
-        'glpi_databaseinstances'     => 'groups_id_tech',
+        'glpi_consumableitems'       => [
+            'groups_id_tech',
+            'groups_id',
+        ],
+        'glpi_databaseinstances'     => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_domains'               => 'groups_id_tech',
         'glpi_domainrecords'         => 'groups_id_tech',
         'glpi_enclosures'            => 'groups_id_tech',
@@ -730,9 +757,15 @@ $RELATION = [
         '_glpi_groups_rssfeeds'      => 'groups_id',
         '_glpi_groups_tickets'       => 'groups_id',
         '_glpi_groups_users'         => 'groups_id',
-        'glpi_items_devicesimcards'  => 'groups_id',
+        'glpi_items_devicesimcards'  => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_itilcategories'        => 'groups_id',
-        'glpi_lines'                 => 'groups_id',
+        'glpi_lines'                 => [
+            'groups_id_tech',
+            'groups_id',
+        ],
         'glpi_monitors'              => [
             'groups_id_tech',
             'groups_id',
@@ -897,6 +930,7 @@ $RELATION = [
         'glpi_devicesensors'             => 'locations_id',
         'glpi_enclosures'                => 'locations_id',
         'glpi_items_devicebatteries'     => 'locations_id',
+        'glpi_items_devicecameras'       => 'locations_id',
         'glpi_items_devicecases'         => 'locations_id',
         'glpi_items_devicecontrols'      => 'locations_id',
         'glpi_items_devicedrives'        => 'locations_id',
@@ -1384,10 +1418,9 @@ $RELATION = [
         'glpi_computers'                 => 'states_id',
         'glpi_contracts'                 => 'states_id',
         'glpi_databaseinstances'         => 'states_id',
-        'glpi_devicegenerics'            => 'states_id',
-        'glpi_devicesensors'             => 'states_id',
         'glpi_enclosures'                => 'states_id',
         'glpi_items_devicebatteries'     => 'states_id',
+        'glpi_items_devicecameras'       => 'states_id',
         'glpi_items_devicecases'         => 'states_id',
         'glpi_items_devicecontrols'      => 'states_id',
         'glpi_items_devicedrives'        => 'states_id',
@@ -1508,7 +1541,10 @@ $RELATION = [
             'users_id',
         ],
         'glpi_cables'                   => 'users_id_tech',
-        'glpi_cartridgeitems'           => 'users_id_tech',
+        'glpi_cartridgeitems'           => [
+            'users_id_tech',
+            'users_id',
+        ],
         'glpi_certificates'             => [
             'users_id_tech',
             'users_id',
@@ -1532,18 +1568,28 @@ $RELATION = [
             'users_id_tech',
             'users_id',
         ],
-        'glpi_consumableitems'          => 'users_id_tech',
+        'glpi_consumableitems'          => [
+            'users_id_tech',
+            'users_id',
+        ],
         '_glpi_dashboards_dashboards'   => 'users_id',
         'glpi_dashboards_filters'       => 'users_id',
-        'glpi_databaseinstances'        => 'users_id_tech',
+        'glpi_databaseinstances'        => [
+            'users_id_tech',
+            'users_id',
+        ],
         '_glpi_displaypreferences'      => 'users_id',
         'glpi_domains'                  => 'users_id_tech',
         'glpi_domainrecords'            => 'users_id_tech',
         'glpi_documents'                => 'users_id',
         'glpi_documents_items'          => 'users_id',
         'glpi_enclosures'               => 'users_id_tech',
+        'glpi_forms_answerssets'        => 'users_id',
         '_glpi_groups_users'            => 'users_id',
-        'glpi_items_devicesimcards'     => 'users_id',
+        'glpi_items_devicesimcards'     => [
+            'users_id_tech',
+            'users_id',
+        ],
         '_glpi_items_kanbans'           => 'users_id',
         'glpi_itilcategories'           => 'users_id',
         'glpi_itilfollowups'            => [
@@ -1560,7 +1606,10 @@ $RELATION = [
         'glpi_knowbaseitems_revisions'  => 'users_id',
         '_glpi_knowbaseitems_users'     => 'users_id',
         'glpi_knowbaseitemtranslations' => 'users_id',
-        'glpi_lines'                    => 'users_id',
+        'glpi_lines'                    => [
+            'users_id_tech',
+            'users_id',
+        ],
         'glpi_monitors'                 => [
             'users_id_tech',
             'users_id',
@@ -1717,7 +1766,6 @@ $polymorphic_types_mapping = [
     Appliance_Item_Relation::class => $CFG_GLPI['appliance_relation_types'],
     Certificate_Item::class        => $CFG_GLPI['certificate_types'],
     Change_Item::class             => $CFG_GLPI['ticket_types'],
-    Computer_Item::class           => $CFG_GLPI['directconnect_types'],
     Consumable::class              => $CFG_GLPI['consumables_types'],
     Contract_Item::class           => $CFG_GLPI['contract_types'],
     DatabaseInstance::class        => $CFG_GLPI['databaseinstance_types'],
@@ -1807,4 +1855,20 @@ foreach ($CFG_GLPI['networkport_types'] as $source_itemtype) {
     $define_mapping_entry($source_table, $target_table_key);
 
     $RELATION[$source_table][$target_table_key][] = ['mainitems_id', 'mainitemtype'];
+}
+
+// Asset_PeripheralAsset specific case
+foreach ($CFG_GLPI['directconnect_types'] as $directconnect_itemtype) {
+    $target_table_key = Asset_PeripheralAsset::getTable();
+    $source_table     = $directconnect_itemtype::getTable();
+
+    $define_mapping_entry($source_table, $target_table_key);
+    $RELATION[$source_table][$target_table_key][] = ['itemtype_peripheral', 'items_id_peripheral'];
+}
+foreach (Asset_PeripheralAsset::getPeripheralHostItemtypes() as $peripheralhost_itemtype) {
+    $target_table_key = Asset_PeripheralAsset::getTable();
+    $source_table     = $peripheralhost_itemtype::getTable();
+
+    $define_mapping_entry($source_table, $target_table_key);
+    $RELATION[$source_table][$target_table_key][] = ['itemtype_asset', 'items_id_asset'];
 }

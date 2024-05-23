@@ -256,7 +256,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
      *
      * @param $number
      *
-     * @return boolean
+     * @return CommonDBTM|false
      **/
     public function getOnePeer($number)
     {
@@ -594,7 +594,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public static function canCreate()
+    public static function canCreate(): bool
     {
 
         if ((static::$rightname) && (!Session::haveRight(static::$rightname, CREATE))) {
@@ -607,7 +607,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public static function canView()
+    public static function canView(): bool
     {
         if ((static::$rightname) && (!Session::haveRight(static::$rightname, READ))) {
             return false;
@@ -620,7 +620,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public static function canUpdate()
+    public static function canUpdate(): bool
     {
         if ((static::$rightname) && (!Session::haveRight(static::$rightname, UPDATE))) {
             return false;
@@ -632,7 +632,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public static function canDelete()
+    public static function canDelete(): bool
     {
         if ((static::$rightname) && (!Session::haveRight(static::$rightname, DELETE))) {
             return false;
@@ -644,7 +644,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.85
      **/
-    public static function canPurge()
+    public static function canPurge(): bool
     {
         if ((static::$rightname) && (!Session::haveRight(static::$rightname, PURGE))) {
             return false;
@@ -656,7 +656,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public function canCreateItem()
+    public function canCreateItem(): bool
     {
         return $this->canRelationItem(
             'canUpdateItem',
@@ -670,7 +670,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public function canViewItem()
+    public function canViewItem(): bool
     {
         return $this->canRelationItem('canViewItem', 'canView', false, true);
     }
@@ -679,7 +679,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public function canUpdateItem()
+    public function canUpdateItem(): bool
     {
 
         return $this->canRelationItem(
@@ -694,7 +694,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 0.84
      **/
-    public function canDeleteItem()
+    public function canDeleteItem(): bool
     {
 
         return $this->canRelationItem(
@@ -709,7 +709,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
     /**
      * @since 9.3.2
      */
-    public function canPurgeItem()
+    public function canPurgeItem(): bool
     {
 
         return $this->canRelationItem(
@@ -1397,7 +1397,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
      *
      * @param MassiveAction $ma current massive action
      *
-     * @return number of the peer
+     * @return int number of the peer
      **/
     public static function getRelationMassiveActionsPeerForSubForm(MassiveAction $ma)
     {
@@ -1488,7 +1488,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
                     } else {
                         $options['name'] = 'peer_' . $peers_id;
                         if (isset($_POST['entity_restrict'])) {
-                            $options['entity'] = $_POST['entity_restrict'];
+                            $options['entity'] = Session::getMatchingActiveEntities($_POST['entity_restrict']);
                         }
                         if ($normalized_action == 'remove') {
                             $options['nochecklimit'] = true;
@@ -1938,13 +1938,13 @@ abstract class CommonDBRelation extends CommonDBConnexity
     protected static function getDistinctTypesParams($items_id, $extra_where = [])
     {
         $params = [
-            'SELECT'          => 'itemtype',
+            'SELECT'          => static::$itemtype_2,
             'DISTINCT'        => true,
             'FROM'            => static::getTable(),
             'WHERE'           => [
                 static::$items_id_1  => $items_id,
             ] + $extra_where,
-            'ORDER'           => 'itemtype'
+            'ORDER'           => static::$itemtype_2
         ];
         return $params;
     }
@@ -2137,7 +2137,7 @@ abstract class CommonDBRelation extends CommonDBConnexity
         return $nb;
     }
 
-    final public static function getItemField($itemtype): string
+    public static function getItemField($itemtype): string
     {
         if (isset(static::$items_id_1) && getItemtypeForForeignKeyField(static::$items_id_1) == $itemtype) {
             return static::$items_id_1;

@@ -41,6 +41,7 @@ use Glpi\Application\View\TemplateRenderer;
 class Rack extends CommonDBTM
 {
     use Glpi\Features\DCBreadcrumb;
+    use Glpi\Features\State;
 
     const FRONT    = 0;
     const REAR     = 1;
@@ -177,11 +178,11 @@ class Rack extends CommonDBTM
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => 'glpi_states',
+            'table'              => State::getTable(),
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            'condition'          => ['is_visible_rack' => 1]
+            'condition'          => $this->getStateVisibilityCriteria()
         ];
 
         $tab[] = [
@@ -305,6 +306,19 @@ class Rack extends CommonDBTM
             'name'               => Group::getTypeName(1),
             'condition'          => ['is_itemgroup' => 1],
             'datatype'           => 'dropdown'
+        ];
+
+        $tab[] = [
+            'id'                 => '85',
+            'table'              => Datacenter::getTable(),
+            'field'              => 'name',
+            'name'               => Datacenter::getTypeName(1),
+            'datatype'           => 'dropdown',
+            'joinparams'         => [
+                'beforejoin'         => [
+                    'table'              => DCRoom::getTable(),
+                ]
+            ]
         ];
 
         $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
@@ -772,7 +786,7 @@ JAVASCRIPT;
 
         if ($input['position'] == 0) {
             Session::addMessageAfterRedirect(
-                __('Position must be set'),
+                __s('Position must be set'),
                 true,
                 ERROR
             );
@@ -792,10 +806,10 @@ JAVASCRIPT;
 
         if ($existing > 0) {
             Session::addMessageAfterRedirect(
-                sprintf(
+                htmlspecialchars(sprintf(
                     __('%1$s position is not available'),
                     $input['position']
-                ),
+                )),
                 true,
                 ERROR
             );

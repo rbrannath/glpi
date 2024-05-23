@@ -39,6 +39,7 @@
 body.mce-content-body {
     margin: 15px 10px;
 
+    [data-form-tag="true"],
     [data-user-mention="true"] {
         cursor: default !important; // Overrides "not-allowed" cursor on noneditable content
     }
@@ -46,6 +47,7 @@ body.mce-content-body {
 
 #page .tox .tox-statusbar {
     border-top: transparent;
+    justify-content: flex-end;
 }
 
 .tox.tox-tinymce {
@@ -88,13 +90,19 @@ body.mce-content-body {
         overflow: hidden;
 
         .read_more {
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0%) 0%, #f1f4e3 100%);
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0%) 0%, var(--glpi-timeline-itil-content-bg) 100%);
         }
     }
 }
 
 .user-mention,
 [data-user-mention="true"] {
+    background: rgba(0, 0, 0, 20%);
+    border-radius: 3px;
+    padding: 5px;
+}
+
+[data-form-tag="true"] {
     background: rgba(0, 0, 0, 20%);
     border-radius: 3px;
     padding: 5px;

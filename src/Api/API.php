@@ -51,6 +51,8 @@ use Contract;
 use Document;
 use Dropdown;
 use Glpi\Api\HL\Router;
+use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\DBAL\QueryExpression;
 use Glpi\Search\Provider\SQLProvider;
 use Glpi\Search\SearchOption;
@@ -745,35 +747,38 @@ abstract class API
         if (
             isset($params['with_connections'])
             && $params['with_connections']
-            && $itemtype == "Computer"
+            && in_array($itemtype, Asset_PeripheralAsset::getPeripheralHostItemtypes(), true)
         ) {
             $fields['_connections'] = [];
             foreach ($CFG_GLPI["directconnect_types"] as $connect_type) {
                 $connect_item = new $connect_type();
                 if ($connect_item->canView()) {
-                    $connect_table = getTableForItemType($connect_type);
+                    $connect_table  = getTableForItemType($connect_type);
+                    $relation_table = Asset_PeripheralAsset::getTable();
                     $iterator = $DB->request([
                         'SELECT'    => [
-                            'glpi_computers_items.id AS assoc_id',
-                            'glpi_computers_items.computers_id AS assoc_computers_id',
-                            'glpi_computers_items.itemtype AS assoc_itemtype',
-                            'glpi_computers_items.items_id AS assoc_items_id',
-                            'glpi_computers_items.is_dynamic AS assoc_is_dynamic',
-                            "$connect_table.*"
+                            $relation_table . '.id AS assoc_id',
+                            $relation_table . '.itemtype_item',
+                            $relation_table . '.items_id_item',
+                            $relation_table . '.itemtype_peripheral',
+                            $relation_table . '.items_id_peripheral',
+                            $relation_table . '.is_dynamic AS assoc_is_dynamic',
+                            $connect_table  . '.*',
                         ],
-                        'FROM'      => 'glpi_computers_items',
+                        'FROM'      => $relation_table,
                         'LEFT JOIN' => [
                             $connect_table => [
                                 'ON' => [
-                                    'glpi_computers_items'  => 'items_id',
-                                    $connect_table          => 'id'
+                                    $relation_table => 'items_id_peripheral',
+                                    $connect_table  => 'id',
                                 ]
                             ]
                         ],
                         'WHERE'     => [
-                            'computers_id'                      => $id,
-                            'itemtype'                          => $connect_type,
-                            'glpi_computers_items.is_deleted'   => 0
+                            $relation_table . '.itemtype_item' => $itemtype,
+                            $relation_table . '.items_id_item' => $id,
+                            $relation_table . '.itemtype_peripheral' => $connect_type,
+                            $relation_table . '.is_deleted' => 0,
                         ]
                     ]);
                     foreach ($iterator as $data) {
@@ -2432,16 +2437,33 @@ abstract class API
     public function inlineDocumentation($file)
     {
         $this->header(true, __("API Documentation"));
-        echo Html::css("public/lib/prismjs.css");
-        echo Html::script("public/lib/prismjs.js");
 
-        echo "<div class='documentation'>";
         $documentation = file_get_contents(GLPI_ROOT . '/' . $file);
-
-        $md = new MarkdownRenderer();
-        echo $md->render($documentation);
-
-        echo "</div>";
+        // language=Twig
+        echo TemplateRenderer::getInstance()->renderFromStringTemplate(<<<TWIG
+            <div class='documentation'>{{ md|raw }}</div>
+            <script type="module">
+                import('{{ path("js/modules/Monaco/MonacoEditor.js") }}').then(() => {
+                    const lang_elements = $('code[class^="language-"]');
+                    lang_elements.each((index, element) => {
+                        const el = $(element);
+                        const code = el.text();
+                        let lang = el.attr('class').replace('language-', '');
+                        switch (lang) {
+                            case 'bash':
+                                lang = 'shell';
+                                break;
+                            case 'json':
+                                lang = 'javascript';
+                                break;
+                        }
+                        window.GLPI.Monaco.colorizeText(code, lang).then((html) => {
+                            el.html(html);
+                        });
+                    });
+                });
+            </script>
+TWIG, ['md' => (new MarkdownRenderer())->render($documentation)]);
 
         Html::nullFooter();
         exit;
@@ -2875,6 +2897,8 @@ abstract class API
         } else {
             $networkport_types = NetworkPort::getNetworkPortInstantiations();
             foreach ($networkport_types as $networkport_type) {
+                $_networkports[$networkport_type] = [];
+
                 $netport_table = $networkport_type::getTable();
                 $netp_iterator = $DB->request([
                     'SELECT'    => [

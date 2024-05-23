@@ -39,6 +39,7 @@ use Glpi\Api\HL\Controller\ITILController;
 use Glpi\Api\HL\Controller\ManagementController;
 use Glpi\Api\HL\Doc\Schema;
 use Glpi\Api\HL\Router;
+use Glpi\ContentTemplates\TemplateManager;
 use Glpi\Http\Request;
 use Glpi\Application\View\TemplateRenderer;
 use Glpi\Search\FilterableInterface;
@@ -78,17 +79,17 @@ class Webhook extends CommonDBTM implements FilterableInterface
         return _n('Webhook', 'Webhooks', $nb);
     }
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return static::canUpdate();
     }
 
-    public static function canPurge()
+    public static function canPurge(): bool
     {
         return static::canUpdate();
     }
 
-    public static function canDelete()
+    public static function canDelete(): bool
     {
         return static::canUpdate();
     }
@@ -510,13 +511,7 @@ class Webhook extends CommonDBTM implements FilterableInterface
                     };
                     $data = $fn_desanitize($data);
                     try {
-                        $env = new \Twig\Environment(
-                            new \Twig\Loader\ArrayLoader([
-                                'payload' => $payload_template
-                            ])
-                        );
-                        $env->addExtension(new \Twig\Extra\Markdown\MarkdownExtension());
-                        return $env->render('payload', $data);
+                        return TemplateManager::render($payload_template, $data, false, [new \Twig\Extra\Markdown\MarkdownExtension()]);
                     } catch (Throwable $e) {
                         return null;
                     }
@@ -1152,25 +1147,15 @@ class Webhook extends CommonDBTM implements FilterableInterface
 
             $custom_headers = $webhook->fields['custom_headers'];
             foreach ($custom_headers as $key => $value) {
-                $env = new \Twig\Environment(
-                    new \Twig\Loader\ArrayLoader([
-                        'payload' => $value
-                    ])
-                );
                 try {
-                    $custom_headers[$key] = $env->render('payload', $api_data);
+                    $custom_headers[$key] = TemplateManager::render($value, $api_data, false);
                 } catch (\Exception $e) {
                     // Header will not be sent
                 }
             }
             $headers = array_merge($headers, $custom_headers);
 
-            $env = new \Twig\Environment(
-                new \Twig\Loader\ArrayLoader([
-                    'payload' => $webhook->fields['url']
-                ])
-            );
-            $webhook->fields['url'] = $env->render('payload', $api_data);
+            $webhook->fields['url'] = TemplateManager::render($webhook->fields['url'], $api_data, false);
 
             $data = $webhook->fields;
             $data['items_id'] = $item->getID();
@@ -1244,12 +1229,12 @@ class Webhook extends CommonDBTM implements FilterableInterface
         }
         unset($input['header_name'], $input['header_value']);
         if (isset($input["itemtype"]) && !$input["itemtype"]) {
-            Session::addMessageAfterRedirect(__('An item type is required'), false, ERROR);
+            Session::addMessageAfterRedirect(__s('An item type is required'), false, ERROR);
             $valid_input = false;
         }
 
         if (isset($input["event"]) && !$input["event"]) {
-            Session::addMessageAfterRedirect(__('An event is required'), false, ERROR);
+            Session::addMessageAfterRedirect(__s('An event is required'), false, ERROR);
             $valid_input = false;
         }
 

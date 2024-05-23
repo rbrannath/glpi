@@ -90,7 +90,7 @@ class Change extends CommonITILObject
     }
 
 
-    public static function canView()
+    public static function canView(): bool
     {
         return Session::haveRightsOr(self::$rightname, [self::READALL, self::READMY]);
     }
@@ -101,7 +101,7 @@ class Change extends CommonITILObject
      *
      * @return boolean
      **/
-    public function canViewItem()
+    public function canViewItem(): bool
     {
 
         if (!$this->checkEntity(true)) {
@@ -130,7 +130,7 @@ class Change extends CommonITILObject
      *
      * @return boolean
      **/
-    public function canCreateItem()
+    public function canCreateItem(): bool
     {
 
         if (!Session::haveAccessToEntity($this->getEntityID())) {
@@ -211,13 +211,12 @@ class Change extends CommonITILObject
 
     public function getSpecificMassiveActions($checkitem = null)
     {
-
         $actions = parent::getSpecificMassiveActions($checkitem);
 
         if ($this->canAdminActors()) {
-            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'add_actor'] = __('Add an actor');
+            $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'add_actor'] = __s('Add an actor');
             $actions[__CLASS__ . MassiveAction::CLASS_ACTION_SEPARATOR . 'update_notif']
-               = __('Set notifications for all actors');
+               = __s('Set notifications for all actors');
         }
 
         return $actions;
@@ -788,9 +787,9 @@ class Change extends CommonITILObject
                 '_add_fromitem',
                 __('New change for this item...'),
                 [
-                    '_from_itemtype' => $item->getType(),
-                    '_from_items_id' => $item->getID(),
-                    'entities_id'    => $item->fields['entities_id']
+                    'itemtype'    => $item::class,
+                    'items_id'    => $item->getID(),
+                    'entities_id' => $item->fields['entities_id']
                 ]
             );
             echo "</div>";
@@ -1287,7 +1286,7 @@ class Change extends CommonITILObject
                         $bgcolor = $_SESSION["glpipriority_" . $change->fields["priority"]];
                         $name = sprintf(__('%1$s: %2$s'), __('ID'), $change->fields["id"]);
                         $row['values'][] = [
-                            'class' => 'priority_block',
+                            'class' => 'badge_block',
                             'content' => "<span style='background: $bgcolor'></span>&nbsp;$name"
                         ];
 
@@ -1514,7 +1513,7 @@ class Change extends CommonITILObject
             $name    = sprintf(__('%1$s: %2$s'), __('ID'), $change->fields["id"]);
             echo "<tr class='tab_bg_2'>";
             echo "<td>
-            <div class='priority_block' style='border-color: $bgcolor'>
+            <div class='badge_block' style='border-color: $bgcolor'>
                <span style='background: $bgcolor'></span>&nbsp;$name
             </div>
          </td>";

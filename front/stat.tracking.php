@@ -76,55 +76,15 @@ if (
 
 $params = [
     'itemtype'  => $_GET["itemtype"] ?? "",
-    'type'      => (string)$_GET["type"] ?? "user",
+    'type'      => (string)($_GET["type"] ?? "user"),
     'date1'     => $_GET["date1"],
     'date2'     => $_GET["date2"],
     'value2'    => $_GET["value2"] ?? 0,
-    'start'     => (int)$_GET["start"] ?? 0,
-    'showgraph' => (int)$_GET["showgraph"] ?? 0,
+    'start'     => (int)($_GET["start"] ?? 0),
+    'showgraph' => (int)($_GET["showgraph"] ?? 0),
 ];
 
-$caract = [
-    'itilcategories_id'   => ['title' => _n('Category', 'Categories', 1)],
-    'itilcategories_tree' => ['title' => __('Category tree')],
-    'urgency'             => ['title' => __('Urgency')],
-    'impact'              => ['title' => __('Impact')],
-    'priority'            => ['title' => __('Priority')],
-    'solutiontypes_id'    => ['title' => SolutionType::getTypeName(1)]
-];
-
-if ($params['itemtype'] == 'Ticket') {
-    $caract['type']            = ['title' => _n('Type', 'Types', 1)];
-    $caract['requesttypes_id'] = ['title' => RequestType::getTypeName(1)];
-    $caract['locations_id']    = ['title' => Location::getTypeName(1)];
-    $caract['locations_tree']  = ['title' => __('Location tree')];
-}
-
-$items = [
-    _n('Requester', 'Requesters', 1) => [
-        'user'               => ['title' => _n('Requester', 'Requesters', 1)],
-        'users_id_recipient' => ['title' => __('Writer')],
-        'group'              => ['title' => Group::getTypeName(1)],
-        'group_tree'         => ['title' => __('Group tree')],
-        'usertitles_id'      => ['title' => _x('person', 'Title')],
-        'usercategories_id'  => ['title' => _n('Category', 'Categories', 1)]
-    ],
-    __('Characteristics') => $caract,
-    __('Assigned to') => [
-        'technicien'          => ['title' => __('Technician as assigned')],
-        'technicien_followup' => ['title' => __('Technician in tasks')],
-        'groups_id_assign'    => ['title' => Group::getTypeName(1)],
-        'groups_tree_assign'  => ['title' => __('Group tree')],
-        'suppliers_id_assign' => ['title' => Supplier::getTypeName(1)]
-    ]
-];
-
-$values = [];
-foreach ($items as $label => $tab) {
-    foreach ($tab as $key => $val) {
-        $values[$label][$key] = $val['title'];
-    }
-}
+$values = Stat::getITILStatFields($params['itemtype']);
 
 $val = Stat::getItems(
     $params["itemtype"],
@@ -144,10 +104,14 @@ Html::printPager(
     $params
 );
 
-TemplateRenderer::getInstance()->display('pages/assistance/stats/tracking_form.html.twig', [
+TemplateRenderer::getInstance()->display('pages/assistance/stats/form.html.twig', [
+    'target'    => 'stat.tracking.php',
     'itemtype'  => $params["itemtype"],
-    'types'     => $values,
-    'type'      => $params['type'],
+    'type_params' => [
+        'field' => 'type',
+        'value' => $params["type"],
+        'elements' => $values,
+    ],
     'date1'     => $params["date1"],
     'date2'     => $params["date2"],
     'value2'    => $params["value2"],

@@ -118,7 +118,7 @@ class DbTestCase extends \GLPITestCase
      */
     protected function checkInput(CommonDBTM $object, $id = 0, $input = [])
     {
-        $this->integer((int)$id)->isGreaterThan(0);
+        $this->integer($id)->isGreaterThan($object instanceof Entity ? -1 : 0);
         $this->boolean($object->getFromDB($id))->isTrue();
         $this->variable($object->getField('id'))->isEqualTo($id);
 
@@ -203,6 +203,7 @@ class DbTestCase extends \GLPITestCase
         $this->integer($id)->isGreaterThan(0);
 
         // Remove special fields
+        $skip_fields[] = 'id';
         $input = array_filter($input, function ($key) use ($skip_fields) {
             return !in_array($key, $skip_fields) && strpos($key, '_') !== 0;
         }, ARRAY_FILTER_USE_KEY);
@@ -218,8 +219,10 @@ class DbTestCase extends \GLPITestCase
      * @param string $itemtype
      * @param array $input
      * @param array $skip_fields Fields that wont be checked after creation
+     *
+     * @return CommonDBTM The updated item
      */
-    protected function updateItem($itemtype, $id, $input, $skip_fields = [])
+    protected function updateItem($itemtype, $id, $input, $skip_fields = []): CommonDBTM
     {
         $item = new $itemtype();
         $input['id'] = $id;
@@ -232,6 +235,8 @@ class DbTestCase extends \GLPITestCase
         }, ARRAY_FILTER_USE_KEY);
 
         $this->checkInput($item, $id, $input);
+
+        return $item;
     }
 
     /**
@@ -257,12 +262,16 @@ class DbTestCase extends \GLPITestCase
      *
      * @param string $itemtype
      * @param int $id
+     * @param bool $purge
+     *
+     * @return void
      */
-    protected function deleteItem($itemtype, $id): void
+    protected function deleteItem($itemtype, $id, bool $purge = false): void
     {
+        /** @var CommonDBTM $item */
         $item = new $itemtype();
         $input['id'] = $id;
-        $success = $item->delete($input);
+        $success = $item->delete($input, $purge);
         $this->boolean($success)->isTrue();
     }
 

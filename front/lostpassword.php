@@ -50,12 +50,11 @@ if (
     )
 ) {
     Session::addMessageAfterRedirect(
-        __('Sending password forget notification is not enabled.'),
+        __s('Sending password forget notification is not enabled.'),
         true,
         ERROR
     );
-    TemplateRenderer::getInstance()->display('password_form.html.twig', [
-        'title'         => __('Forgotten password?'),
+    TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
         'messages_only' => true,
     ]);
     exit();

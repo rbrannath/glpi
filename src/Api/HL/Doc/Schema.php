@@ -35,6 +35,8 @@
 
 namespace Glpi\Api\HL\Doc;
 
+use CommonGLPI;
+use Glpi\Api\HL\Router;
 use Glpi\Toolbox\ArrayPathAccessor;
 
 /**
@@ -265,6 +267,24 @@ class Schema implements \ArrayAccess
                 }
             }
         }
+        if ($prefix === '') {
+            // Fix parent_join for all joins
+            foreach ($joins as $join_name => $join) {
+                if (isset($join['join_parent'])) {
+                    // This join is supposed to have a parent
+                    // The set parent may not be correct currently. The join's parent may in fact be an ancestor of the one set
+                    // We need to check if the current parent exists in the list of joins. If not, we need to find the correct parent by walking up the tree
+                    $parent = $join['join_parent'];
+                    while ($parent !== '') {
+                        if (isset($joins[$parent])) {
+                            $joins[$join_name]['join_parent'] = $parent;
+                            break;
+                        }
+                        $parent = substr($parent, 0, strrpos($parent, chr(0x1F)));
+                    }
+                }
+            }
+        }
         return $joins;
     }
 
@@ -305,7 +325,7 @@ class Schema implements \ArrayAccess
         $type_match = match ($type) {
             self::TYPE_STRING => is_string($value),
             self::TYPE_INTEGER => is_int($value),
-            self::TYPE_NUMBER => is_float($value),
+            self::TYPE_NUMBER => is_int($value) || is_float($value),
             self::TYPE_BOOLEAN => is_bool($value),
             self::TYPE_ARRAY, self::TYPE_OBJECT => is_array($value),
             default => false
@@ -321,8 +341,9 @@ class Schema implements \ArrayAccess
             self::FORMAT_INTEGER_INT32 => ((abs($value) & 0x7FFFFFFF) === abs($value)),
             self::FORMAT_INTEGER_INT64 => ((abs($value) & 0x7FFFFFFFFFFFFFFF) === abs($value)),
             // Double: float and has 2 or less decimal places
-            self::FORMAT_NUMBER_DOUBLE => is_float($value) && (strlen(substr(strrchr((string)$value, "."), 1)) <= 2),
-            self::FORMAT_NUMBER_FLOAT => is_float($value),
+            // We also accept integers as doubles (no decimal places specified)
+            self::FORMAT_NUMBER_DOUBLE => is_int($value) || (is_float($value) && (strlen(substr(strrchr((string)$value, "."), 1)) <= 2)),
+            self::FORMAT_NUMBER_FLOAT => is_int($value) || is_float($value),
             // Binary: binary data like used for Files
             self::FORMAT_STRING_BINARY, self::FORMAT_STRING_PASSWORD, self::FORMAT_STRING_STRING => is_string($value),
             // Byte: base64 encoded string
@@ -336,13 +357,25 @@ class Schema implements \ArrayAccess
         return $format_match;
     }
 
-    public function isValid(array $content): bool
+    public function isValid(array $content, string|null $operation = null): bool
     {
         $flattened_schema = self::flattenProperties($this->toArray()['properties'], '', false);
 
         foreach ($flattened_schema as $sk => $sv) {
+            $ignored = false;
             // Get value from original content by the array path $sk
             $cv = ArrayPathAccessor::getElementByArrayPath($content, $sk);
+            if ($cv === null) {
+                if ($operation === 'read' && ($sv['x-writeonly'] ?? false)) {
+                    $ignored = true;
+                } else if ($operation === 'write' && ($sv['x-readonly'] ?? false)) {
+                    $ignored = true;
+                }
+            }
+            if ($ignored) {
+                // Property was not found, but it wasn't applicable to the operation
+                continue;
+            }
 
             // Verify that the type is correct
             if (!self::validateTypeAndFormat($sv['type'], $sv['format'] ?? '', $cv)) {
@@ -388,5 +421,48 @@ class Schema implements \ArrayAccess
             }
         }
         return $content;
+    }
+
+    /**
+     * Combine multiple schemas into a single 'union' schema that allows searching across all of them
+     * @param non-empty-array<string, array> $schemas
+     * @return array{x-subtypes: array{schema_name: string, itemtype: string}, type: self::TYPE_OBJECT, properties: array}
+     * @see getUnionSchemaForItemtypes
+     */
+    public static function getUnionSchema(array $schemas): array
+    {
+        $shared_properties = array_intersect_key(...array_column($schemas, 'properties'));
+        $subtype_info = [];
+        foreach ($schemas as $n => $s) {
+            $subtype_info[] = [
+                'schema_name' => $n,
+                'itemtype' => $s['x-itemtype']
+            ];
+        }
+        return [
+            'x-subtypes' => $subtype_info,
+            'type' => self::TYPE_OBJECT,
+            'properties' => $shared_properties
+        ];
+    }
+
+    /**
+     * Combine schemas related to multiple GLPI itemtypes into a single 'union' schema that allows searching across all of them
+     * @param non-empty-array<string, class-string<CommonGLPI>> $itemtypes
+     * @return array{x-subtypes: array{schema_name: string, itemtype: string}, type: self::TYPE_OBJECT, properties: array}
+     * @see getUnionSchema
+     */
+    public static function getUnionSchemaForItemtypes(array $itemtypes): array
+    {
+        $schemas = [];
+        $controllers = Router::getInstance()->getControllers();
+        foreach ($controllers as $controller) {
+            foreach ($controller::getKnownSchemas() as $schema_name => $schema) {
+                if (array_key_exists('x-itemtype', $schema) && in_array($schema['x-itemtype'], $itemtypes, true)) {
+                    $schemas[$schema_name] = $schema;
+                }
+            }
+        }
+        return self::getUnionSchema($schemas);
     }
 }

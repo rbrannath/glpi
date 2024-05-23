@@ -134,7 +134,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
         return true;
     }
 
-    public static function canView()
+    public static function canView(): bool
     {
         if (!Session::haveRightsOr(static::$rightname, [self::SEEPUBLIC, self::SEEPRIVATE])) {
             return false;
@@ -330,7 +330,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
     {
         if (array_key_exists('content', $input) && empty($input['content'])) {
             Session::addMessageAfterRedirect(
-                __("You can't remove description of a task."),
+                __s("You can't remove description of a task."),
                 false,
                 ERROR
             );
@@ -374,7 +374,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
 
             if (!$this->test_valid_date($input)) {
                 Session::addMessageAfterRedirect(
-                    __('Error in entering dates. The starting date is later than the ending date'),
+                    __s('Error in entering dates. The starting date is later than the ending date'),
                     false,
                     ERROR
                 );
@@ -402,14 +402,14 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
             ) {
                 if (!$calendar->isAWorkingHour(strtotime($input["begin"]))) {
                     Session::addMessageAfterRedirect(
-                        __('Start of the selected timeframe is not a working hour.'),
+                        __s('Start of the selected timeframe is not a working hour.'),
                         false,
                         ERROR
                     );
                 }
                 if (!$calendar->isAWorkingHour(strtotime($input["end"]))) {
                     Session::addMessageAfterRedirect(
-                        __('End of the selected timeframe is not a working hour.'),
+                        __s('End of the selected timeframe is not a working hour.'),
                         false,
                         ERROR
                     );
@@ -575,7 +575,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
 
         if (empty($input['content'])) {
             Session::addMessageAfterRedirect(
-                __("You can't add a task without description."),
+                __s("You can't add a task without description."),
                 false,
                 ERROR
             );
@@ -600,7 +600,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
             unset($input["plan"]);
             if (!$this->test_valid_date($input)) {
                 Session::addMessageAfterRedirect(
-                    __('Error in entering dates. The starting date is later than the ending date'),
+                    __s('Error in entering dates. The starting date is later than the ending date'),
                     false,
                     ERROR
                 );
@@ -679,14 +679,14 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
             ) {
                 if (!$calendar->isAWorkingHour(strtotime($this->fields["begin"]))) {
                     Session::addMessageAfterRedirect(
-                        __('Start of the selected timeframe is not a working hour.'),
+                        __s('Start of the selected timeframe is not a working hour.'),
                         false,
                         ERROR
                     );
                 }
                 if (!$calendar->isAWorkingHour(strtotime($this->fields["end"]))) {
                     Session::addMessageAfterRedirect(
-                        __('End of the selected timeframe is not a working hour.'),
+                        __s('End of the selected timeframe is not a working hour.'),
                         false,
                         ERROR
                     );
@@ -728,7 +728,26 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
         // Assign technician to main item  from task
         self::assignTechFromtask($this->input);
 
+        if ($this->input["_job"]->getType() == 'Ticket') {
+            self::addToMergedTickets();
+        }
+
         parent::post_addItem();
+    }
+
+    private function addToMergedTickets(): void
+    {
+        $merged = Ticket::getMergedTickets($this->fields['tickets_id']);
+        foreach ($merged as $ticket_id) {
+            $input = $this->fields;
+            $input['tickets_id'] = $ticket_id;
+            $input['sourceitems_id'] = $this->fields['tickets_id'];
+            unset($input['id']);
+            $input['uuid'] = \Ramsey\Uuid\Uuid::uuid4();
+
+            $task = new static();
+            $task->add($input);
+        }
     }
 
     public function post_getEmpty()
@@ -1737,7 +1756,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
                     $bgcolor = $_SESSION["glpipriority_" . $parent_item->fields["priority"]];
                     $name = sprintf(__('%1$s: %2$s'), __('ID'), $parent_item->fields["id"]);
                     $row['values'][] = [
-                        'content' => "<div class='priority_block' style='border-color: $bgcolor'><span style='background: $bgcolor'></span>&nbsp;$name</div>"
+                        'content' => "<div class='badge_block' style='border-color: $bgcolor'><span style='background: $bgcolor'></span>&nbsp;$name</div>"
                     ];
 
                     // Parent item name
@@ -1802,7 +1821,7 @@ abstract class CommonITILTask extends CommonDBTM implements CalDAVCompatibleItem
             $name    = sprintf(__('%1$s: %2$s'), __('ID'), $job->fields["id"]);
             echo "<tr class='tab_bg_2'>";
             echo "<td>
-            <div class='priority_block' style='border-color: $bgcolor'>
+            <div class='badge_block' style='border-color: $bgcolor'>
                <span style='background: $bgcolor'></span>&nbsp;$name
             </div>
          </td>";

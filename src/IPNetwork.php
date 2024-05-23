@@ -86,7 +86,7 @@ class IPNetwork extends CommonImplicitTreeDropdown
 
     public function __get(string $property)
     {
-        // TODO Deprecate read access to all variables in GLPI 10.1.
+        // TODO Deprecate read access to all variables in GLPI 11.0.
         $value = null;
         switch ($property) {
             case 'address':
@@ -117,7 +117,7 @@ class IPNetwork extends CommonImplicitTreeDropdown
                 Toolbox::deprecated(sprintf('Writing private property %s::%s is deprecated', __CLASS__, $property));
                 // no break is intentionnal
             case 'networkUpdate':
-                // TODO Deprecate write access to variable in GLPI 10.1.
+                // TODO Deprecate write access to variable in GLPI 11.0.
                 $this->$property = $value;
                 break;
             default:
@@ -465,7 +465,7 @@ class IPNetwork extends CommonImplicitTreeDropdown
         $preparedInput = $this->prepareInput($input);
 
         if (isset($preparedInput['error']) && !isset($input['_no_message'])) {
-            Session::addMessageAfterRedirect($preparedInput['error'], false, ERROR);
+            Session::addMessageAfterRedirect(htmlspecialchars($preparedInput['error']), false, ERROR);
         }
 
         $input = $preparedInput['input'];
@@ -483,7 +483,7 @@ class IPNetwork extends CommonImplicitTreeDropdown
         $preparedInput = $this->prepareInput($input);
 
         if (isset($preparedInput['error']) && !isset($input['_no_message'])) {
-            Session::addMessageAfterRedirect($preparedInput['error'], false, ERROR);
+            Session::addMessageAfterRedirect(htmlspecialchars($preparedInput['error']), false, ERROR);
         }
 
         $input = $preparedInput['input'];
@@ -1219,7 +1219,7 @@ class IPNetwork extends CommonImplicitTreeDropdown
     /**
      * Override title function to display the link to reinitialisation of the network tree
      *
-     * @FIXME Deprecate this method in GLPI 10.1. It is not used anymore.
+     * @FIXME Deprecate this method in GLPI 11.0. It is not used anymore.
      **/
     public function title()
     {

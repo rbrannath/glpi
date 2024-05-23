@@ -38,7 +38,6 @@ namespace Glpi\Features;
 use CommonDBConnexity;
 use CommonDBTM;
 use Session;
-use Toolbox;
 
 /**
  * Clonable objects
@@ -77,7 +76,8 @@ trait Clonable
             'date_creation',
             'template_name',
             'is_template',
-            'is_default'
+            'is_default',
+            'sons_cache',
         ];
         foreach ($properties_to_clean as $property) {
             if (array_key_exists($property, $input)) {

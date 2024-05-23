@@ -35,12 +35,17 @@
 
 namespace tests\units;
 
+use CommonDBTM;
+use Computer;
 use DbTestCase;
 use Generator;
 use Glpi\Features\Clonable;
+use Glpi\Features\AssignableAsset;
 use Glpi\Socket;
+use Item_DeviceSimcard;
 use Session;
 use State;
+use User;
 
 /* Test for inc/dropdown.class.php */
 
@@ -140,7 +145,7 @@ class Dropdown extends DbTestCase
         $encoded_separator = ' &gt; ';
 
         $ret = \Dropdown::getDropdownName('not_a_known_table', 1);
-        $this->string($ret)->isIdenticalTo('&nbsp;');
+        $this->string($ret)->isIdenticalTo('');
 
         $cat = getItemByTypeName('TaskCategory', '_cat_1');
 
@@ -1460,7 +1465,7 @@ class Dropdown extends DbTestCase
             'entity_restrict'       => 0,
             'page'                  => 1,
             'page_limit'            => 10,
-            '_idor_token'           => \Session::getNewIDORToken($location::getType())
+            '_idor_token'           => \Session::getNewIDORToken($location::getType(), ['entity_restrict' => 0])
         ];
         $values = \Dropdown::getDropdownValue($post);
         $values = (array)json_decode($values);
@@ -1519,7 +1524,7 @@ class Dropdown extends DbTestCase
             'entity_restrict'       => 0,
             'page'                  => 1,
             'page_limit'            => 10,
-            '_idor_token'           => \Session::getNewIDORToken($location::getType())
+            '_idor_token'           => \Session::getNewIDORToken($location::getType(), ['entity_restrict' => 0, 'condition' => ['name' => ['LIKE', "%3%"]]])
         ];
         $values = \Dropdown::getDropdownValue($post);
         $values = (array)json_decode($values);
@@ -1533,7 +1538,8 @@ class Dropdown extends DbTestCase
        // Put condition in session and post its key
         $condition_key = sha1(serialize($post['condition']));
         $_SESSION['glpicondition'][$condition_key] = $post['condition'];
-        $post['condition'] = $condition_key;
+        $post['condition']   = $condition_key;
+        $post['_idor_token'] = \Session::getNewIDORToken($location::getType(), ['entity_restrict' => 0, 'condition' => $condition_key]);
         $values = \Dropdown::getDropdownValue($post);
         $values = (array)json_decode($values);
 
@@ -1550,7 +1556,7 @@ class Dropdown extends DbTestCase
             'entity_restrict'       => 0,
             'page'                  => 1,
             'page_limit'            => 10,
-            '_idor_token'           => \Session::getNewIDORToken($location::getType())
+            '_idor_token'           => \Session::getNewIDORToken($location::getType(), ['entity_restrict' => 0, 'condition' => '`name` LIKE "%4%"'])
         ];
         $values = \Dropdown::getDropdownValue($post);
         $values = (array)json_decode($values);
@@ -1921,9 +1927,304 @@ class Dropdown extends DbTestCase
             $input['items_id'] = 1;
         }
         $this->integer($original_items_id = $item->add($input))->isGreaterThan(0);
+        $original_fields = $item->fields;
         $this->integer($item->clone())->isNotEqualTo($original_items_id);
-        foreach ($input as $field => $value) {
+        foreach ($original_fields as $field => $value) {
             $this->variable($item->fields[$field])->isEqualTo($value);
         }
+    }
+
+    protected function assignableAssetsProvider()
+    {
+        return [
+            [\CartridgeItem::class], [\Computer::class], [\ConsumableItem::class], [\Monitor::class], [\NetworkEquipment::class],
+            [\Peripheral::class], [\Phone::class], [\Printer::class], [\Software::class]
+        ];
+    }
+
+    /**
+     * @dataProvider assignableAssetsProvider
+     */
+    public function testGetDropdownValueAssignableAssets($itemtype)
+    {
+        $this->login();
+
+        $this->boolean(\Toolbox::hasTrait($itemtype, AssignableAsset::class))->isTrue();
+
+        // Create group for the user
+        $group = new \Group();
+        $this->integer($groups_id = $group->add([
+            'name' => __FUNCTION__,
+            'entities_id' => $this->getTestRootEntity(true),
+            'is_recursive' => 1
+        ]))->isGreaterThan(0);
+        // Add user to group
+        $group_user = new \Group_User();
+        $this->integer($group_user->add(['groups_id' => $groups_id, 'users_id' => $_SESSION['glpiID']]))->isGreaterThan(0);
+
+        Session::loadGroups();
+
+        // Create three items. One with the user assigned, one without, and one with a group assigned.
+        $item = new $itemtype();
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '1',
+            'entities_id' => $this->getTestRootEntity(true)
+        ]))->isGreaterThan(0);
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '2',
+            'entities_id' => $this->getTestRootEntity(true),
+            'users_id_tech' => $_SESSION['glpiID']
+        ]))->isGreaterThan(0);
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '3',
+            'entities_id' => $this->getTestRootEntity(true),
+            'groups_id_tech' => $groups_id
+        ]))->isGreaterThan(0);
+
+        $results = \Dropdown::getDropdownValue([
+            'itemtype' => $itemtype,
+            'display_emptychoice' => 0,
+            '_idor_token' => \Session::getNewIDORToken($itemtype)
+        ], false)['results'];
+        // get optgroup id (key in the results array) for the test root entity "_test_root_entity"
+        $optgroup_id = array_search("Root _test_root_entity", array_column($results, 'text'));
+
+        $expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3'
+        ];
+        $this->array(array_column($results[$optgroup_id]['children'], 'text'))->containsValues($expected);
+
+        // Remove permission to read all items
+        $_SESSION['glpiactiveprofile'][$itemtype::$rightname] = READ_ASSIGNED;
+        $results = \Dropdown::getDropdownValue([
+            'itemtype' => $itemtype,
+            'display_emptychoice' => 0,
+            '_idor_token' => \Session::getNewIDORToken($itemtype)
+        ], false)['results'];
+        $expected = [
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3'
+        ];
+        $not_expected = [
+            __FUNCTION__ . '1'
+        ];
+        $this->array(array_column($results[$optgroup_id]['children'], 'text'))->containsValues($expected);
+        $this->array(array_column($results[$optgroup_id]['children'], 'text'))->notContainsValues($not_expected);
+
+        // Remove permission to read assigned items
+        $_SESSION['glpiactiveprofile'][$itemtype::$rightname] = 0;
+        $results = \Dropdown::getDropdownValue([
+            'itemtype' => $itemtype,
+            'display_emptychoice' => 0,
+            '_idor_token' => \Session::getNewIDORToken($itemtype)
+        ], false)['results'];
+        $not_expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3'
+        ];
+        $children = $results[$optgroup_id]['children'] ?? null;
+        if ($children === null) {
+            $children = [];
+        }
+        $this->array($children)->notContainsValues($not_expected);
+    }
+
+    /**
+     * @dataProvider assignableAssetsProvider
+     */
+    public function testGetDropdownFindNumAssignableAssets($itemtype)
+    {
+        $this->login();
+
+        $this->boolean(\Toolbox::hasTrait($itemtype, AssignableAsset::class))->isTrue();
+
+        // Create group for the user
+        $group = new \Group();
+        $this->integer($groups_id = $group->add([
+            'name' => __FUNCTION__,
+            'entities_id' => $this->getTestRootEntity(true),
+            'is_recursive' => 1
+        ]))->isGreaterThan(0);
+        // Add user to group
+        $group_user = new \Group_User();
+        $this->integer($group_user->add(['groups_id' => $groups_id, 'users_id' => $_SESSION['glpiID']]))->isGreaterThan(0);
+
+        Session::loadGroups();
+
+        // Create three items. One with the user assigned, one without, and one with a group assigned.
+        $item = new $itemtype();
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '1',
+            'entities_id' => $this->getTestRootEntity(true)
+        ]))->isGreaterThan(0);
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '2',
+            'entities_id' => $this->getTestRootEntity(true),
+            'users_id_tech' => $_SESSION['glpiID']
+        ]))->isGreaterThan(0);
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '3',
+            'entities_id' => $this->getTestRootEntity(true),
+            'groups_id_tech' => $groups_id
+        ]))->isGreaterThan(0);
+        // Create two items. One with the user as the owner, and one with a group as the owner.
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '4',
+            'entities_id' => $this->getTestRootEntity(true),
+            'users_id' => $_SESSION['glpiID']
+        ]))->isGreaterThan(0);
+        $this->integer($item->add([
+            'name' => __FUNCTION__ . '5',
+            'entities_id' => $this->getTestRootEntity(true),
+            'groups_id' => $groups_id
+        ]))->isGreaterThan(0);
+
+        $results = \Dropdown::getDropdownFindNum([
+            'itemtype' => $itemtype,
+            'table' => $itemtype::getTable(),
+            '_idor_token' => \Session::getNewIDORToken($itemtype, [
+                'table' => $itemtype::getTable()
+            ])
+        ], false)['results'];
+
+        $expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3',
+            __FUNCTION__ . '4',
+            __FUNCTION__ . '5',
+        ];
+        $this->array(array_column($results, 'text'))->containsValues($expected);
+
+        // Remove permission to read all items
+        $_SESSION['glpiactiveprofile'][$itemtype::$rightname] = READ_ASSIGNED;
+        $results = \Dropdown::getDropdownFindNum([
+            'itemtype' => $itemtype,
+            'table' => $itemtype::getTable(),
+            '_idor_token' => \Session::getNewIDORToken($itemtype, [
+                'table' => $itemtype::getTable()
+            ])
+        ], false)['results'];
+        $expected = [
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3',
+        ];
+        $not_expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '4',
+            __FUNCTION__ . '5',
+        ];
+        $this->array(array_column($results, 'text'))->containsValues($expected);
+        $this->array(array_column($results, 'text'))->notContainsValues($not_expected);
+
+        $_SESSION['glpiactiveprofile'][$itemtype::$rightname] = READ_OWNED;
+        $results = \Dropdown::getDropdownFindNum([
+            'itemtype' => $itemtype,
+            'table' => $itemtype::getTable(),
+            '_idor_token' => \Session::getNewIDORToken($itemtype, [
+                'table' => $itemtype::getTable()
+            ])
+        ], false)['results'];
+        $expected = [
+            __FUNCTION__ . '4',
+            __FUNCTION__ . '5',
+        ];
+        $not_expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3',
+        ];
+        $this->array(array_column($results, 'text'))->containsValues($expected);
+        $this->array(array_column($results, 'text'))->notContainsValues($not_expected);
+
+        // Remove permission to read assigned items
+        $_SESSION['glpiactiveprofile'][$itemtype::$rightname] = 0;
+        $results = \Dropdown::getDropdownFindNum([
+            'itemtype' => $itemtype,
+            'table' => $itemtype::getTable(),
+            '_idor_token' => \Session::getNewIDORToken($itemtype, [
+                'table' => $itemtype::getTable()
+            ])
+        ], false)['results'];
+        $expected = [
+        ];
+        $not_expected = [
+            __FUNCTION__ . '1',
+            __FUNCTION__ . '2',
+            __FUNCTION__ . '3',
+            __FUNCTION__ . '4',
+            __FUNCTION__ . '5',
+        ];
+        $this->array(array_column($results, 'text'))->containsValues($expected);
+        $this->array($results)->notContainsValues($not_expected);
+    }
+
+    protected function displayWithProvider(): iterable
+    {
+        yield [
+            'item'        => new Computer(),
+            'displaywith' => [],
+            'filtered'    => [],
+        ];
+
+        yield [
+            'item'        => new Computer(),
+            'displaywith' => ['id', 'notavalidfield', 'serial'],
+            'filtered'    => ['id', 'serial'],
+        ];
+
+        $this->login('post-only', 'postonly');
+        yield [
+            'item'        => new Item_DeviceSimcard(),
+            'displaywith' => ['serial', 'pin', 'puk'],
+            'filtered'    => ['serial'], // pin and puk disallowed by profile
+        ];
+
+        $this->login();
+        yield [
+            'item'        => new Item_DeviceSimcard(),
+            'displaywith' => ['serial', 'pin', 'puk'],
+            'filtered'    => ['serial', 'pin', 'puk'], // pin and puk allowed by profile
+        ];
+
+        $this->logOut();
+        yield [
+            'item'        => new Item_DeviceSimcard(),
+            'displaywith' => ['serial', 'pin', 'puk'],
+            'filtered'    => ['serial'], // pin and puk disallowed when not connected
+        ];
+
+        $this->login('post-only', 'postonly');
+        yield [
+            'item'        => new User(),
+            'displaywith' => ['id', 'firstname', 'password', 'personal_token', 'api_token', 'cookie_token', 'password_forget_token'],
+            'filtered'    => ['id', 'firstname'], // all sensitive fields removed, and password_forget_token disallowed by profile
+        ];
+
+        $this->login();
+        yield [
+            'item'        => new User(),
+            'displaywith' => ['id', 'firstname', 'password', 'personal_token', 'api_token', 'cookie_token', 'password_forget_token'],
+            'filtered'    => ['id', 'firstname', 'password_forget_token'], // password_forget_token allowed by profile
+        ];
+
+        $this->logOut();
+        yield [
+            'item'        => new User(),
+            'displaywith' => ['id', 'firstname', 'password', 'personal_token', 'api_token', 'cookie_token', 'password_forget_token'],
+            'filtered'    => ['id', 'firstname'], // all sensitive fields removed, and password_forget_token disallowed when not connected
+        ];
+    }
+
+    /**
+     * @dataProvider displayWithProvider
+     */
+    public function testFilterDisplayWith(CommonDBTM $item, array $displaywith, array $filtered): void
+    {
+        $instance = $this->newTestedInstance();
+        $this->array($this->callPrivateMethod($instance, 'filterDisplayWith', $item, $displaywith))->isEqualTo($filtered);
     }
 }

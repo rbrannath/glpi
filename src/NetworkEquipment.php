@@ -45,6 +45,8 @@ class NetworkEquipment extends CommonDBTM
     use Glpi\Features\DCBreadcrumb;
     use Glpi\Features\Clonable;
     use Glpi\Features\Inventoriable;
+    use Glpi\Features\State;
+    use Glpi\Features\AssignableAsset;
 
    // From CommonDBTM
     public $dohistory                   = true;
@@ -229,6 +231,9 @@ class NetworkEquipment extends CommonDBTM
                     if ($item = getItemForItemtype($data["itemtype"])) {
                         // For each itemtype which are entity dependant
                         if ($item->isEntityAssign()) {
+                            if (count($ids = explode(',', $data["ids"])) > 1) {
+                                $data["ids"] = $ids;
+                            }
                             if (
                                 countElementsInTable($itemtable, ['id' => $data["ids"],
                                     'NOT' => ['entities_id' => $entities ]
@@ -255,7 +260,7 @@ class NetworkEquipment extends CommonDBTM
             $actions += [
                 'Item_SoftwareLicense' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
                => "<i class='ma-icon fas fa-key'></i>" .
-                  _x('button', 'Add a license')
+                  _sx('button', 'Add a license')
             ];
             KnowbaseItem_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
         }
@@ -297,11 +302,11 @@ class NetworkEquipment extends CommonDBTM
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => 'glpi_states',
+            'table'              => State::getTable(),
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            'condition'          => ['is_visible_networkequipment' => 1]
+            'condition'          => $this->getStateVisibilityCriteria()
         ];
 
         $tab[] = [

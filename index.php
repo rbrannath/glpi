@@ -36,10 +36,10 @@
 // Check PHP version not to have trouble
 // Need to be the very fist step before any include
 if (
-    version_compare(PHP_VERSION, '8.1.0', '<') ||
+    version_compare(PHP_VERSION, '8.2.0', '<') ||
     version_compare(PHP_VERSION, '8.3.999', '>')
 ) {
-    die('PHP version must be between 8.1 and 8.3.');
+    die('PHP version must be between 8.2 and 8.3.');
 }
 
 use Glpi\Application\View\TemplateRenderer;
@@ -147,7 +147,7 @@ if (!file_exists(GLPI_CONFIG_DIR . "/config_db.php")) {
                     if (Session::validateIDOR($_POST) && ($algorithm = $totp->verifyCodeForSecret($code, $_POST['secret'])) !== false) {
                         $totp->setSecretForUser((int)$_SESSION['mfa_pre_auth']['user']['id'], $_POST['secret'], $algorithm);
                     } else {
-                        Session::addMessageAfterRedirect(__('Invalid code'), false, ERROR);
+                        Session::addMessageAfterRedirect(__s('Invalid code'), false, ERROR);
                     }
                     Html::redirect(Preference::getSearchURL());
                 } else {

@@ -200,8 +200,7 @@ final class Search
                 $sql_field = $this->getSQLFieldForProperty($prop_name);
                 $expression = $this->db_read::quoteName($sql_field);
                 if (str_contains($sql_field, '.')) {
-                    $join_name = substr($sql_field, 0, strrpos($sql_field, '.'));
-                    $join_name = str_replace(chr(0x1F), '.', $join_name);
+                    $join_name = $this->getJoinNameForProperty($prop_name);
                     // Check if the join property is in an array. If so, we need to concat each result.
                     if (array_key_exists($join_name, $this->joins)) {
                         $join_def = $this->joins[$join_name];
@@ -446,7 +445,7 @@ final class Search
                 getEntitiesRestrictCriteria('_'),
             ];
         }
-        if (!empty($entity_restrict)) {
+        if (!empty($entity_restrict) && $entity_restrict !== [0 => []]) {
             $criteria['WHERE'][] = ['AND' => $entity_restrict];
         }
 
@@ -457,6 +456,29 @@ final class Search
         if (isset($this->request_params['limit']) && is_numeric($this->request_params['limit'])) {
             $criteria['LIMIT'] = (int) $this->request_params['limit'];
         }
+
+        // Handle sorting
+        if (isset($this->request_params['sort'])) {
+            $sorts = array_map(static fn ($s) => trim($s), explode(',', $this->request_params['sort']));
+            $orderby = [];
+            foreach ($sorts as $s) {
+                if ($s === '') {
+                    // Ignore empty sorts. probably a trailing comma.
+                    continue;
+                }
+                $sort_parts = explode(':', $s);
+                $property = $sort_parts[0];
+                $direction = strtoupper($sort_parts[1] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+                // Verify the property is valid
+                if (!isset($this->flattened_properties[$property])) {
+                    throw new APIException('Invalid property for sorting: ' . $property, 'Invalid property for sorting: ' . $property);
+                }
+                $sql_field = $this->getSQLFieldForProperty($property);
+                $orderby[] = "{$sql_field} {$direction}";
+            }
+            $criteria['ORDERBY'] = $orderby;
+        }
+
         return $criteria;
     }
 
@@ -575,6 +597,17 @@ final class Search
             return array_key_first($prop_matches);
         }
         throw new RuntimeException("Cannot find primary key property for join $join");
+    }
+
+    private function getJoinNameForProperty(string $prop_name): string
+    {
+        if (array_key_exists(str_replace(chr(0x1F), '.', $prop_name), $this->joins)) {
+            $join_name = str_replace(chr(0x1F), '.', $prop_name);
+        } else {
+            $join_name = substr($prop_name, 0, strrpos($prop_name, chr(0x1F)));
+            $join_name = str_replace(chr(0x1F), '.', $join_name);
+        }
+        return $join_name;
     }
 
     /**
@@ -796,8 +829,10 @@ final class Search
                 }
             } else {
                 // Add the joined item fields
-                $join_name = substr($dehydrated_ref, 0, strrpos($dehydrated_ref, chr(0x1F)));
-                $join_name = str_replace(chr(0x1F), '.', $join_name);
+                $join_name = $this->getJoinNameForProperty($dehydrated_ref);
+                if (isset($this->flattened_properties[$join_name])) {
+                    continue;
+                }
                 if (!ArrayPathAccessor::hasElementByArrayPath($hydrated_record, $join_name)) {
                     ArrayPathAccessor::setElementByArrayPath($hydrated_record, $join_name, []);
                 }
@@ -824,7 +859,9 @@ final class Search
         // Do this last as some scalar joined properties may be nested and have other data added after the main record was built
         foreach ($dehydrated_row as $k => $v) {
             $normalized_k = str_replace(chr(0x1F), '.', $k);
-            if (isset($this->joins[$normalized_k]) && !isset($hydrated_record[$normalized_k])) {
+            if (isset($this->joins[$normalized_k]) && !ArrayPathAccessor::hasElementByArrayPath($hydrated_record, $normalized_k)) {
+                $v = explode(chr(0x1E), $v);
+                $v = end($v);
                 ArrayPathAccessor::setElementByArrayPath($hydrated_record, $normalized_k, $v);
             }
         }
@@ -948,8 +985,7 @@ final class Search
                             $criteria['SELECT'][] = new QueryExpression($this->db_read::quoteValue($schema_name), '_itemtype');
                         }
                     } else {
-                        $join_name = substr($fkey, 0, strrpos($fkey, chr(0x1F)));
-                        $join_name = str_replace(chr(0x1F), '.', $join_name);
+                        $join_name = $this->getJoinNameForProperty($fkey);
                         $props_to_use = array_filter($this->flattened_properties, function ($prop_name) use ($join_name) {
                             if (isset($this->joins[$prop_name])) {
                                 /** Scalar joined properties are fetched directly during {@link self::getMatchingRecords()} */
@@ -1125,6 +1161,9 @@ final class Search
         }
         $has_more = $results['start'] + $results['limit'] < $results['total'];
         $end = max(0, ($results['start'] + $results['limit'] - 1));
+        if ($end > $results['total']) {
+            $end = $results['total'] - 1;
+        }
         return new JSONResponse($results['results'], $has_more ? 206 : 200, [
             'Content-Range' => $results['start'] . '-' . $end . '/' . $results['total'],
         ]);
@@ -1213,7 +1252,7 @@ final class Search
      * @param mixed $value The unique field value
      * @return int|null The ID or null if not found
      */
-    private static function getIDForOtherUniqueFieldBySchema(array $schema, string $field, mixed $value): ?int
+    public static function getIDForOtherUniqueFieldBySchema(array $schema, string $field, mixed $value): ?int
     {
         /** @var \DBmysql $DB */
         global $DB;

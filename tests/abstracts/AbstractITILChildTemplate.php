@@ -102,9 +102,9 @@ HTML
         ];
 
         yield [
-            'content'  => 'Unauthorized tag {% set var = 15 %}',
+            'content'  => 'Unauthorized tag {% do 1 + 2 %}',
             'is_valid' => false,
-            'error'    => 'Content: Invalid twig template (Tag "set" is not allowed in "template" at line 1.)',
+            'error'    => 'Content: Invalid twig template (Tag &quot;do&quot; is not allowed in &quot;template&quot; at line 1.)',
         ];
     }
 

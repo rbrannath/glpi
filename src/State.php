@@ -48,28 +48,18 @@ class State extends CommonTreeDropdown
 
     public static $rightname               = 'state';
 
-
-
     public static function getTypeName($nb = 0)
     {
         return _n('Status of items', 'Statuses of items', $nb);
     }
-
 
     public static function getFieldLabel()
     {
         return __('Status');
     }
 
-
-    /**
-     * @since 0.85
-     *
-     * @see CommonTreeDropdown::getAdditionalFields()
-     **/
     public function getAdditionalFields()
     {
-
         $fields   = parent::getAdditionalFields();
 
         $fields[] = [
@@ -96,9 +86,11 @@ class State extends CommonTreeDropdown
 
 
     /**
-     * States for behavious config
+     * States for behaviour config
      *
-     * @param $lib    string   to add for -1 value (default '')
+     * @param string $lib to add for -1 value (default '')
+     * @param boolean $is_inheritable
+     * @return array
      */
     final public static function getBehaviours(string $lib = "", bool $is_inheritable = false): array
     {
@@ -131,16 +123,17 @@ class State extends CommonTreeDropdown
     /**
      * Dropdown of states for behaviour config
      *
-     * @param $name            select name
-     * @param $lib    string   to add for -1 value (default '')
-     * @param $value           default value (default 0)
+     * @param string $name  select name
+     * @param string $lib   to add for -1 value (default '')
+     * @param integer $value
+     * @param boolean $is_inheritable
+     * @used-by templates/pages/admin/entity/assets.html.twig
      **/
     public static function dropdownBehaviour($name, $lib = "", $value = 0, $is_inheritable = false)
     {
         $elements = self::getBehaviours($lib, $is_inheritable);
         Dropdown::showFromArray($name, $elements, ['value' => $value]);
     }
-
 
     public static function showSummary()
     {
@@ -155,7 +148,7 @@ class State extends CommonTreeDropdown
 
         foreach ($state_type as $key => $itemtype) {
             if ($item = getItemForItemtype($itemtype)) {
-                if (!$item->canView()) {
+                if (!$item::canView()) {
                     unset($state_type[$key]);
                 } else {
                     $table = getTableForItemType($itemtype);
@@ -187,10 +180,10 @@ class State extends CommonTreeDropdown
         if (count($states)) {
             $total = [];
 
-           // Produce headline
+            // Produce headline
             echo "<div class='center'><table class='tab_cadrehov'><tr>";
 
-           // Type
+            // Type
             echo "<th>" . __('Status') . "</th>";
 
             foreach ($state_type as $key => $itemtype) {
@@ -277,14 +270,13 @@ class State extends CommonTreeDropdown
         }
     }
 
-
     public function getEmpty()
     {
         if (!parent::getEmpty()) {
             return false;
         }
 
-        //initialize is_visible_* fields at true to keep the same behavior as in older versions
+        // initialize is_visible_* fields at true to keep the same behavior as in older versions
         foreach ($this->getvisibilityFields() as $field) {
             $this->fields[$field] = 1;
         }
@@ -294,19 +286,12 @@ class State extends CommonTreeDropdown
         return true;
     }
 
-
     public function cleanDBonPurge()
     {
         Rule::cleanForItemCriteria($this);
         Rule::cleanForItemCriteria($this, '_states_id%');
     }
 
-
-    /**
-     * @since 0.85
-     *
-     * @see CommonTreeDropdown::prepareInputForAdd()
-     **/
     public function prepareInputForAdd($input)
     {
         if (!isset($input['states_id'])) {
@@ -314,7 +299,7 @@ class State extends CommonTreeDropdown
         }
         if (!$this->isUnique($input)) {
             Session::addMessageAfterRedirect(
-                sprintf(__('%1$s must be unique!'), $this->getTypeName(1)),
+                htmlspecialchars(sprintf(__s('%1$s must be unique!'), static::getTypeName(1))),
                 false,
                 ERROR
             );
@@ -324,7 +309,7 @@ class State extends CommonTreeDropdown
         $input = parent::prepareInputForAdd($input);
 
         $state = new self();
-       // Get visibility information from parent if not set
+        // Get visibility information from parent if not set
         if (isset($input['states_id']) && $state->getFromDB($input['states_id'])) {
             foreach ($this->getvisibilityFields() as $type => $field) {
                 if (!isset($input[$field]) && isset($state->fields[$field])) {
@@ -335,6 +320,46 @@ class State extends CommonTreeDropdown
         return $input;
     }
 
+    public function post_addItem()
+    {
+        $state_visibility = new DropdownVisibility();
+        foreach ($this->getvisibilityFields() as $itemtype => $field) {
+            if (isset($this->input[$field])) {
+                $state_visibility->add([
+                    'itemtype' => self::class,
+                    'items_id' => $this->fields['id'],
+                    'visible_itemtype'  => $itemtype,
+                    'is_visible' => $this->input[$field]
+                ]);
+            }
+        }
+
+        parent::post_addItem();
+    }
+
+    public function post_updateItem($history = true)
+    {
+        $state_visibility = new DropdownVisibility();
+        foreach ($this->getvisibilityFields() as $itemtype => $field) {
+            if (isset($this->input[$field])) {
+                if ($state_visibility->getFromDBByCrit(['itemtype' => self::class, 'items_id' => $this->input['id'], 'visible_itemtype' => $itemtype])) {
+                    $state_visibility->update([
+                        'id' => $state_visibility->fields['id'],
+                        'is_visible' => $this->input[$field]
+                    ]);
+                } else {
+                    $state_visibility->add([
+                        'itemtype' => self::class,
+                        'items_id' => $this->fields['id'],
+                        'visible_itemtype' => $itemtype,
+                        'is_visible' => $this->input[$field]
+                    ]);
+                }
+            }
+        }
+
+        parent::post_updateItem();
+    }
 
     public function rawSearchOptions()
     {
@@ -342,215 +367,367 @@ class State extends CommonTreeDropdown
 
         $tab[] = [
             'id'                 => '21',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_computer',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'), Computer::getTypeName(Session::getPluralNumber())),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Computer',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '22',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_softwareversion',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 SoftwareVersion::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'SoftwareVersion',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '23',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_monitor',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'), Monitor::getTypeName(Session::getPluralNumber())),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Monitor',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '24',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_printer',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'), Printer::getTypeName(Session::getPluralNumber())),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Printer',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '25',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_peripheral',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'), Peripheral::getTypeName(Session::getPluralNumber())),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Peripheral',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '26',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_phone',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(__('%1$s - %2$s'), __('Visibility'), Phone::getTypeName(Session::getPluralNumber())),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Phone',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '27',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_networkequipment',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 NetworkEquipment::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'NetworkEquipment',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '28',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_softwarelicense',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 SoftwareLicense::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'SoftwareLicense',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '29',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_certificate',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Certificate::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Certificate',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '30',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_rack',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Rack::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Rack',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_line',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Line::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Line',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '32',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_enclosure',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Enclosure::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Enclosure',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '33',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_pdu',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 PDU::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'PDU',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '34',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_cluster',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Cluster::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Cluster',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '35',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_passivedcequipment',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 PassiveDCEquipment::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'PassiveDCEquipment',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '36',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_contract',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Contract::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Contract',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '37',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_appliance',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Appliance::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Appliance',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '38',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_cable',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 Cable::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'Cable',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '39',
-            'table'              => $this->getTable(),
-            'field'              => 'is_visible_databaseinstance',
+            'table'              => DropdownVisibility::getTable(),
+            'field'              => 'is_visible',
             'name'               => sprintf(
                 __('%1$s - %2$s'),
                 __('Visibility'),
                 DatabaseInstance::getTypeName(Session::getPluralNumber())
             ),
-            'datatype'           => 'bool'
+            'datatype'           => 'bool',
+            'joinparams'         => [
+                'jointype' => 'itemtypeonly',
+                'table'      => static::getTable(),
+                'condition' => [
+                    'NEWTABLE.visible_itemtype' => 'DatabaseInstance',
+                    'NEWTABLE.items_id' => new QueryExpression('REFTABLE.id')
+                ]
+            ]
         ];
 
         $tab[] = [
             'id'                 => '40',
-            'table'              => $this->getTable(),
+            'table'              => static::getTable(),
             'field'              => 'is_helpdesk_visible',
             'name'               => __('Show items with this status in assistance'),
             'datatype'           => 'bool'
@@ -563,7 +740,7 @@ class State extends CommonTreeDropdown
     {
         if (!$this->isUnique($input)) {
             Session::addMessageAfterRedirect(
-                sprintf(__('%1$s must be unique per level!'), $this->getTypeName(1)),
+                htmlspecialchars(sprintf(__s('%1$s must be unique per level!'), static::getTypeName(1))),
                 false,
                 ERROR
             );
@@ -601,7 +778,7 @@ class State extends CommonTreeDropdown
             }
         }
         if (!$has_changed) {
-           //state has not changed; this is OK.
+            // state has not changed; this is OK.
             return true;
         }
 
@@ -612,12 +789,12 @@ class State extends CommonTreeDropdown
         }
 
         $query = [
-            'FROM'   => $this->getTable(),
+            'FROM'   => static::getTable(),
             'COUNT'  => 'cpt',
             'WHERE'  => $where
         ];
         $row = $DB->request($query)->current();
-        return (int)$row['cpt'] == 0;
+        return (int) $row['cpt'] === 0;
     }
 
     /**
@@ -647,7 +824,7 @@ class State extends CommonTreeDropdown
             'OR' =>  [
                 'states_id' => new QuerySubQuery([
                     'SELECT' => 'id',
-                    'FROM'   => State::getTable(),
+                    'FROM'   => self::getTable(),
                     'WHERE'  => ['is_helpdesk_visible' => true]
                 ]),
                 ['states_id' => 0]
@@ -658,5 +835,20 @@ class State extends CommonTreeDropdown
     public function getCloneRelations(): array
     {
         return [];
+    }
+
+    public function post_getFromDB()
+    {
+        $statevisibility = new DropdownVisibility();
+
+        foreach ($this->getvisibilityFields() as $visibility_field) {
+            // Default value for fields that may not be yet stored in DB.
+            $this->fields[$visibility_field] = 0;
+        }
+
+        $visibilities = $statevisibility->find(['itemtype' => self::class, 'items_id' => $this->fields['id']]);
+        foreach ($visibilities as $visibility) {
+            $this->fields['is_visible_' . strtolower($visibility['visible_itemtype'])] = $visibility['is_visible'];
+        }
     }
 }

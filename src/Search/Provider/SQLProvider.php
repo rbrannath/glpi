@@ -40,7 +40,10 @@ use CommonDBTM;
 use CommonITILObject;
 use DBmysqlIterator;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\Debug\Profiler;
+use Glpi\Form\Form;
+use Glpi\Features\AssignableAsset;
 use Glpi\RichText\RichText;
 use Glpi\Search\Input\QueryBuilder;
 use Glpi\Search\SearchEngine;
@@ -981,6 +984,11 @@ final class SQLProvider implements SearchProviderInterface
                 $criteria = \KnowbaseItem::getVisibilityCriteria(false)['WHERE'];
                 break;
 
+            case Form::class:
+                // Do not show unsaved drafts in the form list
+                $criteria = ['is_draft' => 0];
+                break;
+
             default:
                 // Plugin can override core definition for its type
                 if ($plug = isPluginItemType($itemtype)) {
@@ -990,6 +998,11 @@ final class SQLProvider implements SearchProviderInterface
                     }
                 }
                 break;
+        }
+
+        if (Toolbox::hasTrait($itemtype, AssignableAsset::class)) {
+            /** @var AssignableAsset $itemtype */
+            $criteria[] = $itemtype::getAssignableVisiblityCriteria();
         }
 
         /* Hook to restrict user right on current itemtype */
@@ -1535,32 +1548,23 @@ final class SQLProvider implements SearchProviderInterface
             case "glpi_ticketvalidations.status":
             case "glpi_changes.global_validation":
             case "glpi_changevalidations.status":
-                if ($val == 'all') {
+                if ($val !== 'can' && !is_numeric($val)) {
                     return [];
                 }
                 $tocheck = [];
-                switch ($val) {
-                    case 'can':
-                        $tocheck = \CommonITILValidation::getCanValidationStatusArray();
-                        break;
-
-                    case 'all':
-                        $tocheck = \CommonITILValidation::getAllValidationStatusArray();
-                        break;
-                }
-                if (count($tocheck) == 0) {
+                if ($val === 'can') {
+                    $tocheck = \CommonITILValidation::getCanValidationStatusArray();
+                } else {
                     $tocheck = [$val];
                 }
-                if (count($tocheck)) {
-                    if ($nott) {
-                        return [
-                            "$table.$field" => ['NOT IN', $tocheck]
-                        ];
-                    }
+                if ($nott) {
                     return [
-                        "$table.$field" => $tocheck
+                        "$table.$field" => ['NOT IN', $tocheck]
                     ];
                 }
+                return [
+                    "$table.$field" => $tocheck
+                ];
                 break;
 
             case "glpi_notifications.event":
@@ -2290,7 +2294,8 @@ final class SQLProvider implements SearchProviderInterface
         array $joinparams = [],
         string $field = ''
     ): array {
-
+        /** @var \DBmysql $DB */
+        global $DB;
         // Rename table for meta left join
         $AS = "";
         $nt = $new_table;
@@ -2468,7 +2473,7 @@ final class SQLProvider implements SearchProviderInterface
                     $last_key = array_keys($join_fkey);
                     $last_key = array_pop($last_key);
                     // Append new criteria to the last key
-                    $join_fkey[$last_key][] = [$add_link => $additional_criteria];
+                    $join_fkey[$last_key]['AND'][] = [$add_link => $additional_criteria];
                 }
             };
             $placeholders = [
@@ -2532,11 +2537,11 @@ final class SQLProvider implements SearchProviderInterface
                             'LEFT JOIN' => [
                                 "$new_table$AS" => [
                                     'ON' => [
-                                        $nt => 'id',
-                                        $rt => getForeignKeyFieldForTable($cleanrt) . '_1',
+                                        $rt => 'id',
+                                        $nt => getForeignKeyFieldForTable($cleanrt) . '_1',
                                         [
                                             'OR' => [
-                                                "$nt.id" => $rt . '.' . getForeignKeyFieldForTable($cleanrt) . '_2'
+                                                new QueryExpression($DB::quoteName("$rt.id") . ' = ' . $DB::quoteName("$nt." . getForeignKeyFieldForTable($cleanrt) . '_2'))
                                             ]
                                         ]
                                     ]
@@ -2557,7 +2562,7 @@ final class SQLProvider implements SearchProviderInterface
                                         $rt => getForeignKeyFieldForTable($cleannt) . '_1',
                                         [
                                             'OR' => [
-                                                "$nt.id" => $rt . '.' . getForeignKeyFieldForTable($cleannt) . '_2'
+                                                new QueryExpression($DB::quoteName("$nt.id") . ' = ' . $DB::quoteName("$rt." . getForeignKeyFieldForTable($cleannt) . '_2'))
                                             ]
                                         ]
                                     ]
@@ -2583,16 +2588,33 @@ final class SQLProvider implements SearchProviderInterface
                         ) {
                             $used_itemtype = $joinparams['specific_itemtype'];
                         }
+
+                        $items_id_column = 'items_id';
+                        if (
+                            isset($joinparams['specific_items_id_column'])
+                            && !empty($joinparams['specific_items_id_column'])
+                        ) {
+                            $items_id_column = $joinparams['specific_items_id_column'];
+                        }
+
+                        $itemtype_column = 'itemtype';
+                        if (
+                            isset($joinparams['specific_itemtype_column'])
+                            && !empty($joinparams['specific_itemtype_column'])
+                        ) {
+                            $itemtype_column = $joinparams['specific_itemtype_column'];
+                        }
+
                         // Itemtype join
                         $itemtype_join = [
                             'LEFT JOIN' => [
                                 "$new_table$AS" => [
                                     'ON' => [
                                         $rt => 'id',
-                                        $nt => "{$addmain}items_id",
+                                        $nt => "{$addmain}{$items_id_column}",
                                         [
                                             'AND' => [
-                                                "$nt.{$addmain}itemtype" => $used_itemtype
+                                                "$nt.{$addmain}{$itemtype_column}" => $used_itemtype
                                             ]
                                         ]
                                     ]
@@ -2944,6 +2966,54 @@ final class SQLProvider implements SearchProviderInterface
             return $joins;
         }
 
+        // Specific JOIN for Asset_PeripheralAsset
+        if (
+            (
+                in_array($to_type, $CFG_GLPI['directconnect_types'])
+                && in_array($from_referencetype, Asset_PeripheralAsset::getPeripheralHostItemtypes(), true)
+            )
+            || (
+                in_array($from_referencetype, $CFG_GLPI['directconnect_types'])
+                && in_array($to_type, Asset_PeripheralAsset::getPeripheralHostItemtypes(), true)
+            )
+        ) {
+            $asset_itemtype = in_array($to_type, $CFG_GLPI['directconnect_types']) ? $from_referencetype : $to_type;
+            $peripheral_itemtype = $asset_itemtype === $from_referencetype ? $to_type : $from_referencetype;
+            $relation_table = Asset_PeripheralAsset::getTable();
+            $relation_table_alias = $relation_table . $alias_suffix;
+            if (!in_array($relation_table_alias, $already_link_tables2, true)) {
+                $already_link_tables2[] = $relation_table_alias;
+                $deleted_criteria = ["`$relation_table_alias`.`is_deleted`" => 0];
+                $joins['LEFT JOIN']["`$relation_table` AS `$relation_table_alias`"] = [
+                    'ON' => [
+                        $relation_table_alias => 'items_id_asset',
+                        $from_table => 'id',
+                        [
+                            'AND' => [
+                                "$relation_table_alias." . 'itemtype_asset'      => $asset_itemtype,
+                                "$relation_table_alias." . 'itemtype_peripheral' => $peripheral_itemtype,
+                            ] + $deleted_criteria
+                        ]
+                    ]
+                ];
+            }
+            if (!in_array($to_table_alias, $already_link_tables2, true)) {
+                $already_link_tables2[] = $to_table_alias;
+                $joins['LEFT JOIN'][$to_table_join_id] = [
+                    'ON' => [
+                        $relation_table_alias => 'items_id_peripheral',
+                        $to_table_alias => 'id',
+                        [
+                            'AND' => [
+                                "$relation_table_alias." . 'itemtype_peripheral' => $peripheral_itemtype,
+                            ] + $to_entity_restrict_criteria + $to_criteria
+                        ]
+                    ]
+                ];
+            }
+            return $joins;
+        }
+
         // Generic JOIN
         $from_obj      = getItemForItemtype($from_referencetype);
         $from_item_obj = null;
@@ -3157,6 +3227,9 @@ final class SQLProvider implements SearchProviderInterface
      */
     public static function getDropdownTranslationJoinCriteria($alias, $table, $itemtype, $field): array
     {
+        /** @var \DBmysql $DB */
+        global $DB;
+
         return [
             'LEFT JOIN' => [
                 "glpi_dropdowntranslations AS $alias" => [
@@ -3165,7 +3238,7 @@ final class SQLProvider implements SearchProviderInterface
                         new QueryExpression("'$itemtype'"),
                         [
                             'AND' => [
-                                "$alias.items_id" => "$table.id",
+                                "$alias.items_id" => new QueryExpression($DB::quoteName("$table.id")),
                                 "$alias.language" => $_SESSION['glpilanguage'],
                                 "$alias.field"    => $field
                             ]
@@ -3174,26 +3247,6 @@ final class SQLProvider implements SearchProviderInterface
                 ]
             ]
         ];
-    }
-
-    /**
-     * Add join for dropdown translations
-     *
-     * @param string $alias    Alias for translation table
-     * @param string $table    Table to join on
-     * @param string $itemtype Item type
-     * @param string $field    Field name
-     *
-     * @return string
-     */
-    public static function joinDropdownTranslations($alias, $table, $itemtype, $field): string
-    {
-        return "LEFT JOIN `glpi_dropdowntranslations` AS `$alias`
-                  ON (`$alias`.`itemtype` = '$itemtype'
-                        AND `$alias`.`items_id` = `$table`.`id`
-                        AND `$alias`.`language` = '" .
-            $_SESSION['glpilanguage'] . "'
-                        AND `$alias`.`field` = '$field')";
     }
 
     /**
@@ -3455,9 +3508,34 @@ final class SQLProvider implements SearchProviderInterface
                                 $name1 = 'realname';
                                 $name2 = 'firstname';
                             }
-                            $criterion = "`" . $table . $addtable . "`.`$name1` $order,
-                                 `" . $table . $addtable . "`.`$name2` $order,
-                                 `" . $table . $addtable . "`.`name` $order";
+                            $addaltemail = "";
+                            if (
+                                in_array($itemtype, ['Ticket', 'Change', 'Problem'])
+                                && isset($searchopt[$ID]['joinparams']['beforejoin']['table'])
+                                && in_array($searchopt[$ID]['joinparams']['beforejoin']['table'], ['glpi_tickets_users', 'glpi_changes_users', 'glpi_problems_users'])
+                            ) { // For tickets_users
+                                $ticket_user_table = $searchopt[$ID]['joinparams']['beforejoin']['table'] . "_" .
+                                    self::computeComplexJoinID($searchopt[$ID]['joinparams']['beforejoin']['joinparams']);
+                                $addaltemail = ",
+                                IFNULL(`$ticket_user_table`.`alternative_email`, '')";
+                            }
+                            if ((isset($searchopt[$ID]["forcegroupby"]) && $searchopt[$ID]["forcegroupby"])) {
+                                $criterion = "GROUP_CONCAT(DISTINCT CONCAT(
+                                    IFNULL(`$table$addtable`.`$name1`, ''),
+                                    IFNULL(`$table$addtable`.`$name2`, ''),
+                                    IFNULL(`$table$addtable`.`name`, '')$addaltemail
+                                ) ORDER BY CONCAT(
+                                    IFNULL(`$table$addtable`.`$name1`, ''),
+                                    IFNULL(`$table$addtable`.`$name2`, ''),
+                                    IFNULL(`$table$addtable`.`name`, '')$addaltemail) ASC
+                                ) $order";
+                            } else {
+                                $criterion = "CONCAT(
+                                    IFNULL(`$table$addtable`.`$name1`, ''),
+                                    IFNULL(`$table$addtable`.`$name2`, ''),
+                                    IFNULL(`$table$addtable`.`name`, '')$addaltemail
+                                ) $order";
+                            }
                         } else {
                             $criterion = "`" . $table . $addtable . "`.`name` $order";
                         }
@@ -5663,7 +5741,7 @@ final class SQLProvider implements SearchProviderInterface
                     $index = $data[$ID][0]['name'];
                     $color = $_SESSION["glpipriority_$index"];
                     $name  = \CommonITILObject::getPriorityName($index);
-                    return "<div class='priority_block' style='border-color: $color'>
+                    return "<div class='badge_block' style='border-color: $color'>
                         <span style='background: $color'></span>&nbsp;$name
                        </div>";
 

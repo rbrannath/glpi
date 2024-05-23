@@ -103,7 +103,7 @@ class Html extends \GLPITestCase
     public function testCleanInputText()
     {
         $origin = 'This is a \'string\' with some "replacements" needed, but not « others »!';
-        $expected = 'This is a &apos;string&apos; with some &quot;replacements&quot; needed, but not « others »!';
+        $expected = 'This is a &#039;string&#039; with some &quot;replacements&quot; needed, but not « others »!';
         $this->string(@\Html::cleanInputText($origin))->isIdenticalTo($expected);
     }
 
@@ -127,23 +127,6 @@ class Html extends \GLPITestCase
         $origin = 'A string that is longer than 10 characters.';
         $expected = 'A string t&nbsp;(...)';
         $this->string(\Html::resume_text($origin, 10))->isIdenticalTo($expected);
-    }
-
-    public function testCleanPostForTextArea()
-    {
-        $origin = "A text that \\\"would\\\" be entered in a \\'textarea\\'\\nWith breakline\\r\\nand breaklines.";
-        $expected = "A text that \"would\" be entered in a 'textarea'\nWith breakline\nand breaklines.";
-        $this->string(@\Html::cleanPostForTextArea($origin))->isIdenticalTo($expected);
-
-        $aorigin = [
-            $origin,
-            "Another\\none!"
-        ];
-        $aexpected = [
-            $expected,
-            "Another\none!"
-        ];
-        $this->array(@\Html::cleanPostForTextArea($aorigin))->isIdenticalTo($aexpected);
     }
 
     public function testFormatNumber()
@@ -346,7 +329,8 @@ class Html extends \GLPITestCase
             'Profile',
             'QueuedNotification',
             'Glpi\System\Log\LogViewer',
-            'Glpi\Inventory\Inventory'
+            'Glpi\Inventory\Inventory',
+            'Glpi\Form\Form',
         ];
         $this->string($menu['admin']['title'])->isIdenticalTo('Administration');
         $this->array($menu['admin']['types'])->isIdenticalTo($expected);
@@ -737,7 +721,7 @@ class Html extends \GLPITestCase
             function () {
                 \Html::displayBackLink();
             }
-        )->isIdenticalTo("<a href='originalpage.html'>Back</a>");
+        )->isIdenticalTo('<a href="originalpage.html">Back</a>');
         $_SERVER['HTTP_REFERER'] = ''; // reset referer to prevent having this var in test loop mode
     }
 
@@ -758,8 +742,6 @@ class Html extends \GLPITestCase
 
     public function testJsFunctions()
     {
-        $this->string(\Html::jsHide('myid'))->isIdenticalTo("$('#myid').hide();\n");
-        $this->string(\Html::jsShow('myid'))->isIdenticalTo("$('#myid').show();\n");
         $this->string(\Html::jsGetElementbyID('myid'))->isIdenticalTo("$('#myid')");
         $this->string(\Html::jsSetDropdownValue('myid', 'myval'))->isIdenticalTo("$('#myid').trigger('setValue', 'myval');");
         $this->string(\Html::jsGetDropdownValue('myid'))->isIdenticalTo("$('#myid').val()");

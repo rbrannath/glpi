@@ -39,6 +39,7 @@ use CommonDBTM;
 use CommonITILActor;
 use CommonITILObject;
 use Computer;
+use CronTask;
 use DbTestCase;
 use Entity;
 use Glpi\Team\Team;
@@ -1852,7 +1853,7 @@ class Ticket extends DbTestCase
     /**
      * @param $rights
      * @return void
-     * @deprecated 10.1.0 - Use changeTechRights() instead
+     * @deprecated 11.0.0 - Use changeTechRights() instead
      */
     public function changeTechRight($rights = 168967)
     {
@@ -3840,6 +3841,108 @@ class Ticket extends DbTestCase
         $this->integer((int)$supplier_count)->isEqualTo(3);
     }
 
+    /**
+     * After a ticket has been merged (set as deleted), the responses from the child tickets should be copied to the parent ticket.
+     */
+    public function testResponsesAfterMerge(): void
+    {
+        $this->login();
+        $_SESSION['glpiactiveprofile']['interface'] = '';
+        $this->setEntity('Root entity', true);
+
+        $ticket = new \Ticket();
+        $ticket1 = $ticket->add([
+            'name'        => "Parent ticket",
+            'content'     => "Parent ticket",
+            'entities_id' => 0,
+            'status'      => \CommonITILObject::INCOMING,
+        ]);
+        $ticket2 = $ticket->add([
+            'name'        => "Child ticket",
+            'content'     => "Child ticket",
+            'entities_id' => 0,
+            'status'      => \CommonITILObject::INCOMING,
+        ]);
+
+        $status = [];
+        $mergeparams = [
+            'linktypes' => [
+                'ITILFollowup',
+                'TicketTask',
+                'Document'
+            ],
+            'link_type'  => \Ticket_Ticket::SON_OF
+        ];
+
+        \Ticket::merge($ticket1, [$ticket2], $status, $mergeparams);
+
+        $status_counts = array_count_values($status);
+        $failure_count = 0;
+        if (array_key_exists(1, $status_counts)) {
+            $failure_count += $status_counts[1];
+        }
+        if (array_key_exists(2, $status_counts)) {
+            $failure_count += $status_counts[2];
+        }
+
+        $this->integer((int)$failure_count)->isEqualTo(0);
+
+        // Add a followup to the child ticket
+        $followup = new \ITILFollowup();
+        $this->integer($followup->add([
+            'itemtype'  => 'Ticket',
+            'items_id'  => $ticket2,
+            'content'   => 'Child ticket followup'
+        ]))->isGreaterThan(0);
+
+        // Check that the followup was copied to the parent ticket
+        $this->array($followup->find([
+            'itemtype' => 'Ticket',
+            'items_id' => $ticket1,
+            'sourceitems_id' => $ticket2,
+            'content' => 'Child ticket followup'
+        ]))->isNotEmpty();
+
+        // Add a task to the child ticket
+        $task = new \TicketTask();
+        $this->integer($task->add([
+            'tickets_id'   => $ticket2,
+            'content'      => 'Child ticket task'
+        ]))->isGreaterThan(0);
+
+        // Check that the task was copied to the parent ticket
+        $this->array($task->find([
+            'tickets_id' => $ticket1,
+            'sourceitems_id' => $ticket2,
+            'content' => 'Child ticket task'
+        ]))->isNotEmpty();
+
+        // Add a document to the child ticket
+        $document = new \Document();
+        $documents_id = $document->add([
+            'name'     => 'Child ticket document',
+            'filename' => 'doc.xls',
+            'users_id' => '2', // user "glpi"
+        ]);
+        $this->integer($documents_id)->isGreaterThan(0);
+
+        $document_item = new \Document_Item();
+        $this->integer($document_item->add([
+            'itemtype'     => 'Ticket',
+            'items_id'     => $ticket2,
+            'documents_id' => $documents_id,
+            'entities_id'  => '0',
+            'is_recursive' => 0
+        ]))->isGreaterThan(0);
+
+        // Check that the document was copied to the parent ticket
+        $this->array($document_item->find([
+            'itemtype' => 'Ticket',
+            'items_id' => $ticket1,
+            'documents_id' => $documents_id,
+        ]))->isNotEmpty();
+    }
+
     public function testKeepScreenshotsOnFormReload()
     {
        //login to get session
@@ -4616,46 +4719,144 @@ HTML
         ]);
         $this->integer($tickets_id)->isGreaterThan(0);
 
-       // Check team members array has keys for all team itemtypes
+        $this->array($ticket->getTeam())->isEmpty();
+
+        // Add team members
+        $this->boolean($ticket->addTeamMember(\User::class, 4, ['role' => Team::ROLE_ASSIGNED]))->isTrue(); // using constant value
+        $this->boolean($ticket->addTeamMember(\User::class, 2, ['role' => 'observer']))->isTrue(); // using CommonITILActor contant name
+
+        // Reload ticket from DB
+        $this->boolean($ticket->getFromDB($tickets_id))->isTrue();
+
+        // Check team members
         $team = $ticket->getTeam();
-        $this->array($team)->isEmpty();
+        $this->array($team)->hasSize(2);
+        $member = array_shift($team);
+        $this->array($member)->hasKeys(['itemtype', 'items_id', 'role']);
+        $this->string($member['itemtype'])->isEqualTo(\User::class);
+        $this->integer($member['items_id'])->isEqualTo(2);
+        $this->integer($member['role'])->isEqualTo(Team::ROLE_OBSERVER);
+        $member = array_shift($team);
+        $this->array($member)->hasKeys(['itemtype', 'items_id', 'role']);
+        $this->string($member['itemtype'])->isEqualTo(\User::class);
+        $this->integer($member['items_id'])->isEqualTo(4);
+        $this->integer($member['role'])->isEqualTo(Team::ROLE_ASSIGNED);
 
-       // Add team members
-        $this->boolean($ticket->addTeamMember(\User::class, 4, ['role' => Team::ROLE_ASSIGNED]))->isTrue();
-
-       // Reload ticket from DB
-        $ticket->getFromDB($tickets_id);
-
-       // Check team members
-        $team = $ticket->getTeam();
-        $this->array($team)->hasSize(1);
-        $this->array($team[0])->hasKeys(['itemtype', 'items_id', 'role']);
-        $this->string($team[0]['itemtype'])->isEqualTo(\User::class);
-        $this->integer($team[0]['items_id'])->isEqualTo(4);
-        $this->integer($team[0]['role'])->isEqualTo(Team::ROLE_ASSIGNED);
-
-       // Delete team members
+        // Delete team member
         $this->boolean($ticket->deleteTeamMember(\User::class, 4, ['role' => Team::ROLE_ASSIGNED]))->isTrue();
 
-       //Reload ticket from DB
-        $ticket->getFromDB($tickets_id);
-        $team = $ticket->getTeam();
+        //Reload ticket from DB
+        $this->boolean($ticket->getFromDB($tickets_id))->isTrue();
 
+        // Check team members
+        $team = $ticket->getTeam();
+        $this->array($team)->hasSize(1);
+        $member = array_shift($team);
+        $this->array($member)->hasKeys(['itemtype', 'items_id', 'role']);
+        $this->string($member['itemtype'])->isEqualTo(\User::class);
+        $this->integer($member['items_id'])->isEqualTo(2);
+        $this->integer($member['role'])->isEqualTo(Team::ROLE_OBSERVER);
+
+        // Delete team member
+        $this->boolean($ticket->deleteTeamMember(\User::class, 2, ['role' => Team::ROLE_OBSERVER]))->isTrue();
+
+        //Reload ticket from DB
+        $this->boolean($ticket->getFromDB($tickets_id))->isTrue();
+
+        // Check team members
         $this->array($team)->isEmpty();
 
-       // Add team members
+        // Add team members
         $this->boolean($ticket->addTeamMember(\Group::class, 2, ['role' => Team::ROLE_ASSIGNED]))->isTrue();
 
-       // Reload ticket from DB
-        $ticket->getFromDB($tickets_id);
+        // Reload ticket from DB
+        $this->boolean($ticket->getFromDB($tickets_id))->isTrue();
 
-       // Check team members
+        // Check team members
         $team = $ticket->getTeam();
         $this->array($team)->hasSize(1);
         $this->array($team[0])->hasKeys(['itemtype', 'items_id', 'role']);
         $this->string($team[0]['itemtype'])->isEqualTo(\Group::class);
         $this->integer($team[0]['items_id'])->isEqualTo(2);
         $this->integer($team[0]['role'])->isEqualTo(Team::ROLE_ASSIGNED);
+    }
+
+    public function testGetTeamWithInvalidData(): void
+    {
+        global $DB;
+
+        $this->login();
+
+        $user_id = getItemByTypeName(User::class, TU_USER, true);
+
+        $ticket = $this->createItem(
+            \Ticket::class,
+            [
+                'name'             => __FUNCTION__,
+                'content'          => __FUNCTION__,
+                'entities_id'      => $this->getTestRootEntity(true),
+                '_users_id_assign' => $user_id,
+            ]
+        );
+
+        $this->array($ticket->getTeam())->hasSize(1); // TU_USER as assignee
+
+        // Create invalid entries
+        foreach ([CommonITILActor::REQUESTER, CommonITILActor::OBSERVER, CommonITILActor::ASSIGN] as $role) {
+            $this->boolean(
+                $DB->insert(
+                    Ticket_User::getTable(),
+                    [
+                        'tickets_id' => $ticket->getID(),
+                        'users_id'   => 978897, // not a valid id
+                        'type'       => $role,
+                    ]
+                )
+            )->isTrue();
+            $this->boolean(
+                $DB->insert(
+                    Group_Ticket::getTable(),
+                    [
+                        'tickets_id' => $ticket->getID(),
+                        'groups_id'  => 46543, // not a valid id
+                        'type'       => $role,
+                    ]
+                )
+            )->isTrue();
+            $this->boolean(
+                $DB->insert(
+                    Supplier_Ticket::getTable(),
+                    [
+                        'tickets_id'   => $ticket->getID(),
+                        'suppliers_id' => 99999, // not a valid id
+                        'type'         => $role,
+                    ]
+                )
+            )->isTrue();
+        }
+
+        $this->boolean($ticket->getFromDB($ticket->getID()))->isTrue();
+
+        // Does not contains invalid entries
+        $this->array($ticket->getTeam())->hasSize(1); // TU_USER as assignee
+
+        // Check team in global Kanban
+        $kanban = \Ticket::getDataToDisplayOnKanban(-1);
+        $kanban_ticket = array_pop($kanban); // checked ticket is the last created
+        $this->array($kanban_ticket)->hasKeys(['id', '_itemtype', '_team']);
+        $this->integer($kanban_ticket['id'])->isEqualTo($ticket->getID());
+        $this->string($kanban_ticket['_itemtype'])->isEqualTo(\Ticket::class);
+        $this->array($kanban_ticket['_team'])->isEqualTo(
+            [
+                [
+                    'itemtype'  => User::class,
+                    'id'        => $user_id,
+                    'firstname' => null,
+                    'realname'  => null,
+                    'name'      => '_test_user',
+                ]
+            ]
+        );
     }
 
     protected function testUpdateLoad1NTableDataProvider(): \Generator
@@ -4984,6 +5185,142 @@ HTML
             ],
         ]);
         $this->integer($it->count())->isEqualTo(1);
+    }
+
+    public function testCronSurveyCreation(): void
+    {
+        $this->login();
+
+        $root_entity_id    = $this->getTestRootEntity(true);
+        $child_1_entity_id = getItemByTypeName('Entity', '_test_child_1', true);
+        $child_2_entity_id = getItemByTypeName('Entity', '_test_child_2', true);
+
+        $now              = \Session::getCurrentTime();
+        $twelve_hours_ago = date("Y-m-d H:i:s", strtotime('-12 hours'));
+        $six_hours_ago    = date("Y-m-d H:i:s", strtotime('-4 hours'));
+        $four_hours_ago   = date("Y-m-d H:i:s", strtotime('-4 hours'));
+        $two_hours_ago    = date("Y-m-d H:i:s", strtotime('-2 hours'));
+
+        $this->updateItem(
+            Entity::class,
+            0,
+            [
+                'inquest_config' => 1, // GLPI native survey
+                'inquest_rate'   => 100, // always generate a survey for closed tickets
+                'inquest_delay'  => 0, // instant survey generation
+            ]
+        );
+        $this->updateItem(
+            Entity::class,
+            $root_entity_id,
+            [
+                'inquest_config' => Entity::CONFIG_PARENT, // inherits
+            ]
+        );
+        $this->updateItem(
+            Entity::class,
+            $child_1_entity_id,
+            [
+                'inquest_config' => Entity::CONFIG_PARENT, // inherits
+            ]
+        );
+        $this->updateItem(
+            Entity::class,
+            $child_2_entity_id,
+            [
+                'inquest_config' => 1, // GLPI native survey
+                'inquest_rate'   => 100, // always generate a survey for closed tickets
+                'inquest_delay'  => 0, // instant survey generation
+            ]
+        );
+
+        foreach ([0, $root_entity_id, $child_1_entity_id, $child_2_entity_id] as $entity_id) {
+            // Ensure `max_closedate` is in the past
+            $this->updateItem(
+                Entity::class,
+                $entity_id,
+                [
+                    'max_closedate'  => $twelve_hours_ago,
+                ]
+            );
+        }
+
+        // Create a closed ticket on test root entity
+        $_SESSION['glpi_currenttime'] = $six_hours_ago;
+        $root_ticket = $this->createItem(
+            \Ticket::class,
+            [
+                'name'        => "test root entity survey",
+                'content'     => "test root entity survey",
+                'entities_id' => $root_entity_id,
+                'status'      => CommonITILObject::CLOSED
+            ]
+        );
+
+        // Create a closed ticket on test child entity 1
+        $_SESSION['glpi_currenttime'] = $four_hours_ago;
+        $child_1_ticket = $this->createItem(
+            \Ticket::class,
+            [
+                'name'        => "test child entity 1 survey",
+                'content'     => "test child entity 1 survey",
+                'entities_id' => $child_1_entity_id,
+                'status'      => CommonITILObject::CLOSED
+            ]
+        );
+
+        // Create a closed ticket on test child entity 2
+        $_SESSION['glpi_currenttime'] = $two_hours_ago;
+        $child_1_ticket = $this->createItem(
+            \Ticket::class,
+            [
+                'name'        => "test child entity 2 survey",
+                'content'     => "test child entity 2 survey",
+                'entities_id' => $child_2_entity_id,
+                'status'      => CommonITILObject::CLOSED
+            ]
+        );
+
+        // Ensure no survey has been created yet
+        $ticket_satisfaction = new \TicketSatisfaction();
+        $this->integer(count($ticket_satisfaction->find(['tickets_id' => $root_ticket->getID()])))->isEqualTo(0);
+        $this->integer(count($ticket_satisfaction->find(['tickets_id' => $child_1_ticket->getID()])))->isEqualTo(0);
+
+        // Launch cron to create surveys
+        CronTask::launch(
+            - CronTask::MODE_INTERNAL, // force
+            1,
+            'createinquest'
+        );
+
+        // Ensure survey has been created
+        $ticket_satisfaction = new \TicketSatisfaction();
+        $this->integer(count($ticket_satisfaction->find(['tickets_id' => $root_ticket->getID()])))->isEqualTo(1);
+        $this->integer(count($ticket_satisfaction->find(['tickets_id' => $child_1_ticket->getID()])))->isEqualTo(1);
+
+        // Check `max_closedate` values in DB
+        $expected_db_values = [
+            0                  => $four_hours_ago,   // last ticket closedate from entities that inherits the config
+            $root_entity_id    => $twelve_hours_ago, // not updated as it inherits the config
+            $child_1_entity_id => $twelve_hours_ago, // not updated as it inherits the config
+            $child_2_entity_id => $two_hours_ago,    // last ticket closedate from self as it has its own config
+        ];
+        foreach ($expected_db_values as $entity_id => $date) {
+            $entity = new Entity();
+            $this->boolean($entity->getFromDB($entity_id))->isTrue();
+            $this->string($entity->fields['max_closedate'])->isEqualTo($date);
+        }
+
+        // Check `max_closedate` returned by `Entity::getUsedConfig()`
+        $expected_config_values = [
+            0                  => $four_hours_ago, // last ticket closedate from entities that inherits the config
+            $root_entity_id    => $four_hours_ago, // inherited value
+            $child_1_entity_id => $four_hours_ago, // inherited value
+            $child_2_entity_id => $two_hours_ago,  // last ticket closedate from self as it has its own config
+        ];
+        foreach ($expected_config_values as $entity_id => $date) {
+            $this->string(Entity::getUsedConfig('inquest_config', $entity_id, 'max_closedate'))->isEqualTo($date);
+        }
     }
 
     public function testAddAssignWithoutUpdateRight()

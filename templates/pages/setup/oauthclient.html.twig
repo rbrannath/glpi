@@ -56,7 +56,10 @@
                                 values: item.fields['grants']|default(['authorization_code']),
                             }) }}
                             {% if not item.isNewItem() %}
-                                {{ fields.readOnlyField('identifier', item.fields['identifier'], __('Client ID')) }}
+                                {{ fields.textField('identifier', item.fields['identifier'], __('Client ID'), {
+                                    readonly: true,
+                                    is_copyable: true,
+                                }) }}
                             {% endif %}
                             {% if allowed_scopes is defined and allowed_scopes is not empty %}
                                 {{ fields.dropdownArrayField('scopes', null, allowed_scopes, __('Scopes'), {
@@ -70,13 +73,6 @@
                                 {{ fields.passwordField('secret', item.fields['secret'], __('Client Secret'), {
                                     is_disclosable: true,
                                     readonly: true,
-                                }) }}
-                            {% endif %}
-
-                            {% if allowed_scopes is defined and allowed_scopes is not empty %}
-                                {{ fields.dropdownArrayField('scopes', null, allowed_scopes, __('Scopes'), {
-                                    multiple: true,
-                                    values: item.fields['scopes'],
                                 }) }}
                             {% endif %}
 
@@ -105,7 +101,7 @@
                                 no_label: true,
                                 field_class: 'col-12 d-flex',
                             }) }}
-                            <div class="authorized-uri-fields">
+                            <div class="authorized-uri-fields mb-3">
                                 <button type="button" class="btn btn-secondary mt-3" name="add_uri">
                                     <i class="ti ti-plus"></i>
                                     {{ __('Add URI') }}
@@ -132,6 +128,12 @@
                                     $('.authorized-uri-field input').last().val(uri);
                                 });
                             </script>
+
+                            {{ fields.smallTitle(__('IP Restrictions'), 'ti ti-network', __('Comma separated list of individual IPv4/IPv6 addresses or ranges in CIDR notation. An empty list indicates there are no restrictions.')) }}
+                            {{ fields.textField('allowed_ips', item.fields['allowed_ips'], null, {
+                                no_label: true,
+                                field_class: 'col-12 d-flex',
+                            }) }}
                         {% endblock %}
                     </div> {# .row #}
                 </div> {# .row #}

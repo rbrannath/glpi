@@ -34,6 +34,7 @@
 :root[data-glpi-theme-dark="1"] {
     --tblr-dark: #000;
     --tblr-light: #e6e6e6;
+    --tblr-info: #5885c0;
     --tblr-body-bg: #000;
     --tblr-body-color: #e6e6e6;
     --tblr-bg-surface: color-mix(in srgb, var(--tblr-body-bg), black 2%);
@@ -48,12 +49,13 @@
     --tblr-gray-800: color-mix(in srgb, var(--tblr-dark), var(--tblr-light) 84%);
     --tblr-gray-900: var(--tblr-light);
     --tblr-gray-50: var(--tblr-gray-300);
+    --tblr-bg-surface-dark: color-mix(in srgb, var(--tblr-bg-surface), var(--tblr-light) 98.5%);
     --glpi-tabs-active-bg: color-mix(in srgb, var(--tblr-bg-surface), white 10%);
     --glpi-tabs-border-color: transparent;
     --glpi-scrollbar-thumb-color: color-mix(in srgb, var(--tblr-secondary), transparent 75%);
-    --glpi-timeline-itil-content-bg: #1a221a34;
+    --glpi-timeline-itil-content-bg: #212221d3;
     --glpi-timeline-itil-content-fg: #85bd81;
-    --glpi-timeline-itil-content-border-color: #324132;
+    --glpi-timeline-itil-content-border-color: #1d201db4;
     --glpi-timeline-fup-bg: #222;
     --glpi-timeline-fup-fg: #acacac;
     --glpi-timeline-fup-border-color: #3b3b3b;
@@ -132,12 +134,12 @@
 
     .qtip-bootstrap,
     .popover .popover-body {
-        background-color: var(--tblr-active-bg) !important;
+        background-color: var(--tblr-bg-surface) !important;
         color: var(--tblr-light) !important;
     }
 
     .popover .popover-arrow::after {
-        border-top-color: var(--tblr-active-bg) !important;
+        border-top-color: var(--tblr-bg-surface) !important;
     }
 
     iframe.tox-edit-area__iframe {
@@ -154,5 +156,9 @@
             background-color: #ffe0cc2e;
             color: #ffe0cc;
         }
+    }
+
+    .avatar {
+        color: var(--tblr-dark);
     }
 }

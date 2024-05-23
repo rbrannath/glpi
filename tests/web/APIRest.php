@@ -40,6 +40,7 @@ use Auth;
 use atoum\atoum;
 use Computer;
 use Config;
+use Glpi\Tests\Api\Deprecated\Computer_Item;
 use Glpi\Tests\Api\Deprecated\Computer_SoftwareLicense;
 use Glpi\Tests\Api\Deprecated\Computer_SoftwareVersion;
 use Glpi\Tests\Api\Deprecated\ComputerAntivirus;
@@ -806,9 +807,6 @@ class APIRest extends atoum
         $computer = $this->createComputer();
         $computers_id = $computer->getID();
 
-        // create a network port for the previous computer
-        $this->createNetworkPort($computers_id);
-
         // Get the User TU_USER
         $uid = getItemByTypeName('User', TU_USER, true);
         $data = $this->query(
@@ -872,6 +870,29 @@ class APIRest extends atoum
             ->hasKey('_networkports');
 
         $this->array($data['_networkports'])->hasKey('NetworkPortEthernet');
+        $this->array($data['_networkports']['NetworkPortEthernet'])->isEmpty();
+
+        // create a network port for the computer
+        $this->createNetworkPort($computers_id);
+
+        $data = $this->query(
+            'getItem',
+            ['itemtype' => 'Computer',
+                'id'       => $computers_id,
+                'headers'  => ['Session-Token' => $this->session_token],
+                'query'    => ['with_networkports' => true]
+            ]
+        );
+
+        $this->variable($data)->isNotFalse();
+
+        $this->array($data)
+         ->hasKey('id')
+         ->hasKey('name')
+         ->hasKey('_networkports');
+
+        $this->array($data['_networkports'])->hasKey('NetworkPortEthernet');
+        $this->array($data['_networkports']['NetworkPortEthernet'])->isNotEmpty();
 
         $this->array($data['_networkports']['NetworkPortEthernet'][0])->hasKey('NetworkName');
 
@@ -1860,17 +1881,11 @@ class APIRest extends atoum
             // Guzzle lib will automatically push the correct Content-type
             unset($params['headers']['Content-Type']);
         }
-        $verb = strtolower($verb);
-        if (in_array($verb, ['get', 'post', 'delete', 'put', 'options', 'patch'])) {
-            try {
-                return $this->http_client->{$verb}(
-                    $this->base_uri . $relative_uri,
-                    $params
-                );
-            } catch (\Throwable $e) {
-                throw $e;
-            }
-        }
+        return $this->http_client->request(
+            $verb,
+            $this->base_uri . $relative_uri,
+            $params
+        );
     }
 
     protected function query(
@@ -2336,6 +2351,7 @@ class APIRest extends atoum
             ['provider' => Computer_SoftwareLicense::class],
             ['provider' => ComputerAntivirus::class],
             ['provider' => ComputerVirtualMachine::class],
+            ['provider' => Computer_Item::class],
         ];
     }
 
@@ -2593,7 +2609,7 @@ class APIRest extends atoum
                     ["key" => "Appliance:add_item",              "label" => "Associate to an appliance"],
                     ["key" => "Item_Rack:delete",                "label" => "Remove from a rack"],
                     ["key" => "Item_OperatingSystem:update",     "label" => "Operating systems"],
-                    ["key" => "Computer_Item:add",               "label" => "Connect"],
+                    ["key" => "Glpi\\Asset\\Asset_PeripheralAsset:add", "label" => "Connect"],
                     ["key" => "Item_SoftwareVersion:add",        "label" => "Install"],
                     ["key" => "Item_SoftwareLicense:add",        "label" => "Add a license"],
                     ["key" => "Domain:add_item",                 "label" => "Add a domain"],
@@ -2639,7 +2655,7 @@ class APIRest extends atoum
                     ["key" => "Appliance:add_item",              "label" => "Associate to an appliance"],
                     ["key" => "Item_Rack:delete",                "label" => "Remove from a rack"],
                     ["key" => "Item_OperatingSystem:update",     "label" => "Operating systems"],
-                    ["key" => "Computer_Item:add",               "label" => "Connect"],
+                    ["key" => "Glpi\\Asset\\Asset_PeripheralAsset:add", "label" => "Connect"],
                     ["key" => "Item_SoftwareVersion:add",        "label" => "Install"],
                     ["key" => "Item_SoftwareLicense:add",        "label" => "Add a license"],
                     ["key" => "Domain:add_item",                 "label" => "Add a domain"],
@@ -2756,10 +2772,10 @@ class APIRest extends atoum
                 'response' => [],
             ],
             [
-                'url' => 'getMassiveActionParameters/Computer/Computer_Item:add',
+                'url' => 'getMassiveActionParameters/Computer/Glpi\\Asset\\Asset_PeripheralAsset:add',
                 'status' => 200,
                 'response' => [
-                    ["name" => "peer_computers_id", "type" => "dropdown"],
+                    ["name" => "peer_itemtype_peripheral", "type" => "dropdown"],
                 ],
             ],
             [

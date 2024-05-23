@@ -233,6 +233,7 @@ final class AdministrationController extends AbstractController
                         'type' => Doc\Schema::TYPE_INTEGER,
                         'description' => 'Level',
                     ],
+                    'entity' => self::getDropdownTypeSchema(class: Entity::class, full_schema: 'Entity')
                 ]
             ],
             'Entity' => [
@@ -334,7 +335,7 @@ final class AdministrationController extends AbstractController
     #[Route(path: '/User', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search users',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'User[]']
         ]
@@ -347,7 +348,7 @@ final class AdministrationController extends AbstractController
     #[Route(path: '/Group', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search groups',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Group[]']
         ]
@@ -360,7 +361,7 @@ final class AdministrationController extends AbstractController
     #[Route(path: '/Entity', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search entities',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Entity[]']
         ]
@@ -373,7 +374,7 @@ final class AdministrationController extends AbstractController
     #[Route(path: '/Profile', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'List or search profiles',
-        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT],
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
         responses: [
             ['schema' => 'Profile[]']
         ]
@@ -414,7 +415,7 @@ final class AdministrationController extends AbstractController
         return $emails;
     }
 
-    #[Route(path: '/User/me', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Route(path: '/User/Me', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'Get the current user',
         responses: [
@@ -427,7 +428,7 @@ final class AdministrationController extends AbstractController
         return Search::getOneBySchema($this->getKnownSchema('User'), ['id' => $my_user_id], $request->getParameters());
     }
 
-    #[Route(path: '/User/me/emails', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Route(path: '/User/Me/Email', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'Get the current user\'s email addresses',
         responses: [
@@ -439,7 +440,7 @@ final class AdministrationController extends AbstractController
         return new JSONResponse($this->getEmailDataForUser($this->getMyUserID()));
     }
 
-    #[Route(path: '/User/me/emails', methods: ['POST'])]
+    #[Route(path: '/User/Me/Email', methods: ['POST'])]
     #[Doc\Route(
         description: 'Create a new email address for the current user',
         parameters: [
@@ -498,7 +499,7 @@ final class AdministrationController extends AbstractController
         return self::getCRUDCreateResponse($emails_id, self::getAPIPathForRouteFunction(self::class, 'getMyEmail', ['id' => $emails_id]));
     }
 
-    #[Route(path: '/User/me/emails/{id}', methods: ['GET'], requirements: ['id' => '\d+'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Route(path: '/User/Me/Email/{id}', methods: ['GET'], requirements: ['id' => '\d+'], middlewares: [ResultFormatterMiddleware::class])]
     #[Doc\Route(
         description: 'Get a specific email address for the current user',
         responses: [
@@ -510,6 +511,24 @@ final class AdministrationController extends AbstractController
         $emails = $this->getEmailDataForUser($this->getMyUserID());
         foreach ($emails as $email) {
             if ($email['id'] == $request->getAttribute('id')) {
+                return new JSONResponse($email);
+            }
+        }
+        return self::getNotFoundErrorResponse();
+    }
+
+    #[Route(path: '/User/Me/Emails/Default', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the default email address for the current user',
+        responses: [
+            ['schema' => 'EmailAddress']
+        ]
+    )]
+    public function getMyDefaultEmail(Request $request): Response
+    {
+        $emails = $this->getEmailDataForUser($this->getMyUserID());
+        foreach ($emails as $email) {
+            if ($email['is_default']) {
                 return new JSONResponse($email);
             }
         }
@@ -532,7 +551,7 @@ final class AdministrationController extends AbstractController
         return \Toolbox::sendFile($picture_path, $username, null, false, true);
     }
 
-    #[Route(path: '/User/me/Picture', methods: ['GET'])]
+    #[Route(path: '/User/Me/Picture', methods: ['GET'])]
     #[Doc\Route(
         description: 'Get the picture for the current user'
     )]
@@ -675,13 +694,88 @@ final class AdministrationController extends AbstractController
 
     #[Route(path: '/User/username/{username}', methods: ['DELETE'], requirements: ['username' => '[a-zA-Z0-9_]+'])]
     #[Doc\Route(description: 'Delete a user by username')]
-    /**
-     * @param Request $request
-     * @return Response
-     */
     public function deleteUserByUsername(Request $request): Response
     {
         return Search::deleteBySchema($this->getKnownSchema('User'), $request->getAttributes(), $request->getParameters(), 'username');
+    }
+
+    private function getUsedOrManagedItems(int $users_id, bool $is_managed, array $request_params): Response
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+        // Create a union schema with all relevant item types
+        $types = $is_managed ? $CFG_GLPI['linkuser_tech_types'] : $CFG_GLPI['linkuser_types'];
+        $schema = Doc\Schema::getUnionSchemaForItemtypes($types);
+        $rsql_filter = $request_params['filter'] ?? '';
+        if (!empty($rsql_filter)) {
+            $rsql_filter = "($rsql_filter);";
+        }
+        $user_field = $is_managed ? 'user_tech.id' : 'user.id';
+        $rsql_filter .= "$user_field==$users_id";
+        $request_params['filter'] = $rsql_filter;
+        return Search::searchBySchema($schema, $request_params);
+    }
+
+    #[Route(path: '/User/Me/UsedItem', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the used items for the current user',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getMyUsedItems(Request $request): Response
+    {
+        return $this->getUsedOrManagedItems($this->getMyUserID(), false, $request->getParameters());
+    }
+
+    #[Route(path: '/User/{id}/UsedItem', methods: ['GET'], requirements: ['id' => '\d+'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the used items for a user by ID',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getUserUsedItemsByID(Request $request): Response
+    {
+        return $this->getUsedOrManagedItems($request->getAttribute('id'), false, $request->getParameters());
+    }
+
+    #[Route(path: '/User/username/{username}/UsedItem', methods: ['GET'], requirements: ['username' => '[a-zA-Z0-9_]+'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the used items for a user by username',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getUserUsedItemsByUsername(Request $request): Response
+    {
+        $users_id = Search::getIDForOtherUniqueFieldBySchema($this->getKnownSchema('User'), 'username', $request->getAttribute('username'));
+        return $this->getUsedOrManagedItems($users_id, false, $request->getParameters());
+    }
+
+    #[Route(path: '/User/Me/ManagedItem', methods: ['GET'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the managed items for the current user',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getMyManagedItems(Request $request): Response
+    {
+        return $this->getUsedOrManagedItems($this->getMyUserID(), true, $request->getParameters());
+    }
+
+    #[Route(path: '/User/{id}/ManagedItem', methods: ['GET'], requirements: ['id' => '\d+'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the managed items for a user by ID',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getUserManagedItemsByID(Request $request): Response
+    {
+        return $this->getUsedOrManagedItems($request->getAttribute('id'), true, $request->getParameters());
+    }
+
+    #[Route(path: '/User/username/{username}/ManagedItem', methods: ['GET'], requirements: ['username' => '[a-zA-Z0-9_]+'], middlewares: [ResultFormatterMiddleware::class])]
+    #[Doc\Route(
+        description: 'Get the managed items for a user by username',
+        parameters: [self::PARAMETER_RSQL_FILTER, self::PARAMETER_START, self::PARAMETER_LIMIT, self::PARAMETER_SORT],
+    )]
+    public function getUserManagedItemsByUsername(Request $request): Response
+    {
+        $users_id = Search::getIDForOtherUniqueFieldBySchema($this->getKnownSchema('User'), 'username', $request->getAttribute('username'));
+        return $this->getUsedOrManagedItems($users_id, true, $request->getParameters());
     }
 
     #[Route(path: '/Group', methods: ['POST'])]

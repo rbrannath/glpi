@@ -474,11 +474,6 @@ final class DbUtils
             return null;
         }
 
-        if ($itemtype === 'Event') {
-           //to avoid issues when pecl-event is installed...
-            $itemtype = 'Glpi\\Event';
-        }
-
         $classname = $this->fixItemtypeCase($itemtype);
 
         if (!is_subclass_of($classname, CommonGLPI::class, true)) {
@@ -496,6 +491,9 @@ final class DbUtils
      * @param string $itemtype itemtype
      *
      * @return CommonDBTM|false itemtype instance or false if class does not exists
+     * @template T
+     * @phpstan-param class-string<T> $itemtype
+     * @phpstan-return T|false
      */
     public function getItemForItemtype($itemtype)
     {
@@ -546,8 +544,9 @@ final class DbUtils
             }
         }
         $condition['COUNT'] = 'cpt';
+        $condition['FROM']  = $table;
 
-        $row = $DB->request($table, $condition)->current();
+        $row = $DB->request($condition)->current();
         return ($row ? (int)$row['cpt'] : 0);
     }
 
@@ -659,7 +658,7 @@ final class DbUtils
             $criteria['ORDER'] = $order; // Deprecated use case
         }
 
-        $iterator = $DB->request($table, $criteria);
+        $iterator = $DB->request(array_merge(['FROM' => $table], $criteria));
 
         foreach ($iterator as $row) {
             $data[$row['id']] = $row;
@@ -1687,9 +1686,6 @@ final class DbUtils
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
-        $before = "";
-        $after  = "";
-
         $order = isset($CFG_GLPI["names_format"]) ? $CFG_GLPI["names_format"] : User::REALNAME_BEFORE;
         if (isset($_SESSION["glpinames_format"]) && !$force_config) {
             $order = $_SESSION["glpinames_format"];
@@ -1728,16 +1724,20 @@ final class DbUtils
             $formatted = sprintf(__('%1$s (%2$s)'), $formatted, $ID);
         }
 
+        $username = $formatted;
+
         if (
             ($link == 1)
             && ($ID > 0)
         ) {
-            $before = "<a title=\"" . htmlspecialchars($formatted) . "\"
-                       href='" . User::getFormURLWithID($ID) . "'>";
-            $after  = "</a>";
+            $username = sprintf(
+                '<a title="%s" href="%s">%s</a>',
+                htmlspecialchars($formatted),
+                User::getFormURLWithID($ID),
+                htmlspecialchars($formatted)
+            );
         }
 
-        $username = $before . $formatted . $after;
         return $username;
     }
 
@@ -1780,12 +1780,10 @@ final class DbUtils
                 $user = $name;
             }
         } else if ($ID) {
-            $iterator = $DB->request(
-                'glpi_users',
-                [
-                    'WHERE' => ['id' => $ID]
-                ]
-            );
+            $iterator = $DB->request([
+                'FROM' => 'glpi_users',
+                'WHERE' => ['id' => $ID]
+            ]);
 
             if ($link == 2) {
                 $user = ["name"    => "",
@@ -2077,7 +2075,7 @@ final class DbUtils
     /**
      * Export an array to be stored in a simple field in the database
      *
-     * @param array $array Array to export / encode (one level depth)
+     * @param array|'' $array Array to export / encode (one level depth)
      *
      * @return string containing encoded array
      */
@@ -2330,7 +2328,7 @@ final class DbUtils
      *
      * @param string $fkname Foreign key
      *
-     * @return string ItemType name for the fkname parameter
+     * @return class-string<CommonDBTM> Itemtype class for the fkname parameter
      */
     public function getItemtypeForForeignKeyField($fkname)
     {

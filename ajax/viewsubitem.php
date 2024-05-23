@@ -51,14 +51,12 @@ if (
     && ($parent = getItemForItemtype($_POST['parenttype']))
 ) {
     if (
-        isset($_POST[$parent->getForeignKeyField()])
+        isset($_POST[$parent::getForeignKeyField()])
         && isset($_POST["id"])
-        && $parent->getFromDB($_POST[$parent->getForeignKeyField()])
+        && $parent->getFromDB($_POST[$parent::getForeignKeyField()])
     ) {
         $item->showForm($_POST["id"], ['parent' => $parent]);
     } else {
         echo __('Access denied');
     }
 }
-
-Html::ajaxFooter();

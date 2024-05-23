@@ -35,6 +35,7 @@
 
 namespace tests\units;
 
+use Change;
 use CommonDBTM;
 use CommonITILActor;
 use DBConnection;
@@ -42,8 +43,10 @@ use DbTestCase;
 use Document;
 use Document_Item;
 use Glpi\Asset\Capacity\HasDocumentsCapacity;
+use Group_User;
 use Psr\Log\LogLevel;
 use Ticket;
+use User;
 
 /* Test for inc/search.class.php */
 
@@ -415,12 +418,12 @@ class Search extends DbTestCase
          ->matches('/LEFT JOIN\s*`glpi_softwares`\s*ON\s*\(`glpi_softwareversions_Software`\.`softwares_id`\s*=\s*`glpi_softwares`\.`id`\)/im')
          ->matches('/LEFT JOIN\s*`glpi_infocoms`\s*AS\s*`glpi_infocoms_Budget`\s*ON\s*\(`glpi_computers`\.`id`\s*=\s*`glpi_infocoms_Budget`\.`items_id`\s*AND\s*`glpi_infocoms_Budget`.`itemtype`\s*=\s*\'Computer\'\)/im')
          ->matches('/LEFT JOIN\s*`glpi_budgets`\s*ON\s*\(`glpi_infocoms_Budget`\.`budgets_id`\s*=\s*`glpi_budgets`\.`id`/im')
-         ->matches('/LEFT JOIN\s*`glpi_computers_items`\s*AS `glpi_computers_items_Printer`\s*ON\s*\(`glpi_computers_items_Printer`\.`computers_id`\s*=\s*`glpi_computers`\.`id`\s*AND\s*`glpi_computers_items_Printer`.`itemtype`\s*=\s*\'Printer\'\s*AND\s*`glpi_computers_items_Printer`.`is_deleted`\s*=\s*\'0\'\)/im')
-         ->matches('/LEFT JOIN\s*`glpi_printers`\s*ON\s*\(`glpi_computers_items_Printer`\.`items_id`\s*=\s*`glpi_printers`\.`id`/im')
+         ->matches('/LEFT JOIN\s*`glpi_assets_assets_peripheralassets`\s*AS `glpi_assets_assets_peripheralassets_Printer`\s*ON\s*\(`glpi_assets_assets_peripheralassets_Printer`\.`items_id_asset`\s*=\s*`glpi_computers`\.`id`\s*AND\s*`glpi_assets_assets_peripheralassets_Printer`.`itemtype_asset`\s*=\s*\'Computer\'\s*AND\s*`glpi_assets_assets_peripheralassets_Printer`.`itemtype_peripheral`\s*=\s*\'Printer\'\s*AND\s*`glpi_assets_assets_peripheralassets_Printer`.`is_deleted`\s*=\s*\'0\'\)/im')
+         ->matches('/LEFT JOIN\s*`glpi_printers`\s*ON\s*\(`glpi_assets_assets_peripheralassets_Printer`\.`items_id_peripheral`\s*=\s*`glpi_printers`\.`id`/im')
          // match where parts
          ->contains("`glpi_computers`.`is_deleted` = 0")
          ->contains("AND `glpi_computers`.`is_template` = 0")
-         ->contains("`glpi_computers`.`entities_id` IN ('1', '2', '3')")
+         ->contains("`glpi_computers`.`entities_id` IN ('2', '3', '4')")
          ->contains("OR (`glpi_computers`.`is_recursive`='1'" .
                     " AND `glpi_computers`.`entities_id` IN (0))")
          ->contains("`glpi_computers`.`name` LIKE '%test%'")
@@ -455,7 +458,7 @@ class Search extends DbTestCase
         $this->string($data['sql']['search'])
          ->contains("`glpi_computers`.`is_deleted` = 0")
          ->contains("AND `glpi_computers`.`is_template` = 0")
-         ->contains("`glpi_computers`.`entities_id` IN ('1', '2', '3')")
+         ->contains("`glpi_computers`.`entities_id` IN ('2', '3', '4')")
          ->contains("OR (`glpi_computers`.`is_recursive`='1'" .
                     " AND `glpi_computers`.`entities_id` IN (0))")
          ->matches("/`glpi_computers`\.`name` LIKE '%test%'/")
@@ -1468,6 +1471,7 @@ class Search extends DbTestCase
 
        // Complex cases
         $table_addtable = 'glpi_users_af1042e23ce6565cfe58c6db91f84692';
+        $table_ticket_user = 'glpi_tickets_users_019878060c6d5f06cbe3c4d7c31dec24';
 
         $_SESSION['glpinames_format'] = \User::FIRSTNAME_BEFORE;
         $user_order_1 = \Search::addOrderBy('Ticket', [
@@ -1476,18 +1480,34 @@ class Search extends DbTestCase
                 'order'        => 'ASC'
             ]
         ]);
-        $this->string($user_order_1)->isEqualTo(" ORDER BY `$table_addtable`.`firstname` ASC,
-                                 `$table_addtable`.`realname` ASC,
-                                 `$table_addtable`.`name` ASC");
+        $this->string($user_order_1)->isEqualTo(" ORDER BY GROUP_CONCAT(DISTINCT CONCAT(
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')
+                                ) ORDER BY CONCAT(
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')) ASC
+                                ) ASC");
         $user_order_2 = \Search::addOrderBy('Ticket', [
             [
                 'searchopt_id' => 4,
                 'order'        => 'DESC'
             ]
         ]);
-        $this->string($user_order_2)->isEqualTo(" ORDER BY `$table_addtable`.`firstname` DESC,
-                                 `$table_addtable`.`realname` DESC,
-                                 `$table_addtable`.`name` DESC");
+        $this->string($user_order_2)->isEqualTo(" ORDER BY GROUP_CONCAT(DISTINCT CONCAT(
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')
+                                ) ORDER BY CONCAT(
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')) ASC
+                                ) DESC");
 
         $_SESSION['glpinames_format'] = \User::REALNAME_BEFORE;
         $user_order_3 = \Search::addOrderBy('Ticket', [
@@ -1496,18 +1516,357 @@ class Search extends DbTestCase
                 'order'        => 'ASC'
             ]
         ]);
-        $this->string($user_order_3)->isEqualTo(" ORDER BY `$table_addtable`.`realname` ASC,
-                                 `$table_addtable`.`firstname` ASC,
-                                 `$table_addtable`.`name` ASC");
+        $this->string($user_order_3)->isEqualTo(" ORDER BY GROUP_CONCAT(DISTINCT CONCAT(
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')
+                                ) ORDER BY CONCAT(
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')) ASC
+                                ) ASC");
         $user_order_4 = \Search::addOrderBy('Ticket', [
             [
                 'searchopt_id' => 4,
                 'order'        => 'DESC'
             ]
         ]);
-        $this->string($user_order_4)->isEqualTo(" ORDER BY `$table_addtable`.`realname` DESC,
-                                 `$table_addtable`.`firstname` DESC,
-                                 `$table_addtable`.`name` DESC");
+        $this->string($user_order_4)->isEqualTo(" ORDER BY GROUP_CONCAT(DISTINCT CONCAT(
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')
+                                ) ORDER BY CONCAT(
+                                    IFNULL(`$table_addtable`.`realname`, ''),
+                                    IFNULL(`$table_addtable`.`firstname`, ''),
+                                    IFNULL(`$table_addtable`.`name`, ''),
+                                IFNULL(`$table_ticket_user`.`alternative_email`, '')) ASC
+                                ) DESC");
+    }
+
+    /**
+     * Data provider for testAddOrderByUser
+     */
+    protected function testAddOrderByUserProvider(): iterable
+    {
+        global $DB;
+
+        $this->login('glpi', 'glpi');
+
+        $user_1 = getItemByTypeName('User', TU_USER)->getID();
+        $user_2 = getItemByTypeName('User', 'glpi')->getID();
+        $group_1 = getItemByTypeName('Group', '_test_group_1')->getID();
+
+        $this->boolean($DB->delete(Change::getTable(), [1]))->isTrue();
+
+        // Creates Changes with different requesters
+        $this->createItems('Change', [
+            // Test set on requester
+            [
+                'name' => 'testAddOrderByUser user 1 (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [['itemtype' => 'User', 'items_id' => $user_1]],
+                ]
+            ],
+            [
+                'name' => 'testAddOrderByUser user 2 (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [['itemtype' => 'User', 'items_id' => $user_2]],
+                ]
+            ],
+            [
+                'name' => 'testAddOrderByUser user 1 (R) + user 2 (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [
+                        ['itemtype' => 'User', 'items_id' => $user_1],
+                        ['itemtype' => 'User', 'items_id' => $user_2],
+                    ],
+                ]
+            ],
+            [
+                'name' => 'testAddOrderByUser anonymous user (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [
+                        [
+                            'itemtype' => 'User',
+                            'items_id' => 0,
+                            "alternative_email" => "myemail@email.com",
+                            'use_notification' => true
+                        ]
+                    ],
+                ]
+            ],
+            [
+                'name' => 'testAddOrderByUser group 1 (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [['itemtype' => 'Group', 'items_id' => $group_1]],
+                ]
+            ],
+            [
+                'name' => 'testAddOrderByUser user 1 (R) + group 1 (R)',
+                'content' => '',
+                '_actors' => [
+                    'requester' => [
+                        ['itemtype' => 'User', 'items_id' => $user_1],
+                        ['itemtype' => 'Group', 'items_id' => $group_1],
+                    ],
+                ]
+            ],
+        ]);
+
+        yield [
+            'itemtype' => 'Change',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 4,
+                'order' => 'ASC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser group 1 (R)',              //  no requester
+                'testAddOrderByUser user 1 (R)',               //  _test_user
+                'testAddOrderByUser user 1 (R) + group 1 (R)', //  _test_user
+                'testAddOrderByUser user 1 (R) + user 2 (R)',  //  _test_user, glpi
+                'testAddOrderByUser user 2 (R)',               //  glpi
+                'testAddOrderByUser anonymous user (R)',       //  myemail@email.com
+            ],
+            'row_name' => 'ITEM_Change_1'
+        ];
+
+        yield [
+            'itemtype' => 'Change',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 4,
+                'order' => 'DESC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser anonymous user (R)',       //  myemail@email.com
+                'testAddOrderByUser user 2 (R)',               //  glpi
+                'testAddOrderByUser user 1 (R) + user 2 (R)',  //  _test_user, glpi
+                'testAddOrderByUser user 1 (R)',               //  _test_user
+                'testAddOrderByUser user 1 (R) + group 1 (R)', //  _test_user
+                'testAddOrderByUser group 1 (R)',              //  no requester
+            ],
+            'row_name' => 'ITEM_Change_1'
+        ];
+
+        // Creates Peripheral with different users
+        $this->createItems('Peripheral', [
+            // Test set on user
+            [
+                'name' => 'testAddOrderByUser user 1 (U)',
+                'entities_id' => 0,
+                'users_id' => $user_1,
+            ],
+            [
+                'name' => 'testAddOrderByUser user 2 (U)',
+                'entities_id' => 0,
+                'users_id' => $user_2,
+            ],
+            [
+                'name' => 'testAddOrderByUser no user',
+                'entities_id' => 0,
+            ],
+        ]);
+
+        yield [
+            'itemtype' => 'Peripheral',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 70,
+                'order' => 'ASC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser no user',
+                'testAddOrderByUser user 1 (U)', // _test_user
+                'testAddOrderByUser user 2 (U)', // glpi
+            ],
+            'row_name' => 'ITEM_Peripheral_1'
+        ];
+
+        yield [
+            'itemtype' => 'Peripheral',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 70,
+                'order' => 'DESC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser user 2 (U)', // glpi
+                'testAddOrderByUser user 1 (U)', // _test_user
+                'testAddOrderByUser no user',
+            ],
+            'row_name' => 'ITEM_Peripheral_1'
+        ];
+
+        // Creates Problems with different writers
+        // Create by glpi user
+        $this->createItems('Problem', [
+            [
+                'name' => 'testAddOrderByUser by glpi',
+                'content' => '',
+            ],
+        ]);
+
+        // Create by tech user
+        $this->login('tech', 'tech');
+        $this->createItems('Problem', [
+            [
+                'name' => 'testAddOrderByUser by tech',
+                'content' => '',
+            ],
+        ]);
+
+        $this->login('glpi', 'glpi');
+
+        yield [
+            'itemtype' => 'Problem',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 22,
+                'order' => 'ASC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser by glpi',
+                'testAddOrderByUser by tech',
+            ],
+            'row_name' => 'ITEM_Problem_1'
+        ];
+
+        yield [
+            'itemtype' => 'Problem',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 22,
+                'order' => 'DESC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser by tech',
+                'testAddOrderByUser by glpi',
+            ],
+            'row_name' => 'ITEM_Problem_1'
+        ];
+
+        // Last edit by
+        yield [
+            'itemtype' => 'Problem',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 64,
+                'order' => 'ASC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser by glpi',
+                'testAddOrderByUser by tech',
+            ],
+            'row_name' => 'ITEM_Problem_1'
+        ];
+
+        yield [
+            'itemtype' => 'Problem',
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    [
+                        'field' => 1,
+                        'searchtype' => 'contains',
+                        'value' => 'testAddOrderByUser',
+                    ],
+                ],
+                'sort' => 64,
+                'order' => 'DESC',
+            ],
+            'expected_order' => [
+                'testAddOrderByUser by tech',
+                'testAddOrderByUser by glpi',
+            ],
+            'row_name' => 'ITEM_Problem_1'
+        ];
+    }
+
+    /**
+     * @dataProvider testAddOrderByUserProvider
+     */
+    public function testAddOrderByUser(
+        string $itemtype,
+        array $search_params,
+        array $expected_order,
+        string $row_name
+    ) {
+        $data = $this->doSearch($itemtype, $search_params);
+
+        // Extract items names
+        $items = [];
+        foreach ($data['data']['rows'] as $row) {
+            $items[] = $row['raw'][$row_name];
+        }
+
+        // Validate order
+        $this->array($items)->isEqualTo($expected_order);
     }
 
     private function cleanSQL($sql)
@@ -2071,7 +2430,11 @@ class Search extends DbTestCase
          ->contains("`glpi_users_users_id_recipient`.`id` = '{$user_normal_id}'")
 
          // Check that ORDER applies on corresponding table alias
-         ->contains("`glpi_users_users_id_recipient`.`name` ASC");
+         ->contains("CONCAT(
+                                    IFNULL(`glpi_users_users_id_recipient`.`realname`, ''),
+                                    IFNULL(`glpi_users_users_id_recipient`.`firstname`, ''),
+                                    IFNULL(`glpi_users_users_id_recipient`.`name`, '')
+                                ) ASC");
     }
 
     public function testSearchAllAssets()
@@ -2108,7 +2471,7 @@ class Search extends DbTestCase
             $this->string($data['sql']['search'])
             ->contains("`$type`.`is_deleted` = 0")
             ->contains("AND `$type`.`is_template` = 0")
-            ->contains("`$type`.`entities_id` IN ('1', '2', '3')")
+            ->contains("`$type`.`entities_id` IN ('2', '3', '4')")
             ->contains("OR (`$type`.`is_recursive`='1'" .
                         " AND `$type`.`entities_id` IN (0))")
              ->matches("/`$type`\.`name` LIKE '%test%'/");
@@ -2117,6 +2480,9 @@ class Search extends DbTestCase
 
     public function testSearchWithNamespacedItem()
     {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
         $search_params = [
             'is_deleted'   => 0,
             'start'        => 0,
@@ -2125,6 +2491,7 @@ class Search extends DbTestCase
         $this->login();
         $this->setEntity('_test_root_entity', true);
 
+        $CFG_GLPI['state_types'][] = 'SearchTest\\Computer';
         $data = $this->doSearch('SearchTest\\Computer', $search_params);
 
         $this->string($data['sql']['search'])
@@ -2287,7 +2654,8 @@ class Search extends DbTestCase
         $names = explode("\n", trim($names));
 
        // Check results
-        $this->array($names)->isEqualTo($expected);
+        $this->array($names)->size->isEqualTo(count($expected));
+        $this->array($names)->containsValues($expected);
     }
 
     protected function testMyselfSearchCriteriaProvider(): array
@@ -3873,6 +4241,246 @@ class Search extends DbTestCase
             //check if search option separator 'dcroom' exist
             $this->variable(array_search('dcroom', array_column($so, 'id')))->isNotEqualTo(false, $item->getTypeName() . ' should use \'$tab = array_merge($tab, DCRoom::rawSearchOptionsToAdd());');
         }
+    }
+
+    public function testDataCenterSearchOption()
+    {
+        global $CFG_GLPI;
+        foreach ($CFG_GLPI['rackable_types'] as $rackable_type) {
+            $item = new $rackable_type();
+            $so = $item->rawSearchOptions();
+            //check if search option separator 'datacenter' exist
+            $this->variable(array_search('datacenter', array_column($so, 'id')))->isNotEqualTo(false, $item->getTypeName() . ' should use \'$tab = array_merge($tab, DataCenter::rawSearchOptionsToAdd());');
+        }
+    }
+
+    protected function testRichTextProvider(): iterable
+    {
+        $this->login('glpi', 'glpi');
+
+        $this->createItems('Ticket', [
+            [
+                'name' => 'Ticket 1',
+                'content' => '<p>This is a test ticket</p>'
+            ],
+            [
+                'name' => 'Ticket 2',
+                'content' => '<p>This is a test ticket with &amp; in description</p>'
+            ],
+            [
+                'name' => 'Ticket 3',
+                'content' => '<p>This is a test ticket with matching followup</p>'
+            ],
+            [
+                'name' => 'Ticket 4',
+                'content' => '<p>This is a test ticket with task</p>'
+            ],
+            [
+                'name' => 'Ticket & 5',
+                'content' => '<p>This is a test ticket</p>'
+            ],
+            [
+                'name' => 'Ticket > 6',
+                'content' => '<p>This is a test ticket</p>'
+            ],
+        ]);
+
+        $this->createItem('ITILFollowup', [
+            'itemtype' => 'Ticket',
+            'items_id' => getItemByTypeName('Ticket', 'Ticket 1')->getID(),
+            'content' => '<p>This is a followup</p>'
+        ]);
+        $this->createItem('ITILFollowup', [
+            'itemtype' => 'Ticket',
+            'items_id' => getItemByTypeName('Ticket', 'Ticket 3')->getID(),
+            'content' => '<p>This is a followup with &amp; in description</p>'
+        ]);
+
+        $this->createItem('TicketTask', [
+            'tickets_id' => getItemByTypeName('Ticket', 'Ticket 1')->getID(),
+            'content' => '<p>This is a task</p>'
+        ]);
+        $this->createItem('TicketTask', [
+            'tickets_id' => getItemByTypeName('Ticket', 'Ticket 4')->getID(),
+            'content' => '<p>This is a task with &amp; in description</p>'
+        ]);
+
+        yield [
+            'search_params' => [
+                'is_deleted' => 0,
+                'start'      => 0,
+                'criteria'   => [
+                    0 => [
+                        'link'       => 'AND',
+                        'field'      => 1, // title
+                        'searchtype' => 'contains',
+                        'value'      => '&'
+                    ]
+                ],
+            ],
+            'expected' => [
+                'Ticket & 5'
+            ]
+        ];
+
+        yield [
+            'search_params' => [
+                'is_deleted' => 0,
+                'start'      => 0,
+                'criteria'   => [
+                    0 => [
+                        'link'       => 'AND',
+                        'field'      => 21, // ticket content
+                        'searchtype' => 'contains',
+                        'value'      => '&'
+                    ]
+                ],
+            ],
+            'expected' => [
+                'Ticket 2'
+            ]
+        ];
+
+        yield [
+            'search_params' => [
+                'is_deleted' => 0,
+                'start'      => 0,
+                'criteria'   => [
+                    0 => [
+                        'link'       => 'AND',
+                        'field'      => 25, // followup content
+                        'searchtype' => 'contains',
+                        'value'      => '&'
+                    ]
+                ],
+            ],
+            'expected' => [
+                'Ticket 3'
+            ]
+        ];
+
+        yield [
+            'search_params' => [
+                'is_deleted' => 0,
+                'start'      => 0,
+                'criteria'   => [
+                    0 => [
+                        'link'       => 'AND',
+                        'field'      => 26, // task content
+                        'searchtype' => 'contains',
+                        'value'      => '&'
+                    ]
+                ],
+            ],
+            'expected' => [
+                'Ticket 4'
+            ]
+        ];
+
+        yield [
+            'search_params' => [
+                'is_deleted' => 0,
+                'start' => 0,
+                'criteria' => [
+                    0 => [
+                        'link' => 'AND',
+                        'field' => 'view', // items seen
+                        'searchtype' => 'contains',
+                        'value'      => '&'
+                    ],
+                    1 => [
+                        'link' => 'AND',
+                        'field' => 1, //title
+                        'searchtype' => 'contains',
+                        'value' => ''
+                    ],
+                    2 => [
+                        'link' => 'AND',
+                        'field' => 21, // ticket content
+                        'searchtype' => 'contains',
+                        'value' => ''
+                    ],
+                    3 => [
+                        'link' => 'AND',
+                        'field' => 25, // followup content
+                        'searchtype' => 'contains',
+                        'value' => ''
+                    ],
+                    4 => [
+                        'link' => 'AND',
+                        'field' => 26, // task content
+                        'searchtype' => 'contains',
+                        'value' => ''
+                    ],
+                ],
+            ],
+            'expected' => [
+                'Ticket 2',
+                'Ticket 3',
+                'Ticket 4',
+                'Ticket & 5'
+            ]
+        ];
+    }
+
+    /**
+     * @dataprovider testRichTextProvider
+     */
+    public function testRichText(
+        array $search_params,
+        array $expected
+    ): void {
+        $data = $this->doSearch(\Ticket::class, $search_params);
+
+        // Extract items names
+        $items = [];
+        foreach ($data['data']['rows'] as $row) {
+            $items[] = $row['raw']['ITEM_Ticket_1'];
+        }
+
+        $this->array($items)->isEqualTo($expected);
+    }
+
+    public function testTicketValidationStatus()
+    {
+        $search_params = [
+            'reset'        => 'reset',
+            'is_deleted'   => 0,
+            'start'        => 0,
+            'search'       => 'Search',
+            'criteria'     => [
+                0 => [
+                    'field' => 'view', // items seen
+                    'searchtype' => 'contains',
+                    'value' => 'any string'
+                ]
+            ]
+        ];
+
+        $displaypref = new \DisplayPreference();
+        $input = [
+            'itemtype'  => 'Ticket',
+            'users_id'  => \Session::getLoginUserID(),
+            'num'       => 55, //Ticket glpi_ticketvalidations.status
+        ];
+        $this->integer((int)$displaypref->add($input))->isGreaterThan(0);
+
+
+        $data = $this->doSearch('Ticket', $search_params);
+
+        $this->string($data['sql']['search'])->notContains("`glpi_ticketvalidations`.`status` IN");
+
+        $search_params['criteria'][0]['value'] = 1;
+        $data = $this->doSearch('Ticket', $search_params);
+        $this->string($data['sql']['search'])->contains("`glpi_ticketvalidations`.`status` IN");
+
+        $search_params['criteria'][0]['value'] = 'all';
+        $data = $this->doSearch('Ticket', $search_params);
+        $this->string($data['sql']['search'])->notContains("`glpi_ticketvalidations`.`status` IN");
+
+        $search_params['criteria'][0]['value'] = 'can';
+        $data = $this->doSearch('Ticket', $search_params);
+        $this->string($data['sql']['search'])->contains("`glpi_ticketvalidations`.`status` IN");
     }
 }
 

@@ -1179,17 +1179,15 @@ class DBmysql
     /**
      * Instanciate a Simple DBIterator
      *
-     * @param string|array $tableorsql Table name, array of names or SQL query
-     * @param string|array $crit       String or array of filed/values, ex array("id"=>1), if empty => all rows
-     *                                    (default '')
-     * @param boolean         $debug      To log the request (default false)
+     * @param array|QueryUnion  $criteria Query criteria
+     * @param boolean           $debug    To log the request (default false)
      *
      * @return DBmysqlIterator
      */
-    public function request($tableorsql, $crit = "", $debug = false)
+    public function request($criteria, $debug = false)
     {
         $iterator = new DBmysqlIterator($this);
-        $iterator->execute($tableorsql, $crit, $debug);
+        $iterator->execute(...func_get_args()); // pass all args to be compatible with previous signature
         return $iterator;
     }
 
@@ -1646,7 +1644,7 @@ class DBmysql
      */
     public function updateOrInsert($table, $params, $where, $onlyone = true)
     {
-        $req = $this->request($table, $where);
+        $req = $this->request(array_merge(['FROM' => $table], $where));
         $data = array_merge($where, $params);
         if ($req->count() == 0) {
             return $this->insertOrDie($table, $data, 'Unable to create new element or update existing one');
@@ -1751,7 +1749,7 @@ class DBmysql
      *
      * @return mysqli_result|boolean Query result handler
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      */
     public function truncate($table)
     {
@@ -1772,7 +1770,7 @@ class DBmysql
      *
      * @return mysqli_result|boolean Query result handler
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      */
     public function truncateOrDie($table, $message = '')
     {

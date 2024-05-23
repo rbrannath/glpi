@@ -75,7 +75,7 @@ abstract class AbstractRightsDropdown
      *
      * @return string
      */
-    public static function show(string $name, array $values): string
+    public static function show(string $name, array $values, array $params = []): string
     {
         // Flatten values
         $dropdown_values = [];
@@ -92,12 +92,19 @@ abstract class AbstractRightsDropdown
         $url = static::getAjaxUrl();
 
         // Build params
-        $params = [
+        $params = array_merge([
             'name'        => $name . "[]",
-            'values'      => $dropdown_values,
-            'valuesnames' => self::getValueNames($dropdown_values),
             'multiple'    => true,
-        ];
+            'width'       => '100%',
+        ], $params);
+
+        if ($params['multiple']) {
+            $params['values'] = $dropdown_values;
+            $params['valuesnames'] = self::getValueNames($dropdown_values);
+        } elseif (count($dropdown_values) > 0) {
+            $params['value'] = $dropdown_values[0];
+            $params['valuename'] = self::getValueNames($dropdown_values)[0];
+        }
         return Html::jsAjaxDropdown($params['name'], $field_id, $url, $params);
     }
 
@@ -130,6 +137,16 @@ abstract class AbstractRightsDropdown
        // Add groups if enabled
         if (self::isTypeEnabled(Group::getType())) {
             $possible_rights[Group::getType()] = self::getGroups($text);
+        }
+
+        // Add contacts if enabled
+        if (self::isTypeEnabled(Contact::getType())) {
+            $possible_rights[Contact::getType()] = self::getContacts($text);
+        }
+
+        // Add suppliers if enabled
+        if (self::isTypeEnabled(Supplier::getType())) {
+            $possible_rights[Supplier::getType()] = self::getSuppliers($text);
         }
 
         $results = [];
@@ -269,6 +286,58 @@ abstract class AbstractRightsDropdown
         }
 
         return $groups_items;
+    }
+
+    /**
+     * Get possible values for contacts
+     *
+     * @param string $text Search string
+     *
+     * @return array
+     */
+    protected static function getContacts(string $text): array
+    {
+        $contact_item = new Contact();
+        $contacts = $contact_item->find(
+            [
+                'name' => ["LIKE", "%$text%"]
+            ] + getEntitiesRestrictCriteria(Contact::getTable()),
+            [],
+            self::LIMIT
+        );
+        $contacts_item = [];
+        foreach ($contacts as $contact) {
+            $new_key = 'contacts_id-' . $contact['id'];
+            $contacts_item[$new_key] = $contact['name'];
+        }
+
+        return $contacts_item;
+    }
+
+    /**
+     * Get possible values for suppliers
+     *
+     * @param string $text Search string
+     *
+     * @return array
+     */
+    protected static function getSuppliers(string $text): array
+    {
+        $supplier_item = new Supplier();
+        $suppliers = $supplier_item->find(
+            [
+                'name' => ["LIKE", "%$text%"]
+            ] + getEntitiesRestrictCriteria(Supplier::getTable()),
+            [],
+            self::LIMIT
+        );
+        $suppliers_item = [];
+        foreach ($suppliers as $supplier) {
+            $new_key = 'suppliers_id-' . $supplier['id'];
+            $suppliers_item[$new_key] = $supplier['name'];
+        }
+
+        return $suppliers_item;
     }
 
     /**

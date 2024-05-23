@@ -40,24 +40,14 @@ use Glpi\OAuth\Server;
 use Glpi\Socket;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
-define('GLPI_ENVIRONMENT_TYPE', 'development');
+define('GLPI_ENVIRONMENT_TYPE', 'testing');
 
-ini_set('display_errors', 'On'); // Ensure errors happening during test suite bootstraping are always displayed
+ini_set('display_errors', 'On'); // Ensure errors happening during test suite bootstrapping are always displayed
 error_reporting(E_ALL);
 
 define('GLPI_ROOT', __DIR__ . '/../');
-define('GLPI_CONFIG_DIR', getenv('GLPI_CONFIG_DIR') ?: __DIR__ . '/config');
-define('GLPI_VAR_DIR', getenv('GLPI_VAR_DIR') ?: __DIR__ . '/files');
-define('GLPI_URI', getenv('GLPI_URI') ?: 'http://localhost:8088');
+define('GLPI_URI', getenv('GLPI_URI') ?: 'http://localhost:80');
 define('GLPI_STRICT_DEPRECATED', true); //enable strict depreciations
-
-define(
-    'PLUGINS_DIRECTORIES',
-    [
-        GLPI_ROOT . '/plugins',
-        GLPI_ROOT . '/tests/fixtures/plugins',
-    ]
-);
 
 define(
     'GLPI_SERVERSIDE_URL_ALLOWLIST',
@@ -78,8 +68,6 @@ if (!file_exists(GLPI_CONFIG_DIR . '/config_db.php')) {
     die("\nConfiguration file for tests not found\n\nrun: php bin/console database:install --config-dir=" . GLPI_CONFIG_DIR . " ...\n\n");
 }
 
-\Glpi\Tests\BootstrapUtils::initVarDirectories();
-
 include_once __DIR__ . '/../inc/includes.php';
 
 //init cache
@@ -92,13 +80,13 @@ if (file_exists(GLPI_CONFIG_DIR . DIRECTORY_SEPARATOR . CacheManager::CONFIG_FIL
     $GLPI_CACHE = new SimpleCache(new ArrayAdapter());
 }
 
-// Errors/exceptions that are not explicitely validated by `$this->error()` or `$this->exception` asserter will already make test fails.
+// Errors/exceptions that are not explicitly validated by `$this->error()` or `$this->exception` asserter will already make test fails.
 // There is no need to pollute the output with error messages.
 ini_set('display_errors', 'Off');
 ErrorHandler::getInstance()->disableOutput();
-// To ensure that errors/exceptions will be catched by `atoum`, unregister GLPI error/exception handlers.
-// Errors that are pushed directly to logs (SQL errors/warnings for instance) will still have to be explicitely
-// validated by `$this->has*LogRecord*()` asserters, otherwise it will make make test fails.
+// To ensure that errors/exceptions will be caught by `atoum`, unregister GLPI error/exception handlers.
+// Errors that are pushed directly to logs (SQL errors/warnings for instance) will still have to be explicitly
+// validated by `$this->has*LogRecord*()` asserters, otherwise it will make test fails.
 set_error_handler(null);
 set_exception_handler(null);
 
@@ -125,7 +113,7 @@ function loadDataset()
    // Unit test data definition
     $data = [
       // bump this version to force reload of the full dataset, when content change
-        '_version' => '4.11',
+        '_version' => '4.12',
 
       // Type => array of entries
         'Entity' => [
@@ -451,6 +439,7 @@ function loadDataset()
             [
                 'name'           => '_ticket01',
                 'content'        => 'Content for ticket _ticket01',
+                'externalid'     => 'external_id',
                 'users_id_recipient' => TU_USER,
                 'entities_id'    => '_test_root_entity'
             ],

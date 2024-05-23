@@ -40,6 +40,7 @@ use Glpi\Event;
 use Glpi\Http\Response;
 use Glpi\Mail\Protocol\ProtocolInterface;
 use Glpi\Rules\RulesManager;
+use Glpi\Toolbox\VersionParser;
 use GuzzleHttp\Client;
 use Laminas\Mail\Storage\AbstractStorage;
 use Mexitek\PHPColors\Color;
@@ -211,7 +212,7 @@ class Toolbox
      *
      * @return boolean
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function seems_utf8($str)
     {
@@ -430,10 +431,22 @@ class Toolbox
     /**
      * Send a deprecated message in log (with backtrace)
      * @param  string $message the message to send
+     * @param  boolean $strict
+     * @param  string|null $version The version to start the deprecation alert. If null, it is considered deprecated in the current version.
      * @return void
      */
-    public static function deprecated($message = "Called method is deprecated", $strict = true)
+    public static function deprecated($message = "Called method is deprecated", $strict = true, ?string $version = null)
     {
+        if (
+            $version !== null
+            && version_compare(
+                VersionParser::getNormalizedVersion($version, false),
+                VersionParser::getNormalizedVersion(GLPI_VERSION, false),
+                '>'
+            )
+        ) {
+            return;
+        }
         if (
             $strict === true ||
             (defined('GLPI_STRICT_DEPRECATED') && GLPI_STRICT_DEPRECATED === true)
@@ -655,7 +668,7 @@ class Toolbox
      *
      * @return string|string[]
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function addslashes_deep($value)
     {
@@ -688,7 +701,7 @@ class Toolbox
      *
      * @return array|string stripslashes item
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function stripslashes_deep($value)
     {
@@ -813,7 +826,7 @@ class Toolbox
     {
 
        //TRANS: list of unit (o for octet)
-        $bytes = [__('o'), __('Kio'), __('Mio'), __('Gio'), __('Tio')];
+        $bytes = [__('o'), __('Kio'), __('Mio'), __('Gio'), __('Tio'), __('Pio'), __('Eio'), __('Zio'), __('Yio')];
         foreach ($bytes as $val) {
             if ($size > 1024) {
                 $size = $size / 1024;
@@ -1454,10 +1467,7 @@ class Toolbox
     {
 
         if (!isset($data['end'])) {
-            if (
-                isset($data['begin'])
-                && isset($data['_duration'])
-            ) {
+            if (isset($data['begin'], $data['_duration'])) {
                 $begin_timestamp = strtotime($data['begin']);
                 $data['end']     = date("Y-m-d H:i:s", $begin_timestamp + $data['_duration']);
                 unset($data['_duration']);
@@ -1487,7 +1497,7 @@ class Toolbox
                 // redirect to full url -> check if it's based on glpi url
                 if (preg_match('@(([^:/].+:)?//[^/]+)(/.+)?@', $decoded_where, $matches)) {
                     if ($matches[1] !== $CFG_GLPI['url_base']) {
-                        Session::addMessageAfterRedirect('Redirection failed');
+                        Session::addMessageAfterRedirect(__s('Redirection failed'));
                         if (Session::getCurrentInterface() === "helpdesk") {
                             Html::redirect($CFG_GLPI["root_doc"] . "/front/helpdesk.public.php");
                         } else {

@@ -112,7 +112,7 @@ function getItemTypeForTable($table)
  *
  * @param string $fkname
  *
- * @return string ItemType name for the fkname parameter
+ * @return class-string<CommonDBTM> Itemtype class for the fkname parameter
  */
 function getItemtypeForForeignKeyField($fkname)
 {
@@ -139,9 +139,11 @@ function getTableForItemType($itemtype)
  *
  * @since 0.83
  *
- * @param $itemtype   string   itemtype
- *
+ * @param string $itemtype itemtype
  * @return CommonDBTM|false itemtype object or false if class does not exists
+ * @template T
+ * @phpstan-param class-string<T> $itemtype
+ * @phpstan-return T|false
  **/
 function getItemForItemtype($itemtype)
 {
@@ -520,7 +522,7 @@ function getDateCriteria($field, $begin, $end)
 /**
  * Export an array to be stored in a simple field in the database
  *
- * @param $TAB Array to export / encode (one level depth)
+ * @param array|'' $TAB Array to export / encode (one level depth)
  *
  * @return string containing encoded array
  **/

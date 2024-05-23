@@ -44,7 +44,7 @@ include('../inc/includes.php');
 if (isset($_POST['language']) && !Session::getLoginUserID()) {
     // Offline lang change, keep it before session validity check
     $_SESSION["glpilanguage"] = $_POST['language'];
-    Session::addMessageAfterRedirect(__('Lang has been changed!'));
+    Session::addMessageAfterRedirect(__s('Lang has been changed!'));
     Html::back();
 }
 
@@ -151,36 +151,6 @@ if (isset($_GET['getvcard'])) {
         sprintf(__('%s updates an item'), $_SESSION["glpiname"])
     );
     Html::back();
-} else if (isset($_POST["addgroup"])) {
-    $groupuser->check(-1, CREATE, $_POST);
-    if ($groupuser->add($_POST)) {
-        Event::log(
-            $_POST["users_id"],
-            "users",
-            4,
-            "setup",
-            //TRANS: %s is the user login
-            sprintf(__('%s adds a user to a group'), $_SESSION["glpiname"])
-        );
-    }
-    Html::back();
-} else if (isset($_POST["deletegroup"])) {
-    if (count($_POST["item"])) {
-        foreach (array_keys($_POST["item"]) as $key) {
-            if ($groupuser->can($key, DELETE)) {
-                $groupuser->delete(['id' => $key]);
-            }
-        }
-    }
-    Event::log(
-        $_POST["users_id"],
-        "users",
-        4,
-        "setup",
-        //TRANS: %s is the user login
-        sprintf(__('%s deletes users from a group'), $_SESSION["glpiname"])
-    );
-    Html::back();
 } else if (isset($_POST["change_auth_method"])) {
     Session::checkRight('user', User::UPDATEAUTHENT);
 
@@ -195,11 +165,11 @@ if (isset($_GET['getvcard'])) {
             'language'  => $_POST['language']
         ]
     );
-    Session::addMessageAfterRedirect(__('Lang has been changed!'));
+    Session::addMessageAfterRedirect(__s('Lang has been changed!'));
     Html::back();
 } else if (isset($_POST['impersonate']) && $_POST['impersonate']) {
     if (!Session::startImpersonating($_POST['id'])) {
-        Session::addMessageAfterRedirect(__('Unable to impersonate user'), false, ERROR);
+        Session::addMessageAfterRedirect(__s('Unable to impersonate user'), false, ERROR);
         Html::back();
     }
 
@@ -208,7 +178,7 @@ if (isset($_GET['getvcard'])) {
     $impersonated_user_id = Session::getLoginUserID();
 
     if (!Session::stopImpersonating()) {
-        Session::addMessageAfterRedirect(__('Unable to stop impersonating user'), false, ERROR);
+        Session::addMessageAfterRedirect(__s('Unable to stop impersonating user'), false, ERROR);
         Html::back();
     }
 

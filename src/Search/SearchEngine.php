@@ -37,23 +37,22 @@ namespace Glpi\Search;
 
 use CommonGLPI;
 use CommonITILObject;
-use Glpi\Agent\Communication\Headers\Common;
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\Debug\Profiler;
 use Glpi\Features\TreeBrowse;
 use Glpi\Plugin\Hooks;
 use Glpi\Search\Input\QueryBuilder;
 use Glpi\Search\Input\SearchInputInterface;
 use Glpi\Search\Output\AbstractSearchOutput;
-use Glpi\Search\Output\CSVSearchOutput;
-use Glpi\Search\Output\ExportSearchOutput;
+use Glpi\Search\Output\Csv;
 use Glpi\Search\Output\GlobalSearchOutput;
 use Glpi\Search\Output\MapSearchOutput;
 use Glpi\Search\Output\NamesListSearchOutput;
-use Glpi\Search\Output\PDFLandscapeSearchOutput;
-use Glpi\Search\Output\PDFPortraitSearchOutput;
-use Glpi\Search\Output\SYLKSearchOutput;
+use Glpi\Search\Output\Ods;
+use Glpi\Search\Output\Pdf;
 use Glpi\Search\Output\TableSearchOutput;
+use Glpi\Search\Output\Xlsx;
 use Glpi\Search\Provider\SearchProviderInterface;
 use Glpi\Search\Provider\SQLProvider;
 use Plugin;
@@ -81,13 +80,15 @@ final class SearchEngine
             case \Search::HTML_OUTPUT:
                 return (isset($data['as_map']) && $data['as_map']) ? new MapSearchOutput() : new TableSearchOutput();
             case \Search::PDF_OUTPUT_LANDSCAPE:
-                return new PDFLandscapeSearchOutput();
+                return new Pdf(Pdf::LANDSCAPE);
             case \Search::PDF_OUTPUT_PORTRAIT:
-                return new PDFPortraitSearchOutput();
-            case \Search::SYLK_OUTPUT:
-                return new SYLKSearchOutput();
+                return new Pdf(Pdf::PORTRAIT);
             case \Search::CSV_OUTPUT:
-                return new CSVSearchOutput();
+                return new Csv();
+            case \Search::ODS_OUTPUT:
+                return new Ods();
+            case \Search::XLSX_OUTPUT:
+                return new Xlsx();
             case \Search::NAMES_OUTPUT:
                 return new NamesListSearchOutput();
             default:
@@ -177,7 +178,7 @@ final class SearchEngine
 
         $key_to_itemtypes = [
             'appliance_types'      => ['Appliance'],
-            'directconnect_types'  => ['Computer'],
+            'directconnect_types'  => Asset_PeripheralAsset::getPeripheralHostItemtypes(),
             'infocom_types'        => ['Budget', 'Infocom'],
             'linkgroup_types'      => ['Group'],
             // 'linkgroup_tech_types' => ['Group'], // Cannot handle ambiguity with 'Group' from 'linkgroup_types'
@@ -287,7 +288,7 @@ final class SearchEngine
         $p = [
             'criteria'                  => [],
             'metacriteria'              => [],
-            'sort'                      => ['1'],
+            'sort'                      => [0],
             'order'                     => ['ASC'],
             'start'                     => 0,
             'is_deleted'                => 0,
@@ -358,6 +359,10 @@ final class SearchEngine
             $p['start'] = 0;
         }
 
+        /** @var SearchInputInterface $search_input_class */
+        $search_input_class = self::getSearchInputClass($p);
+        $p = $search_input_class::cleanParams($p);
+
         $data             = [];
         $data['search']   = $p;
         $data['itemtype'] = $itemtype;
@@ -395,7 +400,10 @@ final class SearchEngine
         // If no research limit research to display item and compute number of item using simple request
         $data['search']['no_search']   = true;
 
-        $data['toview'] = self::addDefaultToView($itemtype, $params);
+        $data['toview'] = SearchOption::getDefaultToView($itemtype, $params);
+        if ($p['sort'] === [0]) {
+            $p['sort'] = [array_values($data['toview'])[0]];
+        }
         $data['meta_toview'] = [];
         if (!$forcetoview) {
             // Add items to display depending of personal prefs
@@ -463,7 +471,10 @@ final class SearchEngine
 
         // Special case for CommonITILObjects : put ID in front
         if (is_a($itemtype, CommonITILObject::class, true)) {
-            array_unshift($data['toview'], 2);
+            $id_opt = SearchOption::getOptionNumber($itemtype, 'id');
+            if ($id_opt > 0) {
+                array_unshift($data['toview'], $id_opt);
+            }
         }
 
         $limitsearchopt   = SearchOption::getCleanedOptions($itemtype);
@@ -487,48 +498,6 @@ final class SearchEngine
         }
 
         return $data;
-    }
-
-    /**
-     * Generic Function to add default columns to view
-     *
-     * @param class-string<\CommonDBTM> $itemtype device type
-     * @param array  $params   array of parameters
-     *
-     * @return array
-     **/
-    public static function addDefaultToView($itemtype, $params): array
-    {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        $toview = [];
-        $item   = null;
-        $entity_check = true;
-
-        if ($itemtype != \AllAssets::getType()) {
-            $item = getItemForItemtype($itemtype);
-            $entity_check = $item->isEntityAssign();
-        }
-        // Add first element (name)
-        array_push($toview, 1);
-
-        if (isset($params['as_map']) && $params['as_map'] == 1) {
-            // Add location name when map mode
-            array_push($toview, ($itemtype == 'Location' ? 1 : ($itemtype == 'Ticket' ? 83 : 3)));
-        }
-
-        // Add entity view :
-        if (
-            \Session::isMultiEntitiesMode()
-            && $entity_check
-            && (isset($CFG_GLPI["union_search_type"][$itemtype])
-                || ($item && $item->maybeRecursive())
-                || isset($_SESSION['glpiactiveentities']) && (count($_SESSION["glpiactiveentities"]) > 1))
-        ) {
-            array_push($toview, 80);
-        }
-        return $toview;
     }
 
     /**
@@ -596,6 +565,12 @@ final class SearchEngine
     }
 
     /**
+     * Show the search engine.
+     *
+     * If you want to override some default parameters, you may need to provide them in $get.
+     * The parameters are handled as follows:
+     * - The $_GET or $get array is passed to the search input class to be parsed and have some default values set.
+     * - The returned parameters are then merged with the $params array. Anything set in both arrays will be overwritten by the result of {@link SearchInputInterface::manageParams()}.
      * @param class-string<CommonGLPI> $itemtype
      * @param array $params Array of options:
      *                       - (bool) init_session_data - default: false
@@ -668,6 +643,6 @@ final class SearchEngine
     {
         $output = self::getOutputForLegacyKey($params['display_type'] ?? \Search::HTML_OUTPUT, $params);
         $data = self::getData($itemtype, $params, $forced_display);
-        $output::displayData($data, $params);
+        $output->displayData($data, $params);
     }
 }

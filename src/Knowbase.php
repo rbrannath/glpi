@@ -45,15 +45,12 @@ class Knowbase extends CommonGLPI
 {
     public static function getTypeName($nb = 0)
     {
-
-       // No plural
+        // No plural
         return __('Knowledge base');
     }
 
-
     public function defineTabs($options = [])
     {
-
         $ong = [];
         $this->addStandardTab(__CLASS__, $ong, $options);
 
@@ -61,11 +58,9 @@ class Knowbase extends CommonGLPI
         return $ong;
     }
 
-
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-
-        if ($item->getType() == __CLASS__) {
+        if ($item::class === self::class) {
             $tabs[1] = _x('button', 'Search');
             $tabs[2] = _x('button', 'Browse');
 
@@ -74,11 +69,9 @@ class Knowbase extends CommonGLPI
         return '';
     }
 
-
     public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
     {
-
-        if ($item->getType() == __CLASS__) {
+        if ($item::class === self::class) {
             switch ($tabnum) {
                 case 1: // all
                     $item->showSearchView();
@@ -92,23 +85,17 @@ class Knowbase extends CommonGLPI
         return true;
     }
 
-
     /**
      * Show the knowbase search view
      **/
     public static function showSearchView()
     {
-
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
 
        // Search a solution
-        if (
-            !isset($_GET["contains"])
-            && isset($_GET["itemtype"])
-            && isset($_GET["items_id"])
-        ) {
-            if (in_array($_GET["item_itemtype"], $CFG_GLPI['kb_types']) && $item = getItemForItemtype($_GET["itemtype"])) {
+        if (isset($_GET["itemtype"], $_GET["items_id"]) && !isset($_GET["contains"])) {
+            if (in_array($_GET["item_itemtype"], $CFG_GLPI['kb_types'], true) && $item = getItemForItemtype($_GET["itemtype"])) {
                 if ($item->can($_GET["item_items_id"], READ)) {
                     $_GET["contains"] = $item->getField('name');
                 }
@@ -123,25 +110,21 @@ class Knowbase extends CommonGLPI
         $ki = new KnowbaseItem();
         $ki->searchForm($_GET);
 
-        if (!isset($_GET['contains']) || empty($_GET['contains'])) {
-            echo "<div><table class='mx-auto' width='950px'><tr class='noHover'><td class='center top'>";
+        if (empty($_GET['contains'])) {
+            echo '<div class="d-flex flex-wrap mt-3">';
             KnowbaseItem::showRecentPopular("recent");
-            echo "</td><td class='center top'>";
             KnowbaseItem::showRecentPopular("lastupdate");
-            echo "</td><td class='center top'>";
             KnowbaseItem::showRecentPopular("popular");
-            echo "</td></tr>";
-            echo "</table></div>";
+            echo '</div>';
         } else {
             KnowbaseItem::showList($_GET, 'search');
         }
     }
 
-
     /**
      * Show the knowbase browse view
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function showBrowseView()
     {
@@ -238,7 +221,7 @@ JAVASCRIPT;
      *
      * @return array
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      */
     public static function getTreeCategoryList()
     {
@@ -400,7 +383,7 @@ JAVASCRIPT;
     /**
      * Show the knowbase Manage view
      *
-     * @deprecated 10.1.0
+     * @deprecated 11.0.0
      **/
     public static function showManageView()
     {

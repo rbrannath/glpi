@@ -76,14 +76,14 @@ if ($isValidItemtype) {
     $field_id = Html::cleanId("dropdown_" . $_POST['myname'] . $rand);
     $p = [
         'itemtype'            => $itemtype,
-        'entity_restrict'     => $_POST['entity_restrict'],
+        'entity_restrict'     => Session::getMatchingActiveEntities($_POST['entity_restrict']),
         'table'               => $table,
         'multiple'            => (int) ($_POST["multiple"] ?? 0) !== 0,
         'myname'              => $_POST["myname"],
         'rand'                => $_POST["rand"],
         'width'               => 'calc(100% - 25px)',
         '_idor_token'         => Session::getNewIDORToken($itemtype, [
-            'entity_restrict' => $_POST['entity_restrict'],
+            'entity_restrict' => Session::getMatchingActiveEntities($_POST['entity_restrict']),
         ]),
     ];
 
@@ -105,15 +105,17 @@ if ($isValidItemtype) {
         $p
     );
 
-   // Auto update summary of active or just solved tickets
-    echo "<span id='item_ticket_selection_information{$_POST["myname"]}_$rand' class='ms-1'></span>";
-    Ajax::updateItemOnSelectEvent(
-        $field_id,
-        "item_ticket_selection_information{$_POST["myname"]}_$rand",
-        $CFG_GLPI["root_doc"] . "/ajax/ticketiteminformation.php",
-        [
-            'items_id' => '__VALUE__',
-            'itemtype' => $_POST['itemtype']
-        ]
-    );
+    // Auto update summary of active or just solved tickets
+    if (($_POST['source_itemtype'] ?? null) === Ticket::class) {
+        echo "<span id='item_ticket_selection_information{$_POST["myname"]}_$rand' class='ms-1'></span>";
+        Ajax::updateItemOnSelectEvent(
+            $field_id,
+            "item_ticket_selection_information{$_POST["myname"]}_$rand",
+            $CFG_GLPI["root_doc"] . "/ajax/ticketiteminformation.php",
+            [
+                'items_id' => '__VALUE__',
+                'itemtype' => $_POST['itemtype']
+            ]
+        );
+    }
 }

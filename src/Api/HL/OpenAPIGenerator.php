@@ -39,6 +39,7 @@ use Glpi\Api\HL\Controller\ProjectController;
 use Glpi\Api\HL\Doc\Response;
 use Glpi\Api\HL\Doc\Schema;
 use Glpi\Api\HL\Doc\SchemaReference;
+use Glpi\OAuth\Server;
 
 /**
  * @phpstan-type OpenAPIInfo array{title: string, version: string, license: array{name: string, url: string}}
@@ -54,7 +55,7 @@ use Glpi\Api\HL\Doc\SchemaReference;
  *      name: string,
  *      in: string,
  *      description: string,
- *      required: 'true'|'false',
+ *      required: true|false,
  *      schema?: mixed
  * }
  * @phpstan-type PathSchema array{
@@ -64,7 +65,7 @@ use Glpi\Api\HL\Doc\SchemaReference;
  *      parameters: PathParameterSchema[],
  *      requestBody?: RequestBodySchema,
  * }
- * @phpstan-type RequestBodySchema array{content: array{'application/json': array{schema: SchemaArray}}}
+ * @phpstan-type RequestBodySchema array{content: array{"application/json": array{schema: SchemaArray}}}
  */
 final class OpenAPIGenerator
 {
@@ -403,7 +404,12 @@ EOT;
                             );
                         }
                         // Remove the itemtype path parameter now that it is a static value
-                        unset($temp_expanded['parameters'][$placeholder]);
+                        foreach ($temp_expanded['parameters'] as $param_key => $param) {
+                            if ($param['name'] === $placeholder) {
+                                unset($temp_expanded['parameters'][$param_key]);
+                                break;
+                            }
+                        }
                     }
                     if (!isset($paths[$new_url][$method])) {
                         $expanded[$new_url][$method] = $temp_expanded;
@@ -429,6 +435,10 @@ EOT;
      */
     private function getSecuritySchemeComponents(): array
     {
+        $scopes = Server::getAllowedScopes();
+        $scope_descriptions = Server::getScopeDescriptions();
+        $scopes = array_combine(array_keys($scopes), $scope_descriptions);
+
         return [
             'oauth' => [
                 'type' => 'oauth2',
@@ -437,9 +447,11 @@ EOT;
                         'authorizationUrl' => '/api.php/authorize',
                         'tokenUrl' => '/api.php/token',
                         'refreshUrl' => '/api.php/token',
+                        'scopes' => $scopes
                     ],
                     'password' => [
                         'tokenUrl' => '/api.php/token',
+                        'scopes' => $scopes
                     ]
                 ]
             ],
@@ -528,8 +540,9 @@ EOT;
             'name' => $route_param->getName(),
             'description' => $route_param->getDescription(),
             'in' => $route_param->getLocation(),
-            'required' => $route_param->getRequired() ? 'true' : 'false',
-            'schema' => $schema
+            'required' => $route_param->getRequired(),
+            'schema' => $schema,
+            'example' => $route_param->getExample(),
         ];
     }
 

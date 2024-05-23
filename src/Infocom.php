@@ -453,7 +453,7 @@ class Infocom extends CommonDBChild
                     Html::convDate($budget->fields['begin_date']),
                     Html::convDate($budget->fields['end_date'])
                 );
-                Session::addMessageAfterRedirect($msg, false, ERROR);
+                Session::addMessageAfterRedirect(htmlspecialchars($msg), false, ERROR);
             }
         }
     }
@@ -587,14 +587,14 @@ class Infocom extends CommonDBChild
                     ));
                     $task->addVolume(1);
                 } else {
-                    Session::addMessageAfterRedirect(sprintf(
+                    Session::addMessageAfterRedirect(htmlspecialchars(sprintf(
                         __('%1$s: %2$s'),
                         Dropdown::getDropdownName(
                             "glpi_entities",
                             $entity
                         ),
                         $message
-                    ));
+                    )));
                 }
 
                 $alert             = new Alert();
@@ -612,7 +612,7 @@ class Infocom extends CommonDBChild
                 if ($task) {
                     $task->log($msg);
                 } else {
-                    Session::addMessageAfterRedirect($msg, false, ERROR);
+                    Session::addMessageAfterRedirect(htmlspecialchars($msg), false, ERROR);
                 }
             }
         }
@@ -766,12 +766,14 @@ class Infocom extends CommonDBChild
     /**
      * Show infocom link to display modal
      *
-     * @param $itemtype   integer  item type
-     * @param $device_id  integer  item ID
+     * @param integer $itemtype item type
+     * @param integer $device_id item ID
+     * @param boolean $display  display or not the link (default true)
      *
-     * @return void
+     * @return void|string
+     * @phpstan-return $display ? void : string
      **/
-    public static function showDisplayLink($itemtype, $device_id)
+    public static function showDisplayLink($itemtype, $device_id, bool $display = true)
     {
         /**
          * @var array $CFG_GLPI
@@ -804,8 +806,9 @@ class Infocom extends CommonDBChild
             return;
         }
 
+        $out = '';
         if ($item->canView()) {
-            echo "<span class='infocom_link' style='cursor:pointer' data-itemtype='{$itemtype}' data-items_id='{$device_id}'>
+            $out .= "<span class='infocom_link' style='cursor:pointer' data-itemtype='{$itemtype}' data-items_id='{$device_id}'>
                <img src=\"" . $CFG_GLPI["root_doc"] . "/pics/dollar$add.png\" alt=\"$text\" title=\"$text\">
                </span>";
             $form_url = Infocom::getFormURL();
@@ -842,7 +845,12 @@ HTML;
                     }
                 });
 JS;
-            echo Html::scriptBlock($js);
+            $out .= Html::scriptBlock($js);
+        }
+        if ($display) {
+            echo $out;
+        } else {
+            return $out;
         }
     }
 
@@ -870,7 +878,7 @@ JS;
             $fiscaldate = new \DateTime($fiscaldate, new DateTimeZone($TZ));
         } catch (\Throwable $e) {
             Session::addMessageAfterRedirect(
-                __('Please fill you fiscal year date in preferences.'),
+                __s('Please fill you fiscal year date in preferences.'),
                 false,
                 ERROR
             );
@@ -889,7 +897,7 @@ JS;
             }
         } catch (\Throwable $e) {
             Session::addMessageAfterRedirect(
-                __('Please fill either buy or use date in preferences.'),
+                __s('Please fill either buy or use date in preferences.'),
                 false,
                 ERROR
             );
@@ -1793,7 +1801,7 @@ JS;
      * @param boolean $color         if show expire date in red color (false by default)
      * @param boolean $auto_renew
      *
-     * @return string expiration date
+     * @return string expiration date automatically converted to the user's preferred date format
      **/
     public static function getWarrantyExpir($from, $addwarranty, $deletenotice = 0, $color = false, $auto_renew = false)
     {
@@ -1813,14 +1821,14 @@ JS;
         $timestamp = strtotime("$from+$addwarranty month -$deletenotice month");
 
         if ($auto_renew && $addwarranty > 0) {
-            while ($timestamp < time()) {
+            while ($timestamp < strtotime($_SESSION['glpi_currenttime'])) {
                 $datetime = new DateTime();
                 $datetime->setTimestamp($timestamp);
                 $timestamp = strtotime($datetime->format("Y-m-d H:i:s") . "+$addwarranty month");
             }
         }
 
-        if ($color && ($timestamp < time())) {
+        if ($color && ($timestamp < strtotime($_SESSION['glpi_currenttime']))) {
             return "<span class='red'>" . Html::convDate(date("Y-m-d", $timestamp)) . "</span>";
         }
         return Html::convDate(date("Y-m-d", $timestamp));
@@ -1841,7 +1849,7 @@ JS;
             && static::canCreate()
         ) {
             $actions[$action_name] = "<i class='fa-fw " . self::getIcon() . "'></i>" .
-                                  __('Enable the financial and administrative information');
+                                  __s('Enable the financial and administrative information');
         }
     }
 
@@ -1889,7 +1897,7 @@ JS;
      * @since 9.1.7
      * @see CommonDBChild::canUpdateItem()
      **/
-    public function canUpdateItem()
+    public function canUpdateItem(): bool
     {
         return Session::haveRight(static::$rightname, UPDATE);
     }
@@ -1899,7 +1907,7 @@ JS;
      * @since 9.1.7
      * @see CommonDBChild::canPurgeItem()
      **/
-    public function canPurgeItem()
+    public function canPurgeItem(): bool
     {
         return Session::haveRight(static::$rightname, PURGE);
     }
@@ -1909,7 +1917,7 @@ JS;
      * @since 9.1.7
      * @see CommonDBChild::canCreateItem()
      **/
-    public function canCreateItem()
+    public function canCreateItem(): bool
     {
         return Session::haveRight(static::$rightname, CREATE);
     }

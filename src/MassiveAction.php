@@ -169,7 +169,7 @@ class MassiveAction
 
     /**
      * Itemtype currently processed.
-     * @var string
+     * @var class-string<CommonDBTM>
      */
     private $current_itemtype;
 
@@ -427,7 +427,7 @@ class MassiveAction
 
     public function __get(string $property)
     {
-        // TODO Deprecate access to variables in GLPI 10.1.
+        // TODO Deprecate access to variables in GLPI 11.0.
         $value = null;
         switch ($property) {
             case 'action':
@@ -471,7 +471,7 @@ class MassiveAction
 
     public function __set(string $property, $value)
     {
-        // TODO Deprecate access to variables in GLPI 10.1.
+        // TODO Deprecate access to variables in GLPI 11.0.
         switch ($property) {
             case 'display_progress_bars':
                 $this->$property = $value;
@@ -1341,7 +1341,7 @@ class MassiveAction
         if ($this->display_progress_bars) {
             if ($this->progress_bar_displayed !== true) {
                 Html::progressBar('main_' . $this->identifier, ['create'  => true,
-                    'message' => $this->action_name
+                    'message' => htmlspecialchars($this->action_name)
                 ]);
                 $this->progress_bar_displayed         = true;
                 $this->fields_to_remove_when_reload[] = 'progress_bar_displayed';
@@ -1362,7 +1362,8 @@ class MassiveAction
                     $percent = 100 * $nb_done / count($this->items[$itemtype]);
                     Html::progressBar(
                         'itemtype_' . $this->identifier,
-                        ['message' => $itemtype::getTypeName(Session::getPluralNumber()),
+                        [
+                            'message' => htmlspecialchars($itemtype::getTypeName(Session::getPluralNumber())),
                             'percent' => $percent
                         ]
                     );

@@ -47,13 +47,17 @@ use Glpi\Api\HL\Controller\GraphQLController;
 use Glpi\Api\HL\Controller\ITILController;
 use Glpi\Api\HL\Controller\ManagementController;
 use Glpi\Api\HL\Controller\ProjectController;
+use Glpi\Api\HL\Controller\ReportController;
+use Glpi\Api\HL\Controller\RuleController;
 use Glpi\Api\HL\Middleware\AbstractMiddleware;
 use Glpi\Api\HL\Middleware\AuthMiddlewareInterface;
 use Glpi\Api\HL\Middleware\CookieAuthMiddleware;
 use Glpi\Api\HL\Middleware\CRUDRequestMiddleware;
 use Glpi\Api\HL\Middleware\DebugRequestMiddleware;
 use Glpi\Api\HL\Middleware\DebugResponseMiddleware;
+use Glpi\Api\HL\Middleware\IPRestrictionRequestMiddleware;
 use Glpi\Api\HL\Middleware\MiddlewareInput;
+use Glpi\Api\HL\Middleware\OAuthRequestMiddleware;
 use Glpi\Api\HL\Middleware\RequestMiddlewareInterface;
 use Glpi\Api\HL\Middleware\ResponseMiddlewareInterface;
 use Glpi\Api\HL\Middleware\ResultFormatterMiddleware;
@@ -115,8 +119,13 @@ class Router
     private ?RoutePath $last_invoked_route = null;
 
     /**
+     * @var array{client_id: string, user_id: int, scopes: array}|null The current client information if the user is authenticated.
+     */
+    private ?array $current_client = null;
+
+    /**
      * Get information about all API versions available.
-     * @return array
+     * @return array{api_version: string, version: string, description?: string, endpoint: string}[]
      */
     public static function getAPIVersions(): array
     {
@@ -169,6 +178,8 @@ EOT;
             $instance->registerController(new ProjectController());
             $instance->registerController(new DropdownController());
             $instance->registerController(new GraphQLController());
+            $instance->registerController(new ReportController());
+            $instance->registerController(new RuleController());
 
             // Register controllers from plugins
             if (isset($PLUGIN_HOOKS[Hooks::API_CONTROLLERS])) {
@@ -187,6 +198,8 @@ EOT;
             // Cookie middleware shouldn't run by default. Must be explicitly enabled by adding it in a Route attribute.
             $instance->registerAuthMiddleware(new CookieAuthMiddleware(), 0, static fn(RoutePath $route_path) => false);
 
+            $instance->registerRequestMiddleware(new IPRestrictionRequestMiddleware());
+            $instance->registerRequestMiddleware(new OAuthRequestMiddleware());
             $instance->registerRequestMiddleware(new CRUDRequestMiddleware(), 0, static function (RoutePath $route_path) {
                 return \Toolbox::hasTrait($route_path->getControllerInstance(), CRUDControllerTrait::class);
             });
@@ -430,9 +443,9 @@ EOT;
 
     /**
      * @param Request $request
-     * @return ?RoutePath
+     * @return RoutePath[]
      */
-    public function match(Request $request): ?RoutePath
+    public function matchAll(Request $request): array
     {
         /** @var RoutePath[] $routes */
         $routes = $this->getRoutesFromCache();
@@ -470,7 +483,16 @@ EOT;
             return ($a->getRoutePriority() < $b->getRoutePriority()) ? -1 : 1;
         });
 
-        $routes = array_reverse($routes);
+        return array_reverse($routes);
+    }
+
+    /**
+     * @param Request $request
+     * @return ?RoutePath
+     */
+    public function match(Request $request): ?RoutePath
+    {
+        $routes = $this->matchAll($request);
         if (count($routes)) {
             return reset($routes);
         }
@@ -590,6 +612,7 @@ EOT;
             // Do auth middlewares now even if auth isn't required so session data *could* be used like the theme for doc endpoints.
             $this->doAuthMiddleware($middleware_input);
             $auth_from_middleware = $middleware_input->response === null;
+            $this->current_client = $this->current_client ?? $middleware_input->client;
 
             if ($requires_auth && !$auth_from_middleware) {
                 if (!($request->hasHeader('Authorization') && Session::getLoginUserID() !== false)) {
@@ -605,10 +628,28 @@ EOT;
                 $this->final_request = clone $request;
                 if ($response === null) {
                     $this->last_invoked_route = $matched_route;
-                    $response = $matched_route->invoke($request);
-                    $middleware_input = new MiddlewareInput($request, $matched_route, $response);
-                    $this->doResponseMiddleware($middleware_input);
-                    $response = $middleware_input->response;
+
+                    // Make sure all required parameters are present
+                    $params = $matched_route->getRouteDoc($request->getMethod())?->getParameters() ?? [];
+                    $missing_params = [];
+                    foreach ($params as $param) {
+                        if ($param->getRequired() && !$request->hasParameter($param->getName())) {
+                            $missing_params[] = $param->getName();
+                        }
+                    }
+                    if (count($missing_params)) {
+                        $errors = [
+                            'missing' => $missing_params
+                        ];
+                        $response = AbstractController::getInvalidParametersErrorResponse($errors);
+                    }
+
+                    if ($response === null) {
+                        $response = $matched_route->invoke($request);
+                        $middleware_input = new MiddlewareInput($request, $matched_route, $response);
+                        $this->doResponseMiddleware($middleware_input);
+                        $response = $middleware_input->response;
+                    }
                 }
             }
         }
@@ -659,11 +700,11 @@ EOT;
      */
     public function startTemporarySession(Request $request): void
     {
-        $data = Server::validateAccessToken($request);
+        $this->current_client = Server::validateAccessToken($request);
         $auth = new \Auth();
         $auth->auth_succeded = true;
         $auth->user = new \User();
-        $auth->user->getFromDB($data['user_id']);
+        $auth->user->getFromDB($this->current_client['user_id']);
         Session::init($auth);
         if ($request->getHeaderLine('Accept-Language')) {
             // Make sure language header is set in SERVER superglobal so that Session::getPreferredLanguage() works
@@ -702,5 +743,10 @@ EOT;
     public function getControllers(): array
     {
         return $this->controllers;
+    }
+
+    public function getCurrentClient(): ?array
+    {
+        return $this->current_client;
     }
 }

@@ -38,7 +38,6 @@ namespace Glpi\Asset;
 use CommonDBTM;
 use Glpi\Application\View\TemplateRenderer;
 use Entity;
-use Glpi\Features\Clonable;
 use Group;
 use Location;
 use Manufacturer;
@@ -48,7 +47,18 @@ use User;
 
 abstract class Asset extends CommonDBTM
 {
-    use Clonable;
+    use \Glpi\Features\AssignableAsset;
+    use \Glpi\Features\Clonable;
+    use \Glpi\Features\State;
+
+    /**
+     * Asset definition.
+     *
+     * Must be defined here to make PHPStan happy (see https://github.com/phpstan/phpstan/issues/8808).
+     * Must be defined by child class too to ensure that assigning a value to this property will affect
+     * each child classe independently.
+     */
+    protected static AssetDefinition $definition;
 
     final public function __construct()
     {
@@ -64,13 +74,11 @@ abstract class Asset extends CommonDBTM
      */
     public static function getDefinition(): AssetDefinition
     {
-        $definition = static::$definition ?? null;
-
-        if (!($definition instanceof AssetDefinition)) {
+        if (!(static::$definition instanceof AssetDefinition)) {
             throw new \RuntimeException('Asset definition is expected to be defined in concrete class.');
         }
 
-        return $definition;
+        return static::$definition;
     }
 
     public static function getTypeName($nb = 0)
@@ -189,7 +197,7 @@ abstract class Asset extends CommonDBTM
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            // TODO 'condition' to filter values
+            'condition'          => $this->getStateVisibilityCriteria(),
         ];
 
         $search_options[] = [

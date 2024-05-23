@@ -192,6 +192,29 @@ final class RoutePath
         return $path;
     }
 
+    /**
+     * Get the attributes from the provided path when matched against this route
+     * @param string $path
+     * @return array<string, string>
+     */
+    public function getAttributesFromPath(string $path): array
+    {
+        $attributes = [];
+        $placeholders = [];
+        preg_match_all('/\{([^}]+)\}/', $this->getRoutePath(), $placeholders);
+        $placeholders = $placeholders[1];
+        $path_parts = explode('/', $path);
+        $route_parts = explode('/', $this->getRoutePath());
+        foreach ($route_parts as $i => $part) {
+            if (isset($path_parts[$i])) {
+                if (preg_match('/\{([^}]+)\}/', $part)) {
+                    $attributes[trim($part, '{}')] = $path_parts[$i];
+                }
+            }
+        }
+        return $attributes;
+    }
+
     public function isValidPath($path): bool
     {
         // Ensure no placeholders are left
@@ -351,14 +374,14 @@ final class RoutePath
 
             // Merge requirements and tags
             $this->route->requirements = array_merge($controller_route->requirements, $this->route->requirements);
-            $this->route->tags = array_merge($controller_route->tags, $this->route->tags);
+            $this->route->tags = array_unique(array_merge($controller_route->tags, $this->route->tags));
 
             if ($controller_route->priority !== Route::DEFAULT_PRIORITY && $this->route->priority === Route::DEFAULT_PRIORITY) {
                 $this->setPriority($controller_route->priority);
             }
 
             // Merge middlewares
-            $this->route->middlewares = array_merge($controller_route->middlewares, $this->route->middlewares);
+            $this->route->middlewares = array_unique(array_merge($controller_route->middlewares, $this->route->middlewares));
 
             // None of the other properties have meaning when on a class
         }

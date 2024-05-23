@@ -55,7 +55,7 @@ interface NotificationEventInterface
      *
      * @return void
      *
-     * @since 10.1.0 Param `$trigger` has been added.
+     * @since 11.0.0 Param `$trigger` has been added.
      */
     public static function raise(
         $event,
@@ -109,7 +109,6 @@ interface NotificationEventInterface
      * @return array
      */
     public static function getEntityAdminsData($entity);
-
 
     /**
      * Send notification

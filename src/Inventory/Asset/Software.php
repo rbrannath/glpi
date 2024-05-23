@@ -41,6 +41,7 @@ use Dropdown;
 use Entity;
 use Glpi\Inventory\Conf;
 use Glpi\DBAL\QueryParam;
+use Item_SoftwareVersion;
 use RuleDictionnarySoftwareCollection;
 use Software as GSoftware;
 use SoftwareVersion;
@@ -307,6 +308,7 @@ class Software extends InventoryAsset
         $iterator = $DB->request([
             'SELECT' => [
                 'glpi_items_softwareversions.id as item_soft_version_id',
+                'glpi_items_softwareversions.date_install as item_soft_version_date_install',
                 'glpi_softwares.id as softid',
                 'glpi_softwares.name',
                 'glpi_softwareversions.id AS versionid',
@@ -354,13 +356,17 @@ class Software extends InventoryAsset
 
         foreach ($iterator as $data) {
             $item_soft_v_id = $data['item_soft_version_id'];
+            $item_soft_v_date_install = $data['item_soft_version_date_install'];
             unset($data['item_soft_version_id']);
             if ($data['manufacturers_id'] == null) {
                 $data['manufacturers_id'] = 0;
             }
             $key_w_version = $this->getFullCompareKey((object)$data);
             $key_wo_version = $this->getFullCompareKey((object)$data, false);
-            $db_software[$key_w_version] = $item_soft_v_id;
+            $db_software[$key_w_version] = [
+                'id' => $item_soft_v_id,
+                'date_install' => $item_soft_v_date_install,
+            ];
             $db_software_wo_version[$key_wo_version] = [
                 'versionid' => $data['versionid'],
                 'softid'    => $data['softid'],
@@ -406,6 +412,20 @@ class Software extends InventoryAsset
                 ], 0);
             }
 
+            //update date_install if needed
+            //reconciles the software with the version (needed here)
+            if (
+                property_exists($val, 'date_install')
+                && isset($db_software[$key_w_version])
+                && $db_software[$key_w_version]['date_install'] != $val->date_install
+            ) {
+                $software_version = new Item_SoftwareVersion();
+                $software_version->update([
+                    "id" => $db_software[$key_w_version]['id'],
+                    "date_install" => $val->date_install
+                ], 0);
+            }
+
             if (isset($db_software[$key_w_version])) {
                 // software exist with the same version
                 unset($this->data[$k]);
@@ -444,7 +464,7 @@ class Software extends InventoryAsset
             $DB->delete(
                 'glpi_items_softwareversions',
                 [
-                    'id' => $db_software
+                    'id' => array_column($db_software, 'id')
                 ]
             );
         }
@@ -556,7 +576,7 @@ class Software extends InventoryAsset
      *
      * @return string
      *
-     * @FIXME Remove this method in GLPI 10.1.
+     * @FIXME Remove this method in GLPI 11.0.
      */
     protected function getCompareKey(array $parts): string
     {
@@ -724,7 +744,7 @@ class Software extends InventoryAsset
             if (!isset($this->softwares[$skey])) {
                 $stmt_columns = $this->cleanInputToPrepare((array)$val, $soft_fields);
 
-                $software->handleCategoryRules($stmt_columns);
+                $software->handleCategoryRules($stmt_columns, true);
                 //set create date
                 $stmt_columns['date_creation'] = $_SESSION["glpi_currenttime"];
 

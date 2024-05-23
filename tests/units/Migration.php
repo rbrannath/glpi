@@ -132,7 +132,7 @@ class Migration extends \GLPITestCase
         ];
         $DB = $this->db;
 
-       //test with non existing value => new keys should be inserted
+       //test with non-existing value => new keys should be inserted
         $this->migration->addConfig([
             'one' => 'key',
             'two' => 'value'
@@ -192,11 +192,11 @@ class Migration extends \GLPITestCase
             'two' => 'value'
         ]);
         $this->queries = [];
-        $this->calling($this->db)->request = function ($table) {
-          // Call using 'glpi_configs' value for first parameter
-          // corresponds to the call made to retrieve exisintg values
-          // -> returns a value for config 'one'
-            if ('glpi_configs' === $table) {
+        $this->calling($this->db)->request = function ($criteria) {
+           // Call using 'glpi_configs' value for first parameter
+           // corresponds to the call made to retrieve existing values
+           // -> returns a value for config 'one'
+            if ($criteria === ['FROM' => 'glpi_configs', 'WHERE' => ['context' => 'core', 'name' => ['one', 'two']]]) {
                   $dbresult = [[
                       'id'        => '42',
                       'context'   => 'core',
@@ -1170,6 +1170,9 @@ class Migration extends \GLPITestCase
 
         $this->migration->changeSearchOption('Computer', 40, 100);
         $this->migration->changeSearchOption('Printer', 20, 10);
+        $this->migration->changeSearchOption('Ticket', 1, 1001);
+
+        $this->calling($this->db)->tableExists = true;
 
         $this->output(
             function () {
@@ -1181,6 +1184,10 @@ class Migration extends \GLPITestCase
             "UPDATE `glpi_displaypreferences` SET `num` = '100' WHERE `itemtype` = 'Computer' AND `num` = '40'",
             "DELETE `glpi_displaypreferences` FROM `glpi_displaypreferences` WHERE `id` IN ('12', '156', '421')",
             "UPDATE `glpi_displaypreferences` SET `num` = '10' WHERE `itemtype` = 'Printer' AND `num` = '20'",
+            "UPDATE `glpi_displaypreferences` SET `num` = '1001' WHERE `itemtype` = 'Ticket' AND `num` = '1'",
+            "UPDATE `glpi_tickettemplatehiddenfields` SET `field` = '1001' WHERE `field` = '1'",
+            "UPDATE `glpi_tickettemplatemandatoryfields` SET `field` = '1001' WHERE `field` = '1'",
+            "UPDATE `glpi_tickettemplatepredefinedfields` SET `field` = '1001' WHERE `field` = '1'",
             "UPDATE `glpi_savedsearches` SET `query` = 'is_deleted=0&as_map=0&criteria%5B0%5D%5Blink%5D=AND&criteria%5B0%5D%5Bfield%5D=100&criteria%5B0%5D%5Bsearchtype%5D=contains&criteria%5B0%5D%5Bvalue%5D=LT1&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bitemtype%5D=Budget&criteria%5B1%5D%5Bmeta%5D=1&criteria%5B1%5D%5Bfield%5D=4&criteria%5B1%5D%5Bsearchtype%5D=contains&criteria%5B1%5D%5Bvalue%5D=&search=Search&itemtype=Computer' WHERE `id` = '1'",
             "UPDATE `glpi_savedsearches` SET `query` = 'is_deleted=0&as_map=0&criteria%5B0%5D%5Blink%5D=AND&criteria%5B0%5D%5Bfield%5D=40&criteria%5B0%5D%5Bsearchtype%5D=contains&criteria%5B0%5D%5Bvalue%5D=LT1&criteria%5B1%5D%5Blink%5D=AND&criteria%5B1%5D%5Bitemtype%5D=Computer&criteria%5B1%5D%5Bmeta%5D=1&criteria%5B1%5D%5Bfield%5D=100&criteria%5B1%5D%5Bsearchtype%5D=contains&criteria%5B1%5D%5Bvalue%5D=&search=Search&itemtype=Computer' WHERE `id` = '2'",
         ]);

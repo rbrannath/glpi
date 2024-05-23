@@ -105,7 +105,7 @@ class ITILFollowup extends CommonDBChild
         return true;
     }
 
-    public static function canView()
+    public static function canView(): bool
     {
         /** @var array $CFG_GLPI */
         global $CFG_GLPI;
@@ -123,7 +123,7 @@ class ITILFollowup extends CommonDBChild
         return false;
     }
 
-    public static function canCreate()
+    public static function canCreate(): bool
     {
         return Session::haveRight('change', UPDATE)
              || Session::haveRight('problem', UPDATE)
@@ -135,7 +135,7 @@ class ITILFollowup extends CommonDBChild
     }
 
 
-    public function canViewItem()
+    public function canViewItem(): bool
     {
 
         if ($this->isParentAlreadyLoaded()) {
@@ -166,7 +166,7 @@ class ITILFollowup extends CommonDBChild
     }
 
 
-    public function canCreateItem()
+    public function canCreateItem(): bool
     {
         if (
             !isset($this->fields['itemtype'])
@@ -193,7 +193,7 @@ class ITILFollowup extends CommonDBChild
     }
 
 
-    public function canPurgeItem()
+    public function canPurgeItem(): bool
     {
         if ($this->isParentAlreadyLoaded()) {
             $itilobject = $this->item;
@@ -212,7 +212,7 @@ class ITILFollowup extends CommonDBChild
     }
 
 
-    public function canUpdateItem()
+    public function canUpdateItem(): bool
     {
 
         if (
@@ -308,7 +308,22 @@ class ITILFollowup extends CommonDBChild
             Log::HISTORY_ADD_SUBITEM
         );
 
+        self::addToMergedTickets();
+
         parent::post_addItem();
+    }
+
+    private function addToMergedTickets(): void
+    {
+        $merged = Ticket::getMergedTickets($this->fields['items_id']);
+        foreach ($merged as $ticket_id) {
+            $input = $this->input;
+            $input['items_id'] = $ticket_id;
+            $input['sourceitems_id'] = $this->fields['items_id'];
+
+            $followup = new self();
+            $followup->add($input);
+        }
     }
 
 
@@ -391,7 +406,7 @@ class ITILFollowup extends CommonDBChild
             && !isset($input['add_reopen'])
         ) {
             Session::addMessageAfterRedirect(
-                __("You can't add a followup without description"),
+                __s("You can't add a followup without description"),
                 false,
                 ERROR
             );
@@ -429,14 +444,14 @@ class ITILFollowup extends CommonDBChild
                 if (isset($input["_add"])) {
                     // Reopen using add form
                     Session::addMessageAfterRedirect(
-                        __('If you want to reopen this item, you must specify a reason'),
+                        __s('If you want to reopen this item, you must specify a reason'),
                         false,
                         ERROR
                     );
                 } else {
                    // Refuse solution
                     Session::addMessageAfterRedirect(
-                        __('If you reject the solution, you must specify a reason'),
+                        __s('If you reject the solution, you must specify a reason'),
                         false,
                         ERROR
                     );
@@ -599,7 +614,7 @@ class ITILFollowup extends CommonDBChild
     public function post_getFromDB()
     {
         // Bandaid to avoid loading parent item if not needed
-        // TODO: replace by proper lazy loading in GLPI 10.1
+        // TODO: replace by proper lazy loading in GLPI 11.0
         if (!$this->isParentAlreadyLoaded()) {
             $this->item = new $this->fields['itemtype']();
             $this->item->getFromDB($this->fields['items_id']);
@@ -1148,7 +1163,7 @@ class ITILFollowup extends CommonDBChild
      * before loading the item, thus avoiding one useless DB query (or many more queries
      * when looping on children items)
      *
-     * TODO 10.1 move method and `item` property into parent class
+     * TODO 11.0 move method and `item` property into parent class
      *
      * @param CommonITILObject Parent item
      *

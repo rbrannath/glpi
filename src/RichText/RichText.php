@@ -267,7 +267,7 @@ final class RichText
         ];
         $p = array_replace($p, $params);
 
-        $content_size = strlen($content);
+        $content_size = strlen($content ?? '');
 
         // Sanitize content first (security and to decode HTML entities)
         $content = self::getSafeHtml($content);
@@ -581,6 +581,22 @@ JAVASCRIPT;
 
         if (GLPI_ALLOW_IFRAME_IN_RICH_TEXT) {
             $config = $config->allowElement('iframe')->dropAttribute('srcdoc', '*');
+        }
+
+        // Keep attributes specific to rich text auto completion
+        $rich_text_completion_attributes = [
+            // required for proper display of autocompleted tags
+            'contenteditable',
+
+            // required for user mentions
+            'data-user-mention',
+            'data-user-id',
+            'data-form-tag',
+            'data-form-tag-value',
+            'data-form-tag-provider',
+        ];
+        foreach ($rich_text_completion_attributes as $attribute) {
+            $config = $config->allowAttribute($attribute, 'span');
         }
 
         return new HtmlSanitizer($config);

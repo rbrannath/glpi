@@ -204,7 +204,7 @@ class Software extends AbstractInventoryAsset
 
         //new computer with same software
         global $DB;
-        $soft_reference = $DB->request(\Software::getTable());
+        $soft_reference = $DB->request(['FROM' => \Software::getTable()]);
         $this->integer(count($soft_reference))->isIdenticalTo(5);
 
         $computer2 = getItemByTypeName('Computer', '_test_pc02');
@@ -231,7 +231,7 @@ class Software extends AbstractInventoryAsset
         $this->boolean($sov->getFromDbByCrit(['items_id' => $computer2->fields['id'], 'itemtype' => 'Computer', ['NOT' => ['date_install' => null]]]))
          ->isTrue('A software version has not been linked to computer!');
 
-        $this->integer(count($DB->request(\Software::getTable())))->isIdenticalTo(count($soft_reference));
+        $this->integer(count($DB->request(['FROM' => \Software::getTable()])))->isIdenticalTo(count($soft_reference));
     }
 
     public function testInventoryUpdate()
@@ -1518,5 +1518,194 @@ class Software extends AbstractInventoryAsset
             "softwareversions_id" => $versions_id
         ]))->isTrue();
         $this->integer($item_versions_id)->isIdenticalTo($item_version->fields['id']);
+    }
+
+    public function testDateInstallUpdate()
+    {
+        $computer = new \Computer();
+        $soft = new \Software();
+        $version = new \SoftwareVersion();
+        $item_version = new \Item_SoftwareVersion();
+
+        $xml_source = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
+<REQUEST>
+  <CONTENT>
+      <SOFTWARES>
+      <NAME>A great software</NAME>
+      <VERSION>2.0.0</VERSION>
+      <INSTALL_DATE>2014-03-04 16:12:35</INSTALL_DATE>
+      <PUBLISHER>Manufacture</PUBLISHER>
+    </SOFTWARES>
+    <HARDWARE>
+      <NAME>pc002</NAME>
+    </HARDWARE>
+    <BIOS>
+      <SSN>sdfgdfg8dfg</SSN>
+    </BIOS>
+    <VERSIONCLIENT>FusionInventory-Agent_v2.3.19</VERSIONCLIENT>
+  </CONTENT>
+  <DEVICEID>test-pc002</DEVICEID>
+  <QUERY>INVENTORY</QUERY>
+</REQUEST>";
+
+        //create manually a computer
+        $computers_id = $computer->add([
+            'name'   => 'pc003',
+            'serial' => 'sdfgdfg8dfg',
+            'entities_id' => 0
+        ]);
+        $this->integer($computers_id)->isGreaterThan(0);
+
+        $this->doInventory($xml_source, true);
+
+        //check software has been created
+        $this->boolean(
+            $soft->getFromDBByCrit(['name' => 'A great software'])
+        )->isTrue();
+        $softwares_id = $soft->fields['id'];
+
+        //check version has been created
+        $this->boolean(
+            $version->getFromDBByCrit(['name' => '2.0.0'])
+        )->isTrue();
+        $this->integer($version->fields['softwares_id'])->isIdenticalTo($softwares_id);
+        $versions_id = $version->fields['id'];
+
+        //check computer-softwareverison relation has been created
+        $this->boolean($item_version->getFromDBByCrit([
+            "itemtype" => "Computer",
+            "items_id" => $computers_id,
+            "softwareversions_id" => $versions_id,
+            "date_install" => "2014-03-04"
+        ]))->isTrue();
+        $item_versions_id = $item_version->fields['id'];
+
+        $xml_source = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
+<REQUEST>
+  <CONTENT>
+      <SOFTWARES>
+      <NAME>A great software</NAME>
+      <VERSION>2.0.0</VERSION>
+      <INSTALL_DATE>2024-03-04 16:12:35</INSTALL_DATE>
+      <PUBLISHER>Manufacture</PUBLISHER>
+    </SOFTWARES>
+    <HARDWARE>
+      <NAME>pc002</NAME>
+    </HARDWARE>
+    <BIOS>
+      <SSN>sdfgdfg8dfg</SSN>
+    </BIOS>
+    <VERSIONCLIENT>FusionInventory-Agent_v2.3.19</VERSIONCLIENT>
+  </CONTENT>
+  <DEVICEID>test-pc002</DEVICEID>
+  <QUERY>INVENTORY</QUERY>
+</REQUEST>";
+
+        //import again
+        $this->doInventory($xml_source, true);
+
+        //check software is the same
+        $this->boolean(
+            $soft->getFromDBByCrit(['name' => 'A great software'])
+        )->isTrue();
+        $this->integer($softwares_id)->isIdenticalTo($soft->fields['id']);
+
+        //check version is the same
+        $this->boolean(
+            $version->getFromDBByCrit(['name' => '2.0.0'])
+        )->isTrue();
+        $this->integer($versions_id)->isIdenticalTo($version->fields['id']);
+
+        //check computer-softwareverison relation has been updated (date_install)
+        $this->boolean($item_version->getFromDBByCrit([
+            "itemtype" => "Computer",
+            "items_id" => $computers_id,
+            "softwareversions_id" => $versions_id,
+            "date_install" => "2024-03-04"
+        ]))->isTrue();
+
+        //check computer-softwareverison relation is the same (ID)
+        $this->integer($item_versions_id)->isIdenticalTo($item_version->fields['id']);
+    }
+
+    public function testSubCategoryDictionnary()
+    {
+        $this->login();
+
+        $rule         = new \RuleSoftwareCategory();
+        $rulecriteria = new \RuleCriteria();
+        $ruleaction   = new \RuleAction();
+
+        $category   = new \SoftwareCategory();
+        $parent_categories_id = $category->add(['name' => 'Parent']);
+        $categories_id = $category->add(['name' => 'Child', 'categories_id' => $parent_categories_id]);
+
+        $rules_id = $rule->add([
+            'is_active'    => 1,
+            'name'         => 'Sub category',
+            'match'        => 'AND',
+            'sub_type'     => \RuleSoftwareCategory::class,
+            'is_recursive' => 0,
+            'ranking'      => 1,
+        ]);
+        $this->integer((int) $rules_id)->isGreaterThan(0);
+
+        $this->integer((int) $rulecriteria->add([
+            'rules_id'  => $rules_id,
+            'criteria'  => 'name',
+            'condition' => \Rule::PATTERN_IS,
+            'pattern'   => 'firefox'
+        ]))->isGreaterThan(0);
+
+        $this->integer((int) $ruleaction->add([
+            'rules_id'    => $rules_id,
+            'action_type' => 'assign',
+            'field'       => 'softwarecategories_id',
+            'value'       => $categories_id,
+        ]))->isGreaterThan(0);
+
+
+        $xml_source = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
+<REQUEST>
+  <CONTENT>
+    <SOFTWARES>
+      <ARCH>x86_64</ARCH>
+      <COMMENTS>Mozilla Firefox Web browser</COMMENTS>
+      <FILESIZE>258573684</FILESIZE>
+      <FROM>rpm</FROM>
+      <INSTALLDATE>23/12/2020</INSTALLDATE>
+      <NAME>firefox</NAME>
+      <PUBLISHER>Fedora Project</PUBLISHER>
+      <SYSTEM_CATEGORY>Unspecified</SYSTEM_CATEGORY>
+      <VERSION>84.0-6.fc32</VERSION>
+    </SOFTWARES>
+    <HARDWARE>
+      <NAME>pc_test_entity</NAME>
+    </HARDWARE>
+    <BIOS>
+      <SSN>ssnexample</SSN>
+    </BIOS>
+    <VERSIONCLIENT>test-agent</VERSIONCLIENT>
+    <ACCOUNTINFO>
+      <KEYNAME>TAG</KEYNAME>
+      <KEYVALUE>testtag_2</KEYVALUE>
+    </ACCOUNTINFO>
+  </CONTENT>
+  <DEVICEID>pc_test_entity</DEVICEID>
+  <QUERY>INVENTORY</QUERY>
+</REQUEST>";
+
+        $this->doInventory($xml_source, true);
+
+        $computer = new \Computer();
+        $found_computers = $computer->find(['name' => "pc_test_entity"]);
+        $this->integer(count($found_computers))->isIdenticalTo(1);
+
+        $soft = new \Software();
+        $softs = $soft->find(['name' => "firefox"]);
+        $this->integer(count($softs))->isIdenticalTo(1);
+        $first_soft = array_pop($softs);
+
+        $this->integer($first_soft['softwarecategories_id'])->isIdenticalTo($categories_id);
     }
 }

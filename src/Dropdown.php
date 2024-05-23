@@ -34,10 +34,12 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\Asset\AssetDefinitionManager;
 use Glpi\DBAL\QueryExpression;
 use Glpi\DBAL\QueryFunction;
 use Glpi\Features\DCBreadcrumb;
+use Glpi\Features\AssignableAsset;
 use Glpi\Plugin\Hooks;
 use Glpi\SocketModel;
 
@@ -130,6 +132,7 @@ class Dropdown
         $params['readonly']             = false;
         $params['parent_id_field']      = null;
         $params['multiple']             = false;
+        $params['init']                 = true;
 
         if (is_array($options) && count($options)) {
             foreach ($options as $key => $val) {
@@ -217,6 +220,9 @@ class Dropdown
                 $params['entity'] = getSonsOf('glpi_entities', $params['entity']);
             }
         }
+        if ($params['entity'] !== null) {
+            $params['entity'] = Session::getMatchingActiveEntities($params['entity']);
+        }
 
         $field_id = Html::cleanId("dropdown_" . $params['name'] . $params['rand']);
 
@@ -242,12 +248,18 @@ class Dropdown
             'permit_select_parent' => $params['permit_select_parent'],
             'specific_tags'        => $params['specific_tags'],
             'class'                => $params['class'],
-            '_idor_token'          => Session::getNewIDORToken($itemtype, [
-                'entity_restrict' => $entity_restrict,
-            ]),
+            '_idor_token'          => Session::getNewIDORToken(
+                $itemtype,
+                [
+                    'entity_restrict' => $entity_restrict,
+                    'displaywith'     => $params['displaywith'],
+                    'condition'       => $params['condition'],
+                ],
+            ),
             'order'                => $params['order'] ?? null,
             'parent_id_field'      => $params['parent_id_field'],
             'multiple'             => $params['multiple'] ?? false,
+            'init'                 => $params['init'] ?? true,
         ];
 
         if ($params['multiple']) {
@@ -482,7 +494,7 @@ class Dropdown
      *
      * @return string the value of the dropdown
      **/
-    public static function getDropdownName($table, $id, $withcomment = 0, $translate = true, $tooltip = true, string $default = '&nbsp;')
+    public static function getDropdownName($table, $id, $withcomment = 0, $translate = true, $tooltip = true, string $default = '')
     {
         /** @var \DBmysql $DB */
         global $DB;
@@ -1713,7 +1725,7 @@ JAVASCRIPT;
             $out .= $select . $ajax;
         }
 
-        $out .= "<br><span id='$show_id'>&nbsp;</span>\n";
+        $out .= "<br><span id='$show_id'></span>\n";
 
        // We check $options as the caller will set $options['default_itemtype'] only if it needs a
        // default itemtype and the default value can be '' thus empty won't be valid !
@@ -2151,6 +2163,7 @@ JAVASCRIPT;
         $param['templateResult']      = "templateResult";
         $param['templateSelection']   = "templateSelection";
         $param['track_changes']       = "true";
+        $param['init']                = true;
 
         if (is_array($options) && count($options)) {
             if (isset($options['value']) && strlen($options['value'])) {
@@ -2182,6 +2195,7 @@ JAVASCRIPT;
             $elements = [ 0 => $param['emptylabel'] ] + $elements;
         }
 
+        $original_field_name = $name;
         if ($param["multiple"]) {
             $field_name = $name . "[]";
         } else {
@@ -2201,6 +2215,10 @@ JAVASCRIPT;
             }
             $output .= '<span class="form-control" readonly style="width: ' . $param["width"] . '">' . implode(', ', $to_display) . '</span>';
         } else {
+            if ($param['multiple']) {
+                // Fix for multiple select not sending any form data when no option is selected
+                $output .= "<input type='hidden' name='$original_field_name' value=''>";
+            }
             $output  .= "<select name='$field_name' id='$field_id'";
 
             if ($param['width'] !== '') {
@@ -2330,6 +2348,7 @@ JAVASCRIPT;
                 'width'             => $param["width"],
                 'templateResult'    => $param["templateResult"],
                 'templateSelection' => $param["templateSelection"],
+                'init'              => $param["init"],
             ];
             $output .= Html::jsAdaptDropdown($field_id, $adapt_params);
         }
@@ -2568,12 +2587,14 @@ JAVASCRIPT;
 
         $values[Search::PDF_OUTPUT_LANDSCAPE]     = __('Current page in landscape PDF');
         $values[Search::PDF_OUTPUT_PORTRAIT]      = __('Current page in portrait PDF');
-        $values[Search::SYLK_OUTPUT]              = __('Current page in SLK');
         $values[Search::CSV_OUTPUT]               = __('Current page in CSV');
+        $values[Search::ODS_OUTPUT]               = __('Current page as Open Document format (.ods)');
+        $values[Search::XLSX_OUTPUT]              = __('Current page as Office Open XML (.xlsx)');
         $values['-' . Search::PDF_OUTPUT_LANDSCAPE] = __('All pages in landscape PDF');
         $values['-' . Search::PDF_OUTPUT_PORTRAIT]  = __('All pages in portrait PDF');
-        $values['-' . Search::SYLK_OUTPUT]          = __('All pages in SLK');
         $values['-' . Search::CSV_OUTPUT]           = __('All pages in CSV');
+        $values['-' . Search::ODS_OUTPUT]           = __('All pages as Open Document format (.ods)');
+        $values['-' . Search::XLSX_OUTPUT]          = __('All pages as Office Open XML (.xlsx)');
 
         if ($itemtype != "Stat") {
            // Do not show this option for stat page
@@ -2659,12 +2680,14 @@ JAVASCRIPT;
          */
         global $CFG_GLPI, $DB;
 
-       // check if asked itemtype is the one originaly requested by the form
+       // check if asked itemtype is the one originally requested by the form
         if (!Session::validateIDOR($post)) {
             return;
         }
 
-        if (
+        if (isset($post['entity_restrict']) && 'default' === $post['entity_restrict']) {
+            $post['entity_restrict'] = $_SESSION['glpiactiveentities'];
+        } elseif (
             isset($post["entity_restrict"])
             && !is_array($post["entity_restrict"])
             && (substr($post["entity_restrict"], 0, 1) === '[')
@@ -2677,10 +2700,7 @@ JAVASCRIPT;
                     $entities[] = (int)$value;
                 }
             }
-            $post["entity_restrict"] = $entities;
-        }
-        if (isset($post['entity_restrict']) && 'default' === $post['entity_restrict']) {
-            $post['entity_restrict'] = $_SESSION['glpiactiveentities'];
+            $post["entity_restrict"] = Session::getMatchingActiveEntities($entities);
         }
 
        // Security
@@ -2694,12 +2714,8 @@ JAVASCRIPT;
         $displaywith = false;
         if (isset($post['displaywith'])) {
             if (is_array($post['displaywith']) && count($post['displaywith'])) {
-                $table = getTableForItemType($post['itemtype']);
-                foreach ($post['displaywith'] as $key => $value) {
-                    if (!$DB->fieldExists($table, $value)) {
-                        unset($post['displaywith'][$key]);
-                    }
-                }
+                $post['displaywith'] = self::filterDisplayWith($item, $post['displaywith']);
+
                 if (count($post['displaywith'])) {
                     $displaywith = true;
                 }
@@ -2766,7 +2782,7 @@ JAVASCRIPT;
                 $where = array_merge($where, $post['condition']['WHERE']);
             } else {
                 foreach ($post['condition'] as $key => $value) {
-                    if (!is_numeric($key) && !str_contains($key, '.')) {
+                    if (!is_numeric($key) && !in_array($key, ['AND', 'OR', 'NOT']) && !str_contains($key, '.')) {
                         // Ensure condition contains table name to prevent ambiguity with fields from `glpi_entities` table
                         $where["$table.$key"] = $value;
                     } else {
@@ -3385,6 +3401,10 @@ JAVASCRIPT;
                     }
             }
 
+            if (Toolbox::hasTrait($post['itemtype'], AssignableAsset::class)) {
+                $where[] = $post['itemtype']::getAssignableVisiblityCriteria();
+            }
+
             $criteria = array_merge(
                 $criteria,
                 [
@@ -3529,6 +3549,28 @@ JAVASCRIPT;
         return ($json === true) ? json_encode($ret) : $ret;
     }
 
+    private static function filterDisplayWith(CommonDBTM $item, array $fields): array
+    {
+        /** @var \DBmysql $DB */
+        global $DB;
+
+        // Filter invalid fields
+        $table = $item->getTable();
+        foreach ($fields as $key => $value) {
+            if (!$DB->fieldExists($table, $value)) {
+                unset($fields[$key]);
+            }
+        }
+
+        // Filter sensitive fields in `displaywith`
+        // `CommonDBTM::unsetUndisclosedFields()` expects a `$field => $value` format.
+        $key_value_fields = array_fill_keys($fields, 0);
+        $item::unsetUndisclosedFields($key_value_fields);
+        $fields = array_keys($key_value_fields);
+
+        return $fields;
+    }
+
     /**
      * Get dropdown connect
      *
@@ -3552,6 +3594,10 @@ JAVASCRIPT;
 
         if (!isset($post['fromtype']) || !($fromitem = getItemForItemtype($post['fromtype']))) {
             return;
+        }
+
+        if (isset($post['entity_restrict'])) {
+            $post['entity_restrict'] = Session::getMatchingActiveEntities($post['entity_restrict']);
         }
 
         $fromitem->checkGlobal(UPDATE);
@@ -3616,29 +3662,22 @@ JAVASCRIPT;
             $post['onlyglobal'] = false;
         }
 
-        if (
-            $post["onlyglobal"]
-            && ($post["itemtype"] != 'Computer')
-        ) {
-            $where["$table.is_global"] = 1;
-        } else {
-            $where_used = [];
-            if (!empty($used)) {
-                $where_used[] = ['NOT' => ["$table.id" => $used]];
-            }
+        $relation_table = Asset_PeripheralAsset::getTable();
 
-            if ($post["itemtype"] == 'Computer') {
-                $where = $where + $where_used;
-            } else {
-                $where[] = [
-                    'OR' => [
-                        [
-                            'glpi_computers_items.id'  => null
-                        ] + $where_used,
-                        "$table.is_global"            => 1
-                    ]
-                ];
-            }
+        if ($post["onlyglobal"]) {
+            $where[] = ["$table.is_global" => 1];
+        } else {
+            $where[] = [
+                'OR' => [
+                    [
+                        $relation_table . '.id' => null
+                    ],
+                    "$table.is_global" => 1
+                ]
+            ];
+        }
+        if (!empty($used)) {
+            $where[] = ['NOT' => ["$table.id" => $used]];
         }
 
         $criteria = [
@@ -3651,26 +3690,23 @@ JAVASCRIPT;
             ],
             'DISTINCT'        => true,
             'FROM'            => $table,
+            'LEFT JOIN'       => [
+                $relation_table  => [
+                    'ON' => [
+                        $table          => 'id',
+                        $relation_table => 'items_id_peripheral' , [
+                            'AND' => [
+                                $relation_table . '.itemtype_peripheral' => $post['itemtype']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
             'WHERE'           => $where,
             'ORDERBY'         => ['entities_id', 'name ASC'],
             'LIMIT'           => $limit,
             'START'           => $start
         ];
-
-        if (($post["itemtype"] != 'Computer') && !$post["onlyglobal"]) {
-            $criteria['LEFT JOIN'] = [
-                'glpi_computers_items'  => [
-                    'ON' => [
-                        $table                  => 'id',
-                        'glpi_computers_items'  => 'items_id', [
-                            'AND' => [
-                                'glpi_computers_items.itemtype'  => $post['itemtype']
-                            ]
-                        ]
-                    ]
-                ]
-            ];
-        }
 
         $iterator = $DB->request($criteria);
 
@@ -3769,7 +3805,8 @@ JAVASCRIPT;
             return;
         }
 
-        $where = [$post['itemtype']::getSystemSQLCriteria()];
+        $system_sql = $post['itemtype']::getSystemSQLCriteria();
+        $where = !empty($system_sql) ? [$system_sql] : [];
         if (isset($post['used']) && !empty($post['used'])) {
             $where['NOT'] = ['id' => $post['used']];
         }
@@ -3824,7 +3861,7 @@ JAVASCRIPT;
 
         if ($item->isEntityAssign()) {
             if (isset($post["entity_restrict"]) && ($post["entity_restrict"] >= 0)) {
-                $entity = $post["entity_restrict"];
+                $entity = Session::getMatchingActiveEntities($post['entity_restrict']);
             } else {
                 $entity = '';
             }
@@ -3839,8 +3876,12 @@ JAVASCRIPT;
             $post['page_limit'] = $CFG_GLPI['dropdown_max'];
         }
 
-        $start = intval(($post['page'] - 1) * $post['page_limit']);
-        $limit = intval($post['page_limit']);
+        if (Toolbox::hasTrait($post['itemtype'], AssignableAsset::class)) {
+            $where[] = $post['itemtype']::getAssignableVisiblityCriteria();
+        }
+
+        $start = (int) (($post['page'] - 1) * $post['page_limit']);
+        $limit = (int) $post['page_limit'];
 
         $iterator = $DB->request([
             'FROM'   => $post['table'],
@@ -4062,6 +4103,7 @@ JAVASCRIPT;
             $entity_restrict = -1;
             if (isset($post['entity_restrict'])) {
                 $entity_restrict = Toolbox::jsonDecode($post['entity_restrict']);
+                $entity_restrict = Session::getMatchingActiveEntities($entity_restrict);
             }
 
             $start  = intval(($post['page'] - 1) * $post['page_limit']);
@@ -4157,7 +4199,6 @@ JAVASCRIPT;
             'value'              => 0,
             'page'               => 1,
             'inactive_deleted'   => 0,
-            '_idor_token'        => "",
             'searchText'         => null,
             'itiltemplate_class' => 'TicketTemplate',
             'itiltemplates_id'   => 0,
@@ -4169,6 +4210,7 @@ JAVASCRIPT;
         $entity_restrict = -1;
         if (isset($post['entity_restrict'])) {
             $entity_restrict = Toolbox::jsonDecode($post['entity_restrict']);
+            $entity_restrict = Session::getMatchingActiveEntities($entity_restrict);
         }
 
        // prevent instanciation of bad classes
@@ -4224,9 +4266,12 @@ JAVASCRIPT;
             }
             $post['condition'] = static::addNewCondition($cond);
 
+            // Bypass checks, idor token validation has already been made earlier in method
+            $group_idor = Session::getNewIDORToken('Group', ['entity_restrict' => $entity_restrict, 'condition' => $post['condition']]);
+
             $groups = Dropdown::getDropdownValue([
                 'itemtype'            => 'Group',
-                '_idor_token'         => $post['_idor_token'],
+                '_idor_token'         => $group_idor,
                 'display_emptychoice' => false,
                 'searchText'          => $post['searchText'],
                 'entity_restrict'     => $entity_restrict,
@@ -4253,10 +4298,12 @@ JAVASCRIPT;
             && !$template->isHiddenField("_suppliers_id_{$post['actortype']}")
             && in_array('Supplier', $post['returned_itemtypes'])
         ) {
-            $supplier_obj = new Supplier();
+            // Bypass checks, idor token validation has already been made earlier in method
+            $supplier_idor = Session::getNewIDORToken('Supplier', ['entity_restrict' => $entity_restrict]);
+
             $suppliers    = Dropdown::getDropdownValue([
                 'itemtype'            => 'Supplier',
-                '_idor_token'         => $post['_idor_token'],
+                '_idor_token'         => $supplier_idor,
                 'display_emptychoice' => false,
                 'searchText'          => $post['searchText'],
                 'entity_restrict'     => $entity_restrict,
@@ -4264,6 +4311,7 @@ JAVASCRIPT;
             foreach ($suppliers['results'] as $supplier) {
                 if (isset($supplier['children'])) {
                     foreach ($supplier['children'] as &$children) {
+                        $supplier_obj = new Supplier();
                         $supplier_obj->getFromDB($children['id']);
 
                         $children['items_id']          = $children['id'];

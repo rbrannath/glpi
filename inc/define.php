@@ -33,10 +33,11 @@
  * ---------------------------------------------------------------------
  */
 
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\SocketModel;
 
 // Current version of GLPI
-define('GLPI_VERSION', '10.1.0-dev');
+define('GLPI_VERSION', '11.0.0-dev');
 
 $schema_file = sprintf('%s/install/mysql/glpi-empty.sql', GLPI_ROOT);
 define(
@@ -48,7 +49,7 @@ if (!defined('GLPI_MARKETPLACE_PRERELEASES')) {
     define('GLPI_MARKETPLACE_PRERELEASES', preg_match('/-(dev|alpha\d*|beta\d*|rc\d*)$/', GLPI_VERSION) === 1);
 }
 
-define('GLPI_MIN_PHP', '8.1'); // Must also be changed in top of index.php
+define('GLPI_MIN_PHP', '8.2'); // Must also be changed in top of index.php
 define('GLPI_MAX_PHP', '8.3'); // Must also be changed in top of index.php
 define('GLPI_YEAR', '2024');
 
@@ -65,6 +66,10 @@ define("ALLSTANDARDRIGHT", 31);
 define("READNOTE", 32);
 define("UPDATENOTE", 64);
 define("UNLOCK", 128);
+define("READ_ASSIGNED", 256);
+define("UPDATE_ASSIGNED", 512);
+define("READ_OWNED", 1024);
+define("UPDATE_OWNED", 2048);
 
 // set the default app_name
 $CFG_GLPI['app_name'] = 'GLPI';
@@ -236,7 +241,9 @@ $CFG_GLPI["report_types"]                 = ['Computer', 'Monitor', 'NetworkEqui
     'Software', 'SoftwareLicense', 'Certificate'
 ];
 
-
+// `peripheralhost_types` contains assets that can host peripherals
+// `directconnect_types` contains the list of assets that are considred as peripherals
+$CFG_GLPI["peripheralhost_types"]         = ['Computer'];
 $CFG_GLPI["directconnect_types"]          = ['Monitor', 'Peripheral', 'Phone', 'Printer'];
 
 $CFG_GLPI["infocom_types"]                = ['Cartridge', 'CartridgeItem', 'Computer',
@@ -252,25 +259,14 @@ $CFG_GLPI["reservation_types"]            = ['Computer', 'Monitor', 'NetworkEqui
     'Peripheral', 'Phone', 'Printer', 'Software', 'Rack'
 ];
 
-$CFG_GLPI["linkuser_types"]               = ['Computer', 'Monitor', 'NetworkEquipment',
+// FIXME: Merge these configurations
+$CFG_GLPI["linkuser_types"]               = ['Computer', 'CartridgeItem', 'ConsumableItem', 'Monitor', 'NetworkEquipment',
     'Peripheral', 'Phone', 'Printer', 'Software',
-    'SoftwareLicense', 'Certificate', 'Appliance', 'Item_DeviceSimcard', 'Line'
+    'SoftwareLicense', 'Certificate', 'Appliance', 'DatabaseInstance', 'Item_DeviceSimcard', 'Line'
 ];
-
-$CFG_GLPI["linkgroup_types"]              = ['Computer', 'Monitor', 'NetworkEquipment',
-    'Peripheral', 'Phone', 'Printer', 'Software',
-    'SoftwareLicense', 'Certificate', 'Appliance', 'Item_DeviceSimcard', 'Line'
-];
-
-$CFG_GLPI["linkuser_tech_types"]          = ['Computer', 'ConsumableItem', 'Monitor', 'NetworkEquipment',
-    'Peripheral', 'Phone', 'Printer', 'Software',
-    'SoftwareLicense', 'Certificate', 'Appliance', 'DatabaseInstance'
-];
-
-$CFG_GLPI["linkgroup_tech_types"]         = ['Computer', 'ConsumableItem', 'Monitor', 'NetworkEquipment',
-    'Peripheral', 'Phone', 'Printer', 'Software',
-    'SoftwareLicense', 'Certificate', 'Appliance', 'DatabaseInstance'
-];
+$CFG_GLPI["linkgroup_types"]              = $CFG_GLPI["linkuser_types"];
+$CFG_GLPI["linkuser_tech_types"]          = $CFG_GLPI["linkuser_types"];
+$CFG_GLPI["linkgroup_tech_types"]         = $CFG_GLPI["linkuser_types"];
 
 $CFG_GLPI["location_types"]               = ['Budget', 'CartridgeItem', 'ConsumableItem',
     'Computer', 'Monitor', "Glpi\\Socket",
@@ -338,6 +334,7 @@ $CFG_GLPI["socket_types"]                  = ['Computer','NetworkEquipment',
 $CFG_GLPI['itemdevices'] = [];
 foreach ($CFG_GLPI['device_types'] as $dtype) {
     $CFG_GLPI['location_types'][] = 'Item_' . $dtype;
+    $CFG_GLPI['state_types'][] = 'Item_' . $dtype;
     $CFG_GLPI["itemdevices"][] = 'Item_' . $dtype;
 }
 
@@ -470,7 +467,7 @@ $CFG_GLPI['user_pref_field'] = ['backcreated', 'csv_delimiter', 'date_format',
     'default_dashboard_helpdesk', 'default_dashboard_mini_ticket', 'default_central_tab',
     'fold_menu', 'savedsearches_pinned', 'richtext_layout', 'timeline_order',
     'itil_layout', 'toast_location', 'timeline_action_btn_layout', 'timeline_date_format', 'is_notif_enable_default',
-    'show_search_form'
+    'show_search_form', 'search_pagination_on_top'
 ];
 
 $CFG_GLPI['lock_lockable_objects'] = ['Budget',  'Change', 'Contact', 'Contract', 'Document',
@@ -489,7 +486,7 @@ $CFG_GLPI['inventory_types'] = [
     'NetworkEquipment'
 ];
 
-$CFG_GLPI['inventory_lockable_objects'] = ['Computer_Item',  'Item_SoftwareLicense',
+$CFG_GLPI['inventory_lockable_objects'] = [Asset_PeripheralAsset::class,  'Item_SoftwareLicense',
     'Item_SoftwareVersion', 'Item_Disk', 'ItemVirtualMachine','ItemAntivirus',
     'NetworkPort', 'NetworkName', 'IPAddress', 'Item_OperatingSystem', 'Item_DeviceBattery', 'Item_DeviceCase',
     'Item_DeviceControl', 'Item_DeviceDrive', 'Item_DeviceFirmware', 'Item_DeviceGeneric', 'Item_DeviceGraphicCard',
@@ -576,8 +573,8 @@ $CFG_GLPI['javascript'] = [
     ],
     'tools'     => [
         'project'                 => ['sortable', 'tinymce'],
-        'knowbaseitem'            => ['tinymce'],
-        'knowbaseitemtranslation' => ['tinymce'],
+        'knowbaseitem'            => ['tinymce', 'kb'],
+        'knowbaseitemtranslation' => ['tinymce', 'kb'],
         'reminder'                => ['tinymce'],
         'remindertranslation'     => ['tinymce'],
         'reservationitem'         => $reservations_libs,
@@ -601,10 +598,11 @@ $CFG_GLPI['javascript'] = [
         'plugin' => [
             'marketplace' => ['marketplace']
         ],
-        'config' => ['clipboard'],
+        'config' => ['clipboard', 'tinymce'],
         'webhook' => ['monaco', 'autocomplete'],
+        'link' => ['monaco']
     ],
-    'admin'        => ['clipboard', 'monaco'],
+    'admin'        => ['clipboard', 'monaco', 'tinymce'],
     'preference'   => ['clipboard'],
     'self-service' => array_merge(['tinymce'], $reservations_libs),
     'tickets'      => [

@@ -45,7 +45,7 @@ if (
     throw new \RuntimeException('Required argument missing or incorrect!');
 }
 
-$item = new $_REQUEST['itemtype']();
+$item = getItemForItemtype($_REQUEST['itemtype']);
 $item->getFromDB((int) $_REQUEST['items_id']);
 
 $locations_id = $item->fields['locations_id'] ?? 0;
@@ -57,8 +57,8 @@ if (isset($_REQUEST['is_recursive'])) {
     $is_recursive = (bool) $_REQUEST['is_recursive'];
 }
 
-echo Location::dropdown([
-    'value'        => $locations_id,
-    'entity'       => $entities_id,
-    'entity_sons'  => $is_recursive,
+Location::dropdown([
+    'value' => $locations_id,
+    'entity' => $entities_id,
+    'entity_sons' => $is_recursive,
 ]);

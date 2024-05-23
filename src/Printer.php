@@ -34,6 +34,7 @@
  */
 
 use Glpi\Application\View\TemplateRenderer;
+use Glpi\Asset\Asset_PeripheralAsset;
 use Glpi\DBAL\QueryFunction;
 use Glpi\DBAL\QuerySubQuery;
 use Glpi\Socket;
@@ -45,6 +46,8 @@ class Printer extends CommonDBTM
 {
     use Glpi\Features\Clonable;
     use Glpi\Features\Inventoriable;
+    use Glpi\Features\State;
+    use Glpi\Features\AssignableAsset;
 
    // From CommonDBTM
     public $dohistory                   = true;
@@ -65,7 +68,7 @@ class Printer extends CommonDBTM
             NetworkPort::class,
             Contract_Item::class,
             Document_Item::class,
-            Computer_Item::class,
+            Asset_PeripheralAsset::class,
             KnowbaseItem_Item::class,
         ];
     }
@@ -105,7 +108,7 @@ class Printer extends CommonDBTM
         $this->addStandardTab('Item_Devices', $ong, $options);
         $this->addStandardTab('Item_Line', $ong, $options);
         $this->addStandardTab('Item_Disk', $ong, $options);
-        $this->addStandardTab('Computer_Item', $ong, $options);
+        $this->addStandardTab(Asset_PeripheralAsset::class, $ong, $options);
         $this->addStandardTab('NetworkPort', $ong, $options);
         $this->addStandardTab(Socket::class, $ong, $options);
         $this->addStandardTab('Infocom', $ong, $options);
@@ -301,7 +304,7 @@ class Printer extends CommonDBTM
 
 
     /**
-     * Return the linked items (in computers_items)
+     * Return the linked items (`Asset_PeripheralAsset` relations)
      *
      * @return array of linked items  like array('Computer' => array(1,2), 'Printer' => array(5,6))
      * @since 0.84.4
@@ -312,34 +315,32 @@ class Printer extends CommonDBTM
         global $DB;
 
         $iterator = $DB->request([
-            'SELECT' => 'computers_id',
-            'FROM'   => 'glpi_computers_items',
+            'SELECT' => [
+                'itemtype_asset',
+                'items_id_asset'
+            ],
+            'FROM'   => Asset_PeripheralAsset::getTable(),
             'WHERE'  => [
-                'itemtype'  => $this->getType(),
-                'items_id'  => $this->fields['id']
+                'itemtype_peripheral' => $this->getType(),
+                'items_id_peripheral' => $this->fields['id']
             ]
         ]);
         $tab = [];
         foreach ($iterator as $data) {
-            $tab['Computer'][$data['computers_id']] = $data['computers_id'];
+            $tab[$data['itemtype_asset']][$data['items_id_asset']] = $data['items_id_asset'];
         }
         return $tab;
     }
 
-
-    /**
-     * @see CommonDBTM::getSpecificMassiveActions()
-     **/
     public function getSpecificMassiveActions($checkitem = null)
     {
-
         $actions = parent::getSpecificMassiveActions($checkitem);
         if (static::canUpdate()) {
-            Computer_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
+            Asset_PeripheralAsset::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
             $actions += [
                 'Item_SoftwareLicense' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add'
                => "<i class='ma-icon fas fa-key'></i>" .
-                  _x('button', 'Add a license')
+                  _sx('button', 'Add a license')
             ];
             KnowbaseItem_Item::getMassiveActionsForItemtype($actions, __CLASS__, 0, $checkitem);
         }
@@ -380,11 +381,11 @@ class Printer extends CommonDBTM
 
         $tab[] = [
             'id'                 => '31',
-            'table'              => 'glpi_states',
+            'table'              => State::getTable(),
             'field'              => 'completename',
             'name'               => __('Status'),
             'datatype'           => 'dropdown',
-            'condition'          => ['is_visible_printer' => 1]
+            'condition'          => $this->getStateVisibilityCriteria()
         ];
 
         $tab[] = [
@@ -662,6 +663,14 @@ class Printer extends CommonDBTM
             'massiveaction'      => false
         ];
 
+        $tab[] = [
+            'id'                 => '47',
+            'table'              => static::getTable(),
+            'field'              => 'uuid',
+            'name'               => __('UUID'),
+            'datatype'           => 'string',
+        ];
+
         $tab = array_merge($tab, Notepad::rawSearchOptionsToAdd());
 
         $tab = array_merge($tab, Item_Devices::rawSearchOptionsToAdd(get_class($this)));
@@ -692,7 +701,7 @@ class Printer extends CommonDBTM
 
         $tab[] = [
             'id'                 => '1431',
-            'table'              => 'glpi_computers_items',
+            'table'              => Asset_PeripheralAsset::getTable(),
             'field'              => 'id',
             'name'               => _x('quantity', 'Number of printers'),
             'forcegroupby'       => true,
@@ -700,8 +709,10 @@ class Printer extends CommonDBTM
             'datatype'           => 'count',
             'massiveaction'      => false,
             'joinparams'         => [
-                'jointype'           => 'child',
-                'condition'          => ['NEWTABLE.itemtype' => 'Printer']
+                'jointype'                  => 'itemtype_item',
+                'specific_items_id_column'  => 'items_id_asset',
+                'specific_itemtype_column'  => 'itemtype_asset',
+                'condition'                 => ['NEWTABLE.' . 'itemtype_peripheral' => 'Printer']
             ]
         ];
 
@@ -807,7 +818,6 @@ class Printer extends CommonDBTM
     {
         return $this->restore(["id" => $ID]);
     }
-
 
     public static function getIcon()
     {

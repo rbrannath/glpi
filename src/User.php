@@ -56,6 +56,8 @@ class User extends CommonDBTM
         'publicbookmarkorder', 'privatebookmarkorder'
     ];
 
+    private $must_process_ruleright = false;
+
    // NAME FIRSTNAME ORDER TYPE
     const REALNAME_BEFORE   = 0;
     const FIRSTNAME_BEFORE  = 1;
@@ -130,8 +132,22 @@ class User extends CommonDBTM
         return false;
     }
 
+    public static function getAdditionalMenuLinks()
+    {
+        $links = [];
+        if (Auth::useAuthExt() && Session::haveRight('user', self::IMPORTEXTAUTHUSERS)) {
+            if (static::canCreate()) {
+                $ext_auth_label = __s('Add from an external source');
+                $links['<i class="ti ti-user-cog"></i><span>' . $ext_auth_label . '</span>'] = 'user.form.php?new=1&amp;ext_auth=1';
+            }
+            if (static::canCreate() || static::canUpdate()) {
+                $links['<i class="ti ti-settings"></i><span>' . __s('LDAP directory link') . '</span>'] = "ldap.php";
+            }
+        }
+        return $links;
+    }
 
-    public function canViewItem()
+    public function canViewItem(): bool
     {
         if (
             Session::canViewAllEntities()
@@ -143,7 +159,7 @@ class User extends CommonDBTM
     }
 
 
-    public function canCreateItem()
+    public function canCreateItem(): bool
     {
 
        // Will be created from form, with selected entity/profile
@@ -175,7 +191,7 @@ class User extends CommonDBTM
     }
 
 
-    public function canUpdateItem()
+    public function canUpdateItem(): bool
     {
 
         $entities = Profile_User::getUserEntities($this->fields['id'], false);
@@ -189,7 +205,7 @@ class User extends CommonDBTM
     }
 
 
-    public function canDeleteItem()
+    public function canDeleteItem(): bool
     {
         if ($this->isLastSuperAdminUser()) {
             return false;
@@ -212,7 +228,7 @@ class User extends CommonDBTM
     }
 
 
-    public function canPurgeItem()
+    public function canPurgeItem(): bool
     {
         return $this->canDeleteItem();
     }
@@ -772,7 +788,7 @@ class User extends CommonDBTM
 
         if (empty($input['name']) || !Auth::isValidLogin($input['name'])) {
             Session::addMessageAfterRedirect(
-                __('The login is not valid. Unable to add the user.'),
+                __s('The login is not valid. Unable to add the user.'),
                 false,
                 ERROR
             );
@@ -805,7 +821,7 @@ class User extends CommonDBTM
 
         if (count($iterator)) {
             Session::addMessageAfterRedirect(
-                __('Unable to add. The user already exists.'),
+                __s('Unable to add. The user already exists.'),
                 false,
                 ERROR
             );
@@ -825,7 +841,7 @@ class User extends CommonDBTM
                         $input['password_last_update'] = $_SESSION['glpi_currenttime'];
                     } else {
                         Session::addMessagesAfterRedirect(
-                            $password_errors,
+                            array_map('htmlspecialchars', $password_errors),
                             false,
                             ERROR
                         );
@@ -834,7 +850,7 @@ class User extends CommonDBTM
                     unset($input["password2"]);
                 } else {
                     Session::addMessageAfterRedirect(
-                        __('Error: the two passwords do not match'),
+                        __s('Error: the two passwords do not match'),
                         false,
                         ERROR
                     );
@@ -949,7 +965,7 @@ class User extends CommonDBTM
             try {
                 $this->forgetPassword($email, true);
             } catch (\Glpi\Exception\ForgetPasswordException $e) {
-                Session::addMessageAfterRedirect($e->getMessage(), false, ERROR);
+                Session::addMessageAfterRedirect(htmlspecialchars($e->getMessage()), false, ERROR);
             }
         }
     }
@@ -1002,7 +1018,7 @@ class User extends CommonDBTM
                     self::dropPictureFiles("{$sub}/{$filename}.{$extension}");
 
                     if (Document::renameForce($fullpath, $picture_path)) {
-                        Session::addMessageAfterRedirect(__('The file is valid. Upload is successful.'));
+                        Session::addMessageAfterRedirect(__s('The file is valid. Upload is successful.'));
                         // For display
                         $input['picture'] = "{$sub}/{$filename}.{$extension}";
 
@@ -1011,7 +1027,7 @@ class User extends CommonDBTM
                         Toolbox::resizePicture($picture_path, $thumb_path);
                     } else {
                         Session::addMessageAfterRedirect(
-                            __('Moving temporary file failed.'),
+                            __s('Moving temporary file failed.'),
                             false,
                             ERROR
                         );
@@ -1019,7 +1035,7 @@ class User extends CommonDBTM
                     }
                 } else {
                     Session::addMessageAfterRedirect(
-                        __('The file is not an image file.'),
+                        __s('The file is not an image file.'),
                         false,
                         ERROR
                     );
@@ -1057,7 +1073,7 @@ class User extends CommonDBTM
                         $input['password_last_update'] = $_SESSION["glpi_currenttime"];
                     } else {
                         Session::addMessagesAfterRedirect(
-                            $password_errors,
+                            array_map('htmlspecialchars', $password_errors),
                             false,
                             ERROR
                         );
@@ -1066,7 +1082,7 @@ class User extends CommonDBTM
                     unset($input["password2"]);
                 } else {
                     Session::addMessageAfterRedirect(
-                        __('Error: the two passwords do not match'),
+                        __s('Error: the two passwords do not match'),
                         false,
                         ERROR
                     );
@@ -1214,7 +1230,7 @@ class User extends CommonDBTM
         ) {
             unset($input['is_active']);
             Session::addMessageAfterRedirect(
-                __("Can't set user as inactive as it is the only remaining super administrator."),
+                __s("Can't set user as inactive as it is the only remaining super administrator."),
                 false,
                 ERROR
             );
@@ -1246,7 +1262,7 @@ class User extends CommonDBTM
             try {
                 $this->forgetPassword($email, false);
             } catch (\Glpi\Exception\ForgetPasswordException $e) {
-                Session::addMessageAfterRedirect($e->getMessage(), false, ERROR);
+                Session::addMessageAfterRedirect(htmlspecialchars($e->getMessage()), false, ERROR);
             }
         } elseif (in_array('password', $this->updates)) {
             $alert = new Alert();
@@ -1281,8 +1297,7 @@ class User extends CommonDBTM
         $return = false;
 
         if (
-            isset($this->fields['_ruleright_process'])
-            || isset($this->input['_ruleright_process'])
+            $this->must_process_ruleright === true
         ) {
             $dynamic_profiles = Profile_User::getForUser($this->fields["id"], true);
 
@@ -1425,6 +1440,7 @@ class User extends CommonDBTM
                     $right->delete($db_profile);
                 }
             }
+            $this->must_process_ruleright = false;
         }
         return $return;
     }
@@ -2132,7 +2148,7 @@ class User extends CommonDBTM
                     'mail_email'  => $this->fields['_emails']
                 ]);
 
-                $this->fields['_ruleright_process'] = true;
+                $this->willProcessRuleRight();
 
                //If rule  action is ignore import
                 if (
@@ -2348,7 +2364,7 @@ class User extends CommonDBTM
                 'login'       => $name,
                 'email'       => $email
             ]);
-            $this->fields['_ruleright_process'] = true;
+            $this->willProcessRuleRight();
         }
         return true;
     }
@@ -2383,7 +2399,7 @@ class User extends CommonDBTM
         if (count($a_field) == 0) {
             return true;
         }
-        $this->fields['_ruleright_process'] = true;
+        $this->willProcessRuleRight();
         foreach ($a_field as $field => $key) {
             $value = $_SERVER[$key] ?? null;
             if (empty($value)) {
@@ -2453,7 +2469,7 @@ class User extends CommonDBTM
 
             $this->fields = $rule->processAllRules($groups_id, $this->fields, [
                 'type'   => Auth::EXTERNAL,
-                'email'  => $this->fields["_emails"],
+                'email'  => $this->fields["_emails"] ?? [],
                 'login'  => $this->fields["name"]
             ]);
 
@@ -2489,49 +2505,6 @@ class User extends CommonDBTM
             );
         }
     }
-
-
-    /**
-     * Print a good title for user pages.
-     *
-     * @return void
-     */
-    public function title()
-    {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        $buttons = [];
-        $title   = self::getTypeName(Session::getPluralNumber());
-
-        if (static::canCreate()) {
-            $buttons["user.form.php"] = "<i class='fas fa-user-plus fa-lg me-2'></i>" . __('Add user...');
-            $title = __("Actions");
-
-            if (
-                Auth::useAuthExt()
-                && Session::haveRight("user", self::IMPORTEXTAUTHUSERS)
-            ) {
-                // This requires write access because don't use entity config.
-                $buttons["user.form.php?new=1&amp;ext_auth=1"] = "<i class='fas fa-user-cog fa-lg me-2'></i>" . __('... From an external source');
-            }
-        }
-        if (
-            Session::haveRight("user", self::IMPORTEXTAUTHUSERS)
-            && (static::canCreate() || static::canUpdate())
-        ) {
-            if (AuthLDAP::useAuthLdap()) {
-                $buttons["ldap.php"] = "<i class='fas fa-cog fa-lg me-2'></i>" . __('LDAP directory link');
-            }
-        }
-        Html::displayTitle(
-            "",
-            self::getTypeName(Session::getPluralNumber()),
-            $title,
-            $buttons
-        );
-    }
-
 
     /**
      * Check if current user have more right than the specified one.
@@ -3548,7 +3521,7 @@ JAVASCRIPT;
                  unset($this->updates[$key]);
                  unset($this->oldvalues['name']);
                  Session::addMessageAfterRedirect(
-                     __('Unable to update login. A user already exists.'),
+                     __s('Unable to update login. A user already exists.'),
                      false,
                      ERROR
                  );
@@ -3559,7 +3532,7 @@ JAVASCRIPT;
                 unset($this->updates[$key]);
                 unset($this->oldvalues['name']);
                 Session::addMessageAfterRedirect(
-                    __('The login is not valid. Unable to update login.'),
+                    __s('The login is not valid. Unable to update login.'),
                     false,
                     ERROR
                 );
@@ -3616,7 +3589,9 @@ JAVASCRIPT;
         // Hash user_dn if is updated
         if (in_array('user_dn', $this->updates)) {
             $this->updates[] = 'user_dn_hash';
-            $this->fields['user_dn_hash'] = is_string($this->input['user_dn']) && strlen($this->input['user_dn']) > 0 ? md5($this->input['user_dn']) : null;
+            $this->fields['user_dn_hash'] = is_string($this->input['user_dn']) && strlen($this->input['user_dn']) > 0
+                ? md5($this->input['user_dn'])
+                : null;
         }
     }
 
@@ -3630,29 +3605,29 @@ JAVASCRIPT;
         if ($isadmin) {
             $actions['Group_User' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add']
                                                          = "<i class='fas fa-users'></i>" .
-                                                           __('Associate to a group');
+                                                           __s('Associate to a group');
             $actions['Group_User' . MassiveAction::CLASS_ACTION_SEPARATOR . 'remove']
-                                                         = __('Dissociate from a group');
+                                                         = __s('Dissociate from a group');
             $actions['Profile_User' . MassiveAction::CLASS_ACTION_SEPARATOR . 'add']
                                                          = "<i class='fas fa-user-shield'></i>" .
-                                                           __('Associate to a profile');
+                                                           __s('Associate to a profile');
             $actions['Profile_User' . MassiveAction::CLASS_ACTION_SEPARATOR . 'remove']
-                                                         = __('Dissociate from a profile');
+                                                         = __s('Dissociate from a profile');
             $actions['Group_User' . MassiveAction::CLASS_ACTION_SEPARATOR . 'change_group_user']
                                                          = "<i class='fas fa-users-cog'></i>" .
-                                                           __("Move to group");
-            $actions["{$prefix}delete_emails"] = __("Delete associated emails");
+                                                           __s("Move to group");
+            $actions["{$prefix}delete_emails"] = __s("Delete associated emails");
         }
 
         if (Session::haveRight(self::$rightname, self::UPDATEAUTHENT)) {
             $actions[$prefix . 'change_authtype']        = "<i class='fas fa-user-cog'></i>" .
-                                                      _x('button', 'Change the authentication method');
+                                                      _sx('button', 'Change the authentication method');
             $actions[$prefix . 'force_user_ldap_update'] = "<i class='fas fa-sync'></i>" .
-                                                      __('Force synchronization');
+                                                      __s('Force synchronization');
             $actions[$prefix . 'clean_ldap_fields'] = "<i class='fas fa-broom'></i>" .
-                                                    __('Clean LDAP fields and force synchronisation');
+                                                    __s('Clean LDAP fields and force synchronisation');
             $actions[$prefix . 'disable_2fa']           = "<i class='fas fa-user-lock'></i>" .
-                                                      __('Disable 2FA');
+                                                      __s('Disable 2FA');
         }
         return $actions;
     }
@@ -3899,6 +3874,7 @@ JAVASCRIPT;
             'forcegroupby'       => true,
             'datatype'           => 'itemlink',
             'massiveaction'      => false,
+            'use_subquery'       => true,
             'joinparams'         => [
                 'beforejoin'         => [
                     'table'              => 'glpi_groups_users',
@@ -4447,6 +4423,9 @@ JAVASCRIPT;
                 if ($with_no_right) {
                     $WHERE['OR'][] = ['glpi_profiles_users.entities_id' => null];
                 }
+                if (empty($WHERE['OR'])) {
+                    unset($WHERE['OR']);
+                }
                 break;
 
             default:
@@ -4772,6 +4751,7 @@ JAVASCRIPT;
             'hide_if_no_elements' => false,
             'readonly'            => false,
             'multiple'            => false,
+            'init'                => true
         ];
 
         if (is_array($options) && count($options)) {
@@ -4801,6 +4781,7 @@ JAVASCRIPT;
         }
 
         $output = '';
+
         if (!($p['entity'] < 0) && $p['entity_sons']) {
             if (is_array($p['entity'])) {
                 $output .= "entity_sons options is not available with array of entity";
@@ -4808,6 +4789,7 @@ JAVASCRIPT;
                 $p['entity'] = getSonsOf('glpi_entities', $p['entity']);
             }
         }
+        $p['entity'] = Session::getMatchingActiveEntities($p['entity']);
 
         // Make a select box with all glpi users
         $view_users = self::canView();
@@ -4854,6 +4836,7 @@ JAVASCRIPT;
 
         $field_id = Html::cleanId("dropdown_" . $p['name'] . $p['rand']);
         $param    = [
+            'init'                => $p['init'],
             'multiple'            => $p['multiple'],
             'width'               => $p['width'],
             'all'                 => $p['all'],
@@ -5516,7 +5499,7 @@ JAVASCRIPT;
      * Get user ID from a field
      *
      * @since 0.84
-     * @since 10.1.0 Parameter `$escape` has been removed.
+     * @since 11.0.0 Parameter `$escape` has been removed.
      *
      * @param string $field Field name
      * @param string $value Field value
@@ -5551,82 +5534,10 @@ JAVASCRIPT;
      */
     public function showPasswordUpdateForm(array $error_messages = [])
     {
-        /** @var array $CFG_GLPI */
-        global $CFG_GLPI;
-
-        echo '<form method="post" action="' . $CFG_GLPI['root_doc'] . '/front/updatepassword.php">';
-        echo '<table class="tab_cadre">';
-        echo '<tr><th colspan="2">' . __('Password update') . '</th></tr>';
-
-        if (Session::mustChangePassword()) {
-            echo '<tr class="tab_bg_2 center">';
-            echo '<td colspan="2" class="red b">';
-            echo __('Your password has expired. You must change it to be able to login.');
-            echo '</td>';
-            echo '</tr>';
-        }
-
-        echo '<tr class="tab_bg_1">';
-        echo '<td>';
-        echo __('Login');
-        echo '</td>';
-        echo '<td>';
-        echo '<input type="text" name="name" value="' . $this->fields['name'] . '" readonly="readonly" />';
-        echo '</td>';
-        echo '</tr>';
-
-        echo '<tr class="tab_bg_1">';
-        echo '<td>';
-        echo '<label for="current_password">' . __('Current password') . '</label>';
-        echo '</td>';
-        echo '<td>';
-        echo '<input type="password" id="current_password" name="current_password" />';
-        echo '</td>';
-        echo '</tr>';
-
-        echo '<tr class="tab_bg_1">';
-        echo '<td>';
-        echo '<label for="password">' . __('New password') . '</label>';
-        echo '</td>';
-        echo '<td>';
-        echo '<input type="password" id="password" name="password" autocomplete="new-password" onkeyup="return passwordCheck();" class="form-control" />';
-        echo '</td>';
-        echo '</tr>';
-
-        echo '<tr class="tab_bg_1">';
-        echo '<td>';
-        echo '<label for="password2">' . __('New password confirmation') . '</label>';
-        echo '</td>';
-        echo '<td>';
-        echo '<input type="password" id="password2" name="password2" autocomplete="new-password" class="form-control" />';
-        echo '</td>';
-        echo '</tr>';
-
-        if ($CFG_GLPI['use_password_security']) {
-            echo '<tr class="tab_bg_1">';
-            echo '<td>' . __('Password security policy') . '</td>';
-            echo '<td>';
-            Config::displayPasswordSecurityChecks();
-            echo '</td>';
-            echo '</tr>';
-        }
-
-        echo '<tr class="tab_bg_2 center">';
-        echo '<td colspan="2">';
-        echo '<input type="submit" name="update" value="' . __s('Save') . '" class="btn btn-primary" />';
-        echo '</td>';
-        echo '</tr>';
-
-        if (!empty($error_messages)) {
-            echo '<tr class="tab_bg_2 center">';
-            echo '<td colspan="2" class="red b">';
-            echo implode('<br/>', $error_messages);
-            echo '</td>';
-            echo '</tr>';
-        }
-
-        echo '</table>';
-        Html::closeForm();
+        TemplateRenderer::getInstance()->display('updatepassword.html.twig', [
+            'must_change_password' => Session::mustChangePassword(),
+            'errors'   => $error_messages,
+        ]);
     }
 
 
@@ -5639,8 +5550,7 @@ JAVASCRIPT;
      */
     public static function showPasswordForgetChangeForm($token)
     {
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
-            'title'    => __('Forgotten password?'),
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'token'    => $token,
             'token_ok' => User::getUserByForgottenPasswordToken($token) !== null,
         ]);
@@ -5653,11 +5563,11 @@ JAVASCRIPT;
      *
      * @return void
      *
-     * @since 10.1.0
+     * @since 11.0.0
      */
     public static function showPasswordInitChangeForm(string $token): void
     {
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'title'    => __('Password Initialization'),
             'token'    => $token,
             'token_ok' => User::getUserByForgottenPasswordToken($token) !== null,
@@ -5670,13 +5580,11 @@ JAVASCRIPT;
      *
      * @return void
      *
-     * @since 10.1.0
+     * @since 11.0.0
      */
     public static function showPasswordForgetRequestForm(): void
     {
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
-            'title' => __('Forgotten password?'),
-        ]);
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig');
     }
 
     /**
@@ -5686,7 +5594,7 @@ JAVASCRIPT;
      */
     public static function showPasswordInitRequestForm()
     {
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'title' => __('Password initialization'),
         ]);
     }
@@ -5788,19 +5696,18 @@ JAVASCRIPT;
     {
         try {
             if ($this->updateForgottenPassword($input)) {
-                Session::addMessageAfterRedirect(__('Reset password successful.'));
+                Session::addMessageAfterRedirect(__s('Reset password successful.'));
             }
         } catch (\Glpi\Exception\ForgetPasswordException $e) {
-            Session::addMessageAfterRedirect($e->getMessage(), false, ERROR);
+            Session::addMessageAfterRedirect(htmlspecialchars($e->getMessage()), false, ERROR);
         } catch (\Glpi\Exception\PasswordTooWeakException $e) {
            // Force display on error
             foreach ($e->getMessages() as $message) {
-                Session::addMessageAfteRredirect($message, false, ERROR);
+                Session::addMessageAfteRredirect(htmlspecialchars($message), false, ERROR);
             }
         }
 
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
-            'title'         => __('Forgotten password?'),
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'messages_only' => true,
         ]);
     }
@@ -5818,13 +5725,12 @@ JAVASCRIPT;
         try {
             $this->forgetPassword($email);
         } catch (\Glpi\Exception\ForgetPasswordException $e) {
-            Session::addMessageAfterRedirect($e->getMessage(), false, ERROR);
+            Session::addMessageAfterRedirect(htmlspecialchars($e->getMessage()), false, ERROR);
             return;
         }
-        Session::addMessageAfteRredirect(__('If the given email address match an exisiting GLPI user, you will receive an email containing the informations required to reset your password. Please contact your administrator if you do not receive any email.'));
+        Session::addMessageAfteRredirect(__s('If the given email address match an exisiting GLPI user, you will receive an email containing the informations required to reset your password. Please contact your administrator if you do not receive any email.'));
 
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
-            'title'         => __('Forgotten password?'),
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'messages_only' => true,
         ]);
     }
@@ -5841,12 +5747,12 @@ JAVASCRIPT;
         try {
             $this->forgetPassword($email, true);
         } catch (\Glpi\Exception\ForgetPasswordException $e) {
-            Session::addMessageAfterRedirect($e->getMessage(), false, ERROR);
+            Session::addMessageAfterRedirect(htmlspecialchars($e->getMessage()), false, ERROR);
             return;
         }
-        Session::addMessageAfterRedirect(__('The given email address will receive the informations required to define password.'));
+        Session::addMessageAfterRedirect(__s('The given email address will receive the informations required to define password.'));
 
-        TemplateRenderer::getInstance()->display('password_form.html.twig', [
+        TemplateRenderer::getInstance()->display('forgotpassword.html.twig', [
             'title'         => __('Password initialization'),
             'messages_only' => true,
         ]);
@@ -6153,13 +6059,16 @@ JAVASCRIPT;
         ];
         $default_password_set = [];
 
-        $crit = ['FIELDS'     => ['name', 'password'],
-            'is_active'  => 1,
-            'is_deleted' => 0,
-            'name'       => array_keys($passwords)
-        ];
-
-        foreach ($DB->request('glpi_users', $crit) as $data) {
+        $users = $DB->request([
+            'SELECT' => ['name', 'password'],
+            'FROM' => self::getTable(),
+            'WHERE' => [
+                'is_active'  => 1,
+                'is_deleted' => 0,
+                'name'       => array_keys($passwords)
+            ]
+        ]);
+        foreach ($users as $data) {
             if (Auth::checkPassword($passwords[strtolower($data['name'])], $data['password'])) {
                 $default_password_set[] = $data['name'];
             }
@@ -6210,8 +6119,11 @@ JAVASCRIPT;
         if (!empty($picture)) {
             $tmp = explode(".", $picture);
             if (count($tmp) == 2) {
-                return $CFG_GLPI["root_doc"] . "/front/document.send.php?file=_pictures/" . htmlspecialchars($tmp[0]) .
-                   "_min." . htmlspecialchars($tmp[1]);
+                return $CFG_GLPI["root_doc"]
+                    . "/front/document.send.php?"
+                    . 'file='
+                    . rawurlencode(sprintf('_pictures/%s_min.%s', $tmp[0], $tmp[1]))
+                ;
             }
         }
 
@@ -7087,12 +6999,10 @@ JAVASCRIPT;
         /** @var \DBmysql $DB */
         global $DB;
 
-        $iterator = $DB->request(
-            'glpi_users',
-            [
-                'WHERE' => ['id' => $ID]
-            ]
-        );
+        $iterator = $DB->request([
+            'FROM' => 'glpi_users',
+            'WHERE' => ['id' => $ID]
+        ]);
 
         if (count($iterator) === 1) {
             $data     = $iterator->current();
@@ -7300,5 +7210,34 @@ JAVASCRIPT;
         }
 
         return $user_pref;
+    }
+
+    public function willProcessRuleRight(): void
+    {
+        $this->must_process_ruleright = true;
+    }
+
+    /**
+     * Toggle pin of given itemtype saved search.
+     *
+     * @param string $itemtype
+     *
+     * @return bool
+     */
+    public function toggleSavedSearchPin(string $itemtype): bool
+    {
+        if (getItemForItemtype($itemtype) === false) {
+            return false;
+        }
+
+        $all_pinned     = importArrayFromDB($this->fields['savedsearches_pinned']);
+        $already_pinned = $all_pinned[$itemtype] ?? 0;
+
+        $all_pinned[$itemtype] = $already_pinned ? 0 : 1;
+
+        return $this->update([
+            'id'                   => $this->fields['id'],
+            'savedsearches_pinned' => exportArrayToDB($all_pinned),
+        ]);
     }
 }
