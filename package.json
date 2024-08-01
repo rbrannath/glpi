@@ -67,7 +67,7 @@
         "swagger-ui-dist": "^5.17.4",
         "tinymce": "^7.0.1",
         "tinymce-i18n": "^24.3.11",
-        "vue": "^3.3.13"
+        "vue": "^3.4.35"
     },
     "scripts": {
         "ddev:curl": "sudo curl -fsSL https://pkg.ddev.com/apt/gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/ddev.gpg > /dev/null",
