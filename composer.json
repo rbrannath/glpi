@@ -108,7 +108,7 @@
     "require-dev": {
         "ext-xml": "*",
         "brianium/paratest": "^7.8",
-        "friendsofphp/php-cs-fixer": "^3.93",
+        "friendsofphp/php-cs-fixer": "^3.94",
         "friendsoftwig/twigcs": "^6.6",
         "glpi-project/phpstan-glpi": "^1.1",
         "glpi-project/rector-glpi": "^1.0",
@@ -130,7 +130,7 @@
         "symfony/var-dumper": "^6.4",
         "symfony/web-profiler-bundle": "^6.4",
         "thecodingmachine/phpstan-safe-rule": "^1.4",
-        "vimeo/psalm": "^6.15"
+        "vimeo/psalm": "^6.16"
     },
     "provide": {
         "ext-sodium": "*"
